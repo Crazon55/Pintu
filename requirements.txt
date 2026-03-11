@@ -1,0 +1,8 @@
+#
+# Python dependencies for this project.
+#
+# Currently, this codebase is a Node.js/Vite + Node/Express app and
+# does not require any Python packages to run, so this file is
+# intentionally left empty. Add packages here if you later introduce
+# Python scripts.
+
