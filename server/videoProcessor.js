@@ -112,6 +112,8 @@ const cleanHTML = (html) => {
   cleaned = cleaned.replace(/&gt;/g, '>');
   cleaned = cleaned.replace(/&quot;/g, '"');
   cleaned = cleaned.replace(/&#39;/g, "'");
+  // Support WhatsApp-style *word* syntax as bold: convert to <b>word</b>
+  cleaned = cleaned.replace(/\*(\S(?:.*?\S)?)\*/g, '<b>$1</b>');
   // Replace <br> / <br/> / <br /> with newline so line breaks show in export (and literal "<br>" never appears)
   cleaned = cleaned.replace(/<br\s*\/?>/gi, '\n');
   // Block elements (DIV, P) from editor Enter key -> newline so multi-line hook matches preview
@@ -199,15 +201,15 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     throw new Error('Preset is missing required name property');
   }
   const canvas = createCanvas(720, 1280);
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: true });
   const name = preset.name;
   const nameLower = (name || '').toLowerCase().trim();
 
   // --- 1. ASPECT RATIO MECHANIC ---
-  // Use preset's individual ratio if available, otherwise fall back to default
+  // Use preset's individual ratio if available, otherwise fall back to default. Video uses full width (no frame padding).
   const aspectRatio = preset.ratio || '4:3'; // Default to 4:3 if not specified
   const hasNarrowVideo = ['ceo hustle advice', 'wealth lessons india', 'indian business com', 'indian-founders-co', 'entrepreneurial india', 'finding good ai', 'finding good tech'].includes(nameLower) || name === 'Entrepreneurial India' || name === 'Finding Good AI' || name === 'Finding Good Tech';
-  let targetW = hasNarrowVideo ? 600 : 720;
+  const targetW = 720; // Full width for all presets (no left/right video frame padding)
   const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
   let targetH = Math.round(targetW * (hRatio / wRatio));
   if (targetH % 2 !== 0) targetH += 1; // Requirement for FFmpeg
@@ -252,11 +254,16 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const isThePrimeAiPage = nameLower === 'the prime ai page';
   const isDhandhaIndia = nameLower === 'dhandha india';
   const isTheAiGauntlet = nameLower === 'the ai gauntlet';
+  const isRealIndiaBusiness = name === 'Real India Business' || nameLower === 'realindianbusiness';
+  const isBestIndianPodcast = nameLower === 'bestindianpodcast';
+  const isRiseWithContent = nameLower === 'risewithcontent';
+  const isPoppinsHeadlinePreset =
+    isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack || isRealIndiaBusiness || isBestIndianPodcast || isRiseWithContent;
 
   // --- 3. LAYOUT CONSTANTS ---
   const GAP = 20;
   const LOGO_BOX_H =
-    (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack)
+    (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isBestIndianPodcast || isRiseWithContent)
       ? 0
       : (isBestFounderClips ? 120 : (isBestBusinessClips ? 450 : (isAdsByMarketer ? 360 : (isStartupMadness ? 100 : 80))));
 
@@ -264,19 +271,18 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const rawHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
   const fontSize = (stripHTML(rawHeadline).length < 25 ? 50 : (stripHTML(rawHeadline).length < 50 ? 40 : 32)) * (fontScale || 1);
   const lineHeight = fontSize * (preset.lineSpacing || 1.25);
-  const adjSpacing = (name === 'kwazyfounders') ? 0.3 : (isAllBoldWhite ? 0.2 : wordSpacingMultiplier);
+  const adjSpacing = isAllBoldWhite ? 0.2 : wordSpacingMultiplier;
 
   // For presets with narrower video (600px), limit text width to stay within video frame
   const presetsWithNarrowVideo = ['wealth lessons india', 'ceo hustle advice', 'indian business com', 'indian-founders-co', 'entrepreneurial india', 'finding good ai', 'finding good tech'];
-  const videoPadding = hasNarrowVideo ? (720 - targetW) / 2 : 0;
+  const videoPadding = 0; // No video frame padding (video is full width)
   // For indian business com, use more conservative width to ensure text stays within video frame
-  // theprimefounder / aicracked / theevolvinggpt: tighter width so hook stays inside canvas (we advance 1.12x per word so lines can overflow)
-  // Other presets: 620 (or targetW-40/60 for narrow video). Poppins hook-only use 460. Founders.India/Technology In India (Poppins + logo group): use 580 to fill right space while staying in frame.
+  // Utilize side space: hook-only Poppins use 620 so text sits across frame; logo-group (e.g. Real India Business) keep 580.
   let maxTextWidth;
-  if (isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack) {
-    // Tightest width for hook-only Poppins presets so text never reaches edges
-    maxTextWidth = 460;
-  } else if (isFoundersIndia || isTechnologyInIndia || isDailyTechIndia || isThePrimeAiPage || isDhandhaIndia || isTheAiGauntlet) {
+  if (isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack || isBestIndianPodcast || isRiseWithContent) {
+    // Hook-only Poppins: use full width so preset utilizes side space (wrap keeps text in frame)
+    maxTextWidth = 620;
+  } else if (isFoundersIndia || isTechnologyInIndia || isDailyTechIndia || isThePrimeAiPage || isDhandhaIndia || isTheAiGauntlet || isRealIndiaBusiness) {
     // Poppins + logo group pages: slightly wider but still safe
     maxTextWidth = 580;
   } else if (name === 'indian business com') {
@@ -287,18 +293,15 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     maxTextWidth = 620;
   }
   // theprimefounder, aicracked, theevolvinggpt and related Poppins presets use Poppins; all other presets use Inter for headline/footer/watermark
-  const headlineFontFamily =
-    (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack)
-      ? 'Poppins'
-      : 'Inter';
-  const richLines = hasHeadline ? calculateRichLines(ctx, rawHeadline, maxTextWidth, fontSize, adjSpacing, (isAllBoldWhite || name === 'kwazyfounders'), headlineFontFamily) : [];
+  const headlineFontFamily = isPoppinsHeadlinePreset ? 'Poppins' : 'Inter';
+  const richLines = hasHeadline ? calculateRichLines(ctx, rawHeadline, maxTextWidth, fontSize, adjSpacing, isAllBoldWhite, headlineFontFamily) : [];
   const textH = hasHeadline ? (richLines.length * lineHeight) : 0;
 
   const isHookCentered = ['The Rising Founder', 'The Real Founder', 'Inspiring Founder', 'Business Cracked', 'The Founders Show', 'founders cracked'].includes(name);
   // Exclude CEO Mindset India, Founders God, The Founders Show, and Entrepreneurial India from zero gap to match Life Wealth Lessons spacing
   const shouldUseGap = name === 'CEO Mindset India' || name === 'Founders God' || name === 'The Founders Show' || name === 'Entrepreneurial India';
   // For startupcoded and Dhandha India, keep hook sitting closer to the video (smaller gap)
-  const isTightGapPreset = name === 'startupcoded' || name === 'Dhandha India';
+  const isTightGapPreset = name === 'startupcoded' || name === 'Dhandha India' || name === 'kwazyfounders';
   // Same gap logic as 101xfounders for theprimefounder, aicracked, theevolvinggpt (headline on canvas = gap baked in)
   const textToVideoGapBase = (shouldUseGap || !(isAllBoldWhite || isHookCentered)) ? GAP : 0;
   const textToVideoGap = isTightGapPreset ? Math.round(textToVideoGapBase * 0.4) : textToVideoGapBase;
@@ -329,8 +332,8 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     logoY = isAllBoldWhite ? startY - 20 : startY;
   }
 
-  // For peakofai / theprimefounder / aicracked / theevolvinggpt / foundrsonig / indianfoundr / indianstartupstory / neworderai / indiasbestfounders / elitefoundrs / startupsoncrack (hook-only, no logo): set video position explicitly so it is always defined
-  if (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack) {
+  // For peakofai / theprimefounder / aicracked / theevolvinggpt / foundrsonig / indianfoundr / indianstartupstory / neworderai / indiasbestfounders / elitefoundrs / startupsoncrack / bestindianpodcast / risewithcontent (hook-only, no logo): set video position explicitly so it is always defined
+  if (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack || isBestIndianPodcast || isRiseWithContent) {
     videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + textH + textToVideoGap;
   }
 
@@ -835,18 +838,21 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
         const useBold =
           (nameLower === 'techinthelast24hrs')
             ? true
-            : (nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet')
+            : (name === 'kwazyfounders')
               ? t.bold
-              : ((isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack)
+              : (nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet')
                 ? t.bold
-                : ((isStartupMadness || name === 'startupcoded' || name === 'indian business com' || name === 'founders-in-india')
-                  ? true
-                  : (allRegularFont || !t.bold ? false : true)));
-        if (isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isFoundersIndia || isTechnologyInIndia || isDailyTechIndia || isThePrimeAiPage || isDhandhaIndia || isTheAiGauntlet || isPureCodeAi || isNobelAiPage) {
-          // Poppins via FFmpeg fontfile=; word gap = measuredW + (fontSize * adjSpacing), stored for export
+                : ((isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack || isRealIndiaBusiness || isBestIndianPodcast || isRiseWithContent)
+                  ? t.bold
+                  : ((isStartupMadness || name === 'startupcoded' || name === 'indian business com' || name === 'founders-in-india')
+                    ? true
+                    : (allRegularFont || !t.bold ? false : true)));
+        if (isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isFoundersIndia || isTechnologyInIndia || isDailyTechIndia || isThePrimeAiPage || isDhandhaIndia || isTheAiGauntlet || isPureCodeAi || isNobelAiPage || isRealIndiaBusiness || isBestIndianPodcast || isRiseWithContent) {
+          // Poppins via FFmpeg: advance = scaled word width + font space (proportional buffer so gaps stay even)
           if (!headlineDrawtextSegments) headlineDrawtextSegments = [];
           ctx.font = useBold ? `${fontSize}px "Poppins Bold"` : `${fontSize}px "Poppins Regular"`;
           const measuredW = ctx.measureText(t.text).width;
+          const spaceW = ctx.measureText(' ').width;
           const segmentColor =
             isDhandhaIndia
               ? (t.bold ? '#FB9C39' : '#FFFFFF')
@@ -868,9 +874,11 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                               ? (t.bold ? '#EF5350' : '#FFFFFF')
                               : (isPureCodeAi || isNobelAiPage
                                 ? '#FFFFFF'
-                                : ((isAICracked || isTheEvolvingGPT || isIndianFoundr || isNewOrderAI || isStartupsoncrack)
-                                  ? '#FFFFFF'
-                                  : (t.bold ? '#1DB077' : '#FFFFFF'))))))))));
+                                : (isRiseWithContent
+                                  ? (t.bold ? '#E53935' : '#FFFFFF')
+                                  : ((isAICracked || isTheEvolvingGPT || isIndianFoundr || isNewOrderAI || isStartupsoncrack || isRealIndiaBusiness || isBestIndianPodcast)
+                                    ? '#FFFFFF'
+                                    : (t.bold ? '#1DB077' : '#FFFFFF')))))))))));
           headlineDrawtextSegments.push({
             text: t.text,
             x: Math.round(cx),
@@ -879,12 +887,15 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
             color: segmentColor,
             width: measuredW
           });
-          cx += measuredW + (fontSize * adjSpacing);
+          cx += measuredW * POPPINS_WIDTH_SCALE + spaceW;
         } else {
           ctx.font = `${useBold ? 'bold' : 'normal'} ${fontSize}px ${headlineFontFamily}`;
-          ctx.fillStyle = isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF'))));
+          // kwazyfounders: white bg; bold = highlight (black), regular = non-highlight (black)
+          ctx.fillStyle = (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF'))))));
           ctx.fillText(t.text, cx, headlineY + (i * lineHeight));
-          cx += ctx.measureText(t.text).width + (fontSize * adjSpacing);
+          const interW = ctx.measureText(t.text).width;
+          const interSpaceW = ctx.measureText(' ').width;
+          cx += interW + interSpaceW;
         }
       });
     });
@@ -892,6 +903,9 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
 
   // --- 6. WATERMARK (Will be added in FFmpeg on top of video) ---
   // Note: Watermark is not drawn on canvas - it will be added as text overlay in FFmpeg
+
+  // Transparent hole where video goes so FFmpeg base (padded video) shows through full width
+  ctx.clearRect(0, videoTopY, 720, targetH);
 
   // --- 7. FOOTER (SYNCED POSITION) ---
   if (showCredit && !isPeakOfAI && !isThePrimeFounder && !isAICracked && !isTheEvolvingGPT && !isFoundrsonig && !isIndianFoundr && !isIndianStartupStory && !isNewOrderAI && !isStartupsoncrack) {
@@ -910,7 +924,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     videoW: targetW,
     videoH: targetH,
     isBC: name === 'Business Cracked',
-        // aicracked, theevolvinggpt, foundrsonig, indianfoundr, indianstartupstory, neworderai, indiasbestfounders, elitefoundrs, intelligence by ai, the ai phaze, That AI page, Revolution in tech, startupsoncrack must NEVER have watermark in video (force null by name)
+    // aicracked, theevolvinggpt, foundrsonig, indianfoundr, indianstartupstory, neworderai, indiasbestfounders, elitefoundrs, intelligence by ai, the ai phaze, That AI page, Revolution in tech, startupsoncrack must NEVER have watermark in video (force null by name)
     watermark: (isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack)
       ? null
       : (preset.layout === 'watermark' && !isPeakOfAI && !isThePrimeFounder)
@@ -936,6 +950,9 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   return layout;
 }
 
+// Poppins width scale used when drawing; must match draw advance so wrap stays in frame
+const POPPINS_WIDTH_SCALE = 1.25;
+
 function calculateRichLines(ctx, html, maxW, size, spacing, forceBold, fontFamily = 'Inter') {
   let cleanedHtml = cleanHTML(html);
   cleanedHtml = cleanedHtml.replace(/<\/?strong>/gi, (m) => m.toLowerCase().replace('strong', 'b'));
@@ -959,8 +976,11 @@ function calculateRichLines(ctx, html, maxW, size, spacing, forceBold, fontFamil
         ctx.font = `${t.bold ? 'bold' : 'normal'} ${size}px ${fontFamily}`;
       }
       const w = ctx.measureText(t.text).width;
-      if (cur.width + w > maxW && cur.tokens.length > 0) { lines.push(cur); cur = { tokens: [], width: 0 }; }
-      cur.tokens.push(t); cur.width += w + (size * spacing);
+      const spaceW = ctx.measureText(' ').width;
+      // Use same advance as draw so text never goes outside frame (wrap = draw advance)
+      const advance = usePoppinsFamilies ? (w * POPPINS_WIDTH_SCALE + spaceW) : (w + spaceW);
+      if (cur.width + advance > maxW && cur.tokens.length > 0) { lines.push(cur); cur = { tokens: [], width: 0 }; }
+      cur.tokens.push(t); cur.width += advance;
     });
     if (cur.tokens.length > 0) lines.push(cur);
     allLines.push(...lines);
@@ -1003,81 +1023,83 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       console.warn('Could not probe video dimensions, using defaults:', error.message);
     }
 
-    // Enforce a minimum video scale so the frame is always visible.
-    // If the UI sends a very small scale (or 0), we clamp it to 60%.
-    let s = (videoScale || 100) / 100;
-    const MIN_SCALE = 0.6;
-    if (s < MIN_SCALE) s = MIN_SCALE;
-    const sw = Math.round((layout.videoW * s) / 2) * 2;
-    const sh = Math.round((layout.videoH * s) / 2) * 2;
-    const sx = Math.round(layout.videoX + (layout.videoW - sw) / 2);
-    const sy = Math.round(layout.videoY + (layout.videoH - sh) / 2);
+    // No side padding: video always full canvas width (720) at x=0
+    const CANVAS_W = 720;
+    const sw = Math.round(CANVAS_W / 2) * 2;
+    const sh = Math.round(layout.videoH / 2) * 2;
+    const sx = 0;
+    const sy = Math.round(layout.videoY);
 
-    // Apply position-based panning (matching client-side logic)
     const posX = preset.position?.x ?? 50;
     const posY = preset.position?.y ?? 50;
 
     let vFilter;
     if (fitMode === 'cover') {
-      // For cover mode: scale first, then crop with position offsets
-      // Calculate what the scaled dimensions will be
       const targetAspect = sw / sh;
       const originalAspect = originalWidth / originalHeight;
-
       let scaledWidth, scaledHeight;
       if (originalAspect > targetAspect) {
-        // Video is wider - scale to fit height
         scaledHeight = sh;
         scaledWidth = Math.round(sh * originalAspect / 2) * 2;
       } else {
-        // Video is taller - scale to fit width
         scaledWidth = sw;
         scaledHeight = Math.round(sw / originalAspect / 2) * 2;
       }
-
-      // Calculate crop position with panning offsets (matching client-side logic)
       const centerX = (scaledWidth - sw) / 2;
       const centerY = (scaledHeight - sh) / 2;
       const offsetX = (scaledWidth - sw) * ((posX - 50) / 50);
       const offsetY = (scaledHeight - sh) * ((posY - 50) / 50);
       const cropX = Math.max(0, Math.min(scaledWidth - sw, centerX + offsetX));
       const cropY = Math.max(0, Math.min(scaledHeight - sh, centerY + offsetY));
-
       vFilter = `scale=${scaledWidth}:${scaledHeight}:force_original_aspect_ratio=increase,crop=${sw}:${sh}:${Math.round(cropX)}:${Math.round(cropY)}`;
     } else {
-      // For contain/pad mode, position doesn't affect cropping
-      vFilter = `scale=${sw}:${sh}:force_original_aspect_ratio=decrease,pad=${sw}:${sh}:(ow-iw)/2:(oh-ih)/2:color=black`;
+      const targetAspect = sw / sh;
+      const originalAspect = originalWidth / originalHeight;
+      let scaledWidth, scaledHeight;
+      if (originalAspect > targetAspect) {
+        scaledHeight = sh;
+        scaledWidth = Math.round(sh * originalAspect / 2) * 2;
+      } else {
+        scaledWidth = sw;
+        scaledHeight = Math.round(sw / originalAspect / 2) * 2;
+      }
+      const centerX = (scaledWidth - sw) / 2;
+      const centerY = (scaledHeight - sh) / 2;
+      const offsetX = (scaledWidth - sw) * ((posX - 50) / 50);
+      const offsetY = (scaledHeight - sh) * ((posY - 50) / 50);
+      const cropX = Math.max(0, Math.min(scaledWidth - sw, centerX + offsetX));
+      const cropY = Math.max(0, Math.min(scaledHeight - sh, centerY + offsetY));
+      vFilter = `scale=${scaledWidth}:${scaledHeight}:force_original_aspect_ratio=increase,crop=${sw}:${sh}:${Math.round(cropX)}:${Math.round(cropY)}`;
     }
 
     // Check if preset has rounded corners
     const borderRadius = preset.rules?.videoBorderRadius || 0;
     const hasRoundedCorners = borderRadius > 0;
 
+    // Video as base: pad 720×videoHeight to 720×1280 (video at 0,sy full width), then overlay graphics. Composite alpha first, then convert to yuv420 so transparent hole shows video (no black bars).
     const filterChain = [
       `[0:v]${vFilter},setsar=1[v]`,
-      `[1:v]scale=720:1280[bg]`
+      `[v]pad=720:1280:0:${sy}:black[base]`,
+      `[1:v]scale=720:1280,format=rgba[graphics]`,
+      `[base][graphics]overlay=0:0[ovl]`,
+      `[ovl]format=yuv420p[ovl]`
     ];
 
-    // Apply rounded corners if needed
     if (hasRoundedCorners) {
-      // Add alpha channel and create rounded rectangle mask
       const radius = borderRadius;
       const w = sw;
       const h = sh;
-
-      // Convert to format with alpha channel
-      filterChain.push(`[v]format=rgba[valpha]`);
-
-      // Create rounded rectangle mask using geq
-      // Calculate distance from each corner and apply smooth rounding
-      // For each pixel, find the minimum distance to the nearest corner
-      // If distance < radius, make it transparent (0), otherwise opaque (1)
+      filterChain.length = 0;
+      filterChain.push(`[0:v]${vFilter},setsar=1[v]`);
+      filterChain.push(`[v]scale=${sw}:${sh}[v2]`);
+      filterChain.push(`[v2]format=rgba[valpha]`);
       const maskExpr = `if(lt(min(min(X,${w}-X),min(Y,${h}-Y)),${radius}),0,1)`;
       filterChain.push(`[valpha]geq=a='${maskExpr}'[vrounded]`);
-
-      filterChain.push(`[bg][vrounded]overlay=${sx}:${sy}[ovl]`);
-    } else {
-      filterChain.push(`[bg][v]overlay=${sx}:${sy}[ovl]`);
+      filterChain.push(`[vrounded]format=yuv420p[v2]`);
+      filterChain.push(`[v2]pad=720:1280:0:${sy}:black[base]`);
+      filterChain.push(`[1:v]scale=720:1280,format=rgba[graphics]`);
+      filterChain.push(`[base][graphics]overlay=0:0[ovl]`);
+      filterChain.push(`[ovl]format=yuv420p[ovl]`);
     }
 
     // Add watermark as text overlay on top of video if needed
@@ -1129,13 +1151,17 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
 
       // Use text_align=center to properly center the text at the x position
       // The x coordinate is the center point where text will be centered
-      // Use Inter Thin font from assets/fonts folder (only watermark uses Thin)
-      // Escape text properly for FFmpeg
+      // For most presets watermark uses Inter Thin; for bizzindia and 101xfounders
+      // it should be bold like the preview.
       const escapedText = layout.watermark.text.replace(/'/g, "\\'").replace(/\\/g, "\\\\");
       let fontFileParam = '';
-      if (existsSync(interThin)) {
-        // Use relative path from server directory to avoid Windows path issues
-        // This should work better with FFmpeg on Windows
+      // Choose bold fontfile only for these two watermark presets
+      const isBoldWatermarkPreset = presetName === 'bizzindia' || presetName === '101xfounders';
+      if (isBoldWatermarkPreset && existsSync(interBold)) {
+        const relativeFontPath = 'assets/fonts/Inter_18pt-Bold.ttf';
+        fontFileParam = `:fontfile=${relativeFontPath}`;
+      } else if (existsSync(interThin)) {
+        // Default watermark font: Inter Thin
         const relativeFontPath = 'assets/fonts/Inter_18pt-Thin.ttf';
         fontFileParam = `:fontfile=${relativeFontPath}`;
       }
@@ -1164,38 +1190,27 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         currentOutput = 'logoed';
       }
 
-      // Headline segments: same word gap for every word; width buffer so FFmpeg Poppins never overlaps (reduced scale = tighter gap)
+      // Headline segments: use stored x (advance-width-based from canvas) so spacing is font-correct
       if (layout.headlineDrawtextSegments && layout.headlineDrawtextSegments.length > 0) {
         const segs = layout.headlineDrawtextSegments;
         const headlineFontSize = layout.headlineFontSize || 40;
-        const adjSp = Math.max(layout.headlineAdjSpacing ?? 0.2, 0.12);
-        const wordGap = Math.round(headlineFontSize * adjSp * 0.82);
         const poppinsReg = 'assets/fonts/Poppins-Regular.ttf';
         const poppinsBold = 'assets/fonts/Poppins-Bold.ttf';
-        const WIDTH_SCALE_BOLD = 1.35;
-        const WIDTH_SCALE_REGULAR = 1.22;
-        let prevX = null, prevW = null, prevBaseline = null, prevBold = false;
         for (let i = 0; i < segs.length; i++) {
           const seg = segs[i];
-          const isNewLine = prevBaseline !== null && prevBaseline !== seg.baselineY;
-          const widthScale = prevBold ? WIDTH_SCALE_BOLD : WIDTH_SCALE_REGULAR;
-          const drawX = (i === 0 || isNewLine) ? seg.x : Math.round(prevX + (prevW * widthScale) + wordGap);
-          const segW = seg.width ?? 0;
-          prevX = drawX;
-          prevW = segW;
-          prevBaseline = seg.baselineY;
-          prevBold = seg.bold;
+          const drawX = seg.x;
           const fontFile = seg.bold ? poppinsBold : poppinsReg;
           const fontcolor =
             seg.color === '#1DB077' ? '0x1DB077'
               : seg.color === '#ECECDC' ? '0xECECDC'
-              : seg.color === '#EF5350' ? '0xEF5350'
-              : seg.color === '#FFCD1D' ? '0xFFCD1D'
-              : seg.color === '#FB9C39' ? '0xFB9C39'
-              : seg.color === '#95C5D1' ? '0x95C5D1'
-              : seg.color === '#6523FF' ? '0x6523FF'
-              : seg.color === '#FDB05E' ? '0xFDB05E'
-              : 'white';
+                : seg.color === '#EF5350' ? '0xEF5350'
+                  : seg.color === '#E53935' ? '0xE53935'
+                    : seg.color === '#FFCD1D' ? '0xFFCD1D'
+                      : seg.color === '#FB9C39' ? '0xFB9C39'
+                        : seg.color === '#95C5D1' ? '0x95C5D1'
+                          : seg.color === '#6523FF' ? '0x6523FF'
+                            : seg.color === '#FDB05E' ? '0xFDB05E'
+                              : 'white';
           // Escape headline text for FFmpeg drawtext:
           // - '\'  -> '\\'
           // - ':'  -> '\:'
@@ -1234,38 +1249,27 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         currentOutput = 'logoed';
       }
 
-      // Headline segments: same word gap for every word; width buffer so FFmpeg Poppins never overlaps (reduced scale = tighter gap)
+      // Headline segments: use stored x (advance-width-based from canvas) so spacing is font-correct
       if (layout.headlineDrawtextSegments && layout.headlineDrawtextSegments.length > 0) {
         const segs = layout.headlineDrawtextSegments;
         const headlineFontSize = layout.headlineFontSize || 40;
-        const adjSp = Math.max(layout.headlineAdjSpacing ?? 0.2, 0.12);
-        const wordGap = Math.round(headlineFontSize * adjSp * 0.82);
         const poppinsReg = 'assets/fonts/Poppins-Regular.ttf';
         const poppinsBold = 'assets/fonts/Poppins-Bold.ttf';
-        const WIDTH_SCALE_BOLD = 1.35;
-        const WIDTH_SCALE_REGULAR = 1.22;
-        let prevX = null, prevW = null, prevBaseline = null, prevBold = false;
         for (let i = 0; i < segs.length; i++) {
           const seg = segs[i];
-          const isNewLine = prevBaseline !== null && prevBaseline !== seg.baselineY;
-          const widthScale = prevBold ? WIDTH_SCALE_BOLD : WIDTH_SCALE_REGULAR;
-          const drawX = (i === 0 || isNewLine) ? seg.x : Math.round(prevX + (prevW * widthScale) + wordGap);
-          const segW = seg.width ?? 0;
-          prevX = drawX;
-          prevW = segW;
-          prevBaseline = seg.baselineY;
-          prevBold = seg.bold;
+          const drawX = seg.x;
           const fontFile = seg.bold ? poppinsBold : poppinsReg;
           const fontcolor =
             seg.color === '#1DB077' ? '0x1DB077'
               : seg.color === '#ECECDC' ? '0xECECDC'
-              : seg.color === '#EF5350' ? '0xEF5350'
-              : seg.color === '#FFCD1D' ? '0xFFCD1D'
-              : seg.color === '#FB9C39' ? '0xFB9C39'
-              : seg.color === '#95C5D1' ? '0x95C5D1'
-              : seg.color === '#6523FF' ? '0x6523FF'
-              : seg.color === '#FDB05E' ? '0xFDB05E'
-              : 'white';
+                : seg.color === '#EF5350' ? '0xEF5350'
+                  : seg.color === '#E53935' ? '0xE53935'
+                    : seg.color === '#FFCD1D' ? '0xFFCD1D'
+                      : seg.color === '#FB9C39' ? '0xFB9C39'
+                        : seg.color === '#95C5D1' ? '0x95C5D1'
+                          : seg.color === '#6523FF' ? '0x6523FF'
+                            : seg.color === '#FDB05E' ? '0xFDB05E'
+                              : 'white';
           // Escape headline text for FFmpeg drawtext:
           // - '\'  -> '\\'
           // - ':'  -> '\:'
