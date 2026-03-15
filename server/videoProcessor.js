@@ -924,8 +924,8 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     videoW: targetW,
     videoH: targetH,
     isBC: name === 'Business Cracked',
-    // aicracked, theevolvinggpt, foundrsonig, indianfoundr, indianstartupstory, neworderai, indiasbestfounders, elitefoundrs, intelligence by ai, the ai phaze, That AI page, Revolution in tech, startupsoncrack must NEVER have watermark in video (force null by name)
-    watermark: (isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack)
+    // aicracked, theevolvinggpt, foundrsonig, indianfoundr, indianstartupstory, neworderai, indiasbestfounders, elitefoundrs, intelligence by ai, the ai phaze, That AI page, Revolution in tech, startupsoncrack, bestindianpodcast, risewithcontent must NEVER have watermark in video (force null by name)
+    watermark: (isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isBestIndianPodcast || isRiseWithContent)
       ? null
       : (preset.layout === 'watermark' && !isPeakOfAI && !isThePrimeFounder)
         ? { text: preset.handle, x: preset.watermarkPosition?.x / 100 || 0.5, y: preset.watermarkPosition?.y || 16 }
@@ -1126,7 +1126,9 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       'nobelfounders',
       'foundersxindia',
       'peakofai',
-      'theprimefounder'
+      'theprimefounder',
+      'bestindianpodcast',
+      'risewithcontent'
     ];
     const skipWatermark = noWatermarkPresets.includes(presetNameLower);
     if (layout.watermark && !skipWatermark) {
