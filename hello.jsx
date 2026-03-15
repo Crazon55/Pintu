@@ -49,7 +49,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 13, name: 'founderdaily', handle: '@founderdaily', ratio: '4:3', color: '#000000', active: true, layout: 'social', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
     { id: 14, name: 'founderbusinesstips', handle: '@founderbusinesstips', ratio: '4:3', color: '#000000', active: true, layout: 'social', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
     { id: 15, name: 'foundersoncrack', handle: '@foundersoncrack', ratio: '4:3', color: '#000000', active: true, layout: 'social', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
-    { id: 16, name: 'kwazyfounders', handle: '@kwazyfounders', ratio: '4:3', color: '#000000', active: true, layout: 'social', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 16, name: 'kwazyfounders', handle: '@kwazyfounders', ratio: '1:1', color: '#000000', active: true, layout: 'social', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 17, name: 'Life Wealth Lessons', handle: '@lifewealthlessons', ratio: '4:3', color: '#E31D38', active: true, layout: 'social', logo: LOGO_THE_FOUNDERS_SHOW, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 18, name: 'Business India Lessons', handle: '@businessindialessons', ratio: '4:3', color: '#ff2845', active: true, layout: 'social', logo: LOGO_THE_FOUNDERS_SHOW, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 19, name: 'Billionaires of Bharat', handle: '@billionairesofbharat', ratio: '4:3', color: '#E31D38', active: true, layout: 'social', logo: LOGO_THE_FOUNDERS_SHOW, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
@@ -108,6 +108,8 @@ const INITIAL_PRESETS_RAW = [
     { id: 70, name: 'the ai phaze', handle: '@theaiphaze', ratio: '4:3', color: '#95C5D1', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: -6, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
     { id: 71, name: 'That AI page', handle: '@thataipage', ratio: '4:3', color: '#6523FF', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: -6, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
     { id: 72, name: 'Revolution in tech', handle: '@revolutionintech', ratio: '4:3', color: '#FDB05E', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: -6, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 73, name: 'bestindianpodcast', handle: '@bestindianpodcast', ratio: '4:3', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
+    { id: 74, name: 'risewithcontent', handle: '@risewithcontent', ratio: '4:3', color: '#E53935', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
 ];
 
 // Pages to show under the "INACTIVE PAGES" section (from user-provided list) — these start unchecked
@@ -141,10 +143,14 @@ const stripHTML = (html) => {
     return tmp.textContent || tmp.innerText || '';
 };
 
-// Normalize bold tags and <br> so preview and export match (same as server)
+// Normalize bold markers and <br> so preview and export match (same as server)
 const normalizeBoldHTML = (html) => {
     if (!html || typeof html !== 'string') return html || '';
-    return html.replace(/<\/?strong>/gi, (m) => m.toLowerCase().replace('strong', 'b'));
+    let out = html.replace(/<\/?strong>/gi, (m) => m.toLowerCase().replace('strong', 'b'));
+    // Support WhatsApp-style *word* syntax as bold
+    // e.g. "The *trick* to making" -> "The <b>trick</b> to making"
+    out = out.replace(/\*(\S(?:.*?\S)?)\*/g, '<b>$1</b>');
+    return out;
 };
 // Replace <br> with newline so line breaks render (and literal "<br>" never appears)
 const normalizeLineBreaks = (html) => {
@@ -622,7 +628,9 @@ const PreviewCard = memo(({
         presetNameLower === 'startupscheming' ||
         presetNameLower === 'the ai phaze' ||
         presetNameLower === 'that ai page' ||
-        presetNameLower === 'revolution in tech';
+        presetNameLower === 'revolution in tech' ||
+        presetNameLower === 'bestindianpodcast' ||
+        presetNameLower === 'risewithcontent';
     // Increase word spacing for presets with all bold white text to prevent overlapping
     const isAllBoldWhite = useMemo(() =>
         preset.name === 'Founders God' || preset.name === 'CEO Mindset India' || preset.name === 'Real India Business',
@@ -632,10 +640,7 @@ const PreviewCard = memo(({
     // OPTIMIZATION: Skip expensive calculations for inactive presets
     const adjustedWordSpacing = useMemo(() => {
         if (!preset.active) return effectiveWordSpacing; // Skip calculation for inactive
-        // Increase spacing for all bold presets (including kwazyfounders which has all bold text)
-        if (preset.name === 'kwazyfounders') {
-            return Math.max(effectiveWordSpacing, 0.3);
-        }
+        // Increase spacing for all bold presets
         if (isAllBoldWhite) {
             return Math.max(effectiveWordSpacing, 0.2);
         }
@@ -713,8 +718,8 @@ const PreviewCard = memo(({
                         style={{
                             fontSize: `${previewFontSize}px`,
                             lineHeight: preset.lineSpacing || 1.25,
-                            marginTop: preset.name === 'Best Founder Clips' ? '0.5rem' : (preset.name === 'The Founders Show' || preset.name === 'Life Wealth Lessons' || preset.name === 'Business India Lessons' || preset.name === 'Billionaires of Bharat' || preset.name === 'startupcoded' || preset.name === 'founders-in-india' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf' ? '1rem' : '0'),
-                            marginBottom: (isAllBoldWhite || preset.name === 'The Rising Founder' || preset.name === 'The Real Founder' || preset.name === 'Inspiring Founder' || preset.name === 'Business Cracked' || preset.name === 'The Founders Show' || preset.name === 'Life Wealth Lessons' || preset.name === 'Business India Lessons' || preset.name === 'Billionaires of Bharat' || preset.name === 'startupcoded' || preset.name === 'founders-in-india' || preset.name === 'founders cracked' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf' || preset.name === 'Entrepreneurial India') ? '0' : '0.25rem',
+                            marginTop: preset.name === 'Best Founder Clips' ? '0.5rem' : (preset.name === 'The Founders Show' || preset.name === 'Life Wealth Lessons' || preset.name === 'Business India Lessons' || preset.name === 'Billionaires of Bharat' || preset.name === 'startupcoded' || preset.name === 'kwazyfounders' || preset.name === 'founders-in-india' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf' ? '1rem' : '0'),
+                            marginBottom: (isAllBoldWhite || preset.name === 'The Rising Founder' || preset.name === 'The Real Founder' || preset.name === 'Inspiring Founder' || preset.name === 'Business Cracked' || preset.name === 'The Founders Show' || preset.name === 'Life Wealth Lessons' || preset.name === 'Business India Lessons' || preset.name === 'Billionaires of Bharat' || preset.name === 'startupcoded' || preset.name === 'kwazyfounders' || preset.name === 'founders-in-india' || preset.name === 'founders cracked' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf' || preset.name === 'Entrepreneurial India') ? '0' : '0.25rem',
                             ...(localHeadlinePos.x !== 0 && localHeadlinePos.x ? {
                                 left: `${localHeadlinePos.x}%`,
                                 transform: 'translateX(0)'
@@ -763,6 +768,7 @@ const PreviewCard = memo(({
                                             if (preset.name === 'That AI page') return segment.highlight ? '#6523FF' : 'white';
                                             if (preset.name === 'Revolution in tech') return segment.highlight ? '#FDB05E' : 'white';
                                             if (preset.name === 'indianstartupstory') return segment.highlight ? '#EF5350' : 'white';
+                                            if (presetNameLower === 'risewithcontent') return segment.highlight ? '#E53935' : 'white';
                                             if (preset.name === 'The Prime Ai Page') return segment.highlight ? '#FFCD1D' : 'white';
                                             if (preset.name === 'Dhandha India') return segment.highlight ? '#FB9C39' : 'white';
                                             if (preset.name === 'The Ai Gauntlet') return segment.highlight ? '#FFCD1D' : 'white';
@@ -774,7 +780,7 @@ const PreviewCard = memo(({
                                         })(),
                                         fontWeight: (() => {
                                             if (preset.name === 'theprimefounder' || preset.name === 'peakofai' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indianstartupstory' || preset.name === 'neworderai') return segment.highlight ? 700 : 400;
-                                            if (['kwazyfounders', 'startup madness', 'indian business com'].includes(preset.name)) return 800;
+                                            if (['startup madness', 'indian business com'].includes(preset.name)) return 800;
                                             if (preset.name === 'techinthelast24hrs') return 700;
                                             if (preset.name === 'indianaipage' || preset.name === 'indiantechdaily' || preset.name === '101xtechnology' || preset.name === 'therisingai' || preset.name === 'Revolution in ai' || preset.name === 'Founders.India' || preset.name === 'Technology In India' || preset.name === 'Daily Tech India' || preset.name === 'The Prime Ai Page' || preset.name === 'Dhandha India' || preset.name === 'The Ai Gauntlet') return segment.highlight ? 700 : 400;
                                             if (['founderdaily', 'founderbusinesstips', 'foundersoncrack', 'Life Wealth Lessons', 'Billionaires of Bharat', 'ceo hustle advice', 'indian hustle advice', 'rich indian ceo', 'founders cracked', 'indian-founders-co', 'Entrepreneurial India', 'Finding Good AI', 'Finding Good Tech', 'startupsinthelast24hrs', 'indian ai future'].includes(preset.name)) return 400;
@@ -783,7 +789,7 @@ const PreviewCard = memo(({
                                             if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return segment.highlight ? 800 : 400;
                                             return segment.highlight ? 800 : 400;
                                         })(),
-                                        fontFamily: (preset.name === 'theprimefounder' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indianstartupstory' || preset.name === 'neworderai' || preset.name === 'peakofai' || preset.name === 'Founders.India' || preset.name === 'Technology In India' || preset.name === 'Daily Tech India' || preset.name === 'The Prime Ai Page' || preset.name === 'Dhandha India' || preset.name === 'The Ai Gauntlet' ? "'Poppins', sans-serif" : (preset.name === 'Smart Business.in' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf') ? "'Inter', sans-serif" : 'inherit')
+                                        fontFamily: (preset.name === 'theprimefounder' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indianstartupstory' || preset.name === 'neworderai' || preset.name === 'peakofai' || preset.name === 'Founders.India' || preset.name === 'Technology In India' || preset.name === 'Daily Tech India' || preset.name === 'The Prime Ai Page' || preset.name === 'Dhandha India' || preset.name === 'The Ai Gauntlet' || preset.name === 'Real India Business' || presetNameLower === 'bestindianpodcast' || presetNameLower === 'risewithcontent' ? "'Poppins', sans-serif" : (preset.name === 'Smart Business.in' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf') ? "'Inter', sans-serif" : 'inherit')
                                     }}
                                 >
                                     {segment.text}
@@ -796,10 +802,9 @@ const PreviewCard = memo(({
                 {/* 3. VIDEO CONTAINER */}
                 <div
                     ref={containerRef}
-                    className={`w-full relative bg-black shrink-0 group ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : isResizingVideo ? 'ring-2 ring-blue-500 z-50' : 'cursor-pointer'} ${preset.name === 'Business Cracked' ? 'border-4 border-[#FF6B00]' : ''} ${preset.name === 'ceo hustle advice' || preset.name === 'wealth lessons india' || preset.name === 'indian business com' || preset.name === 'indian-founders-co' || preset.name === 'Entrepreneurial India' || preset.name === 'Finding Good AI' || preset.name === 'Finding Good Tech' ? 'mx-auto' : ''}`}
+                    className={`w-full relative bg-black shrink-0 group ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : isResizingVideo ? 'ring-2 ring-blue-500 z-50' : 'cursor-pointer'} ${preset.name === 'Business Cracked' ? 'border-4 border-[#FF6B00]' : ''}`}
                     style={{
-                        ...getAspectRatioStyle(preset.ratio),
-                        ...(preset.name === 'ceo hustle advice' || preset.name === 'wealth lessons india' || preset.name === 'indian business com' || preset.name === 'indian-founders-co' || preset.name === 'Entrepreneurial India' || preset.name === 'Finding Good AI' || preset.name === 'Finding Good Tech' ? { width: '83.33%', maxWidth: '83.33%' } : {}) // 600/720 = 83.33% to match export padding
+                        ...getAspectRatioStyle(preset.ratio)
                     }}
                     onDoubleClick={() => setIsRepositioning(!isRepositioning)}
                     onMouseDown={handleMouseDown}
@@ -954,12 +959,12 @@ const PreviewCard = memo(({
                 {showCredit && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && !isAicrackedOrEvolvingPreset && (
                     <div
                         ref={creditRef}
-                        className={`w-full z-10 text-left ${preset.name === 'ceo hustle advice' || preset.name === 'wealth lessons india' || preset.name === 'indian business com' || preset.name === 'indian-founders-co' || preset.name === 'Entrepreneurial India' ? 'px-0' : 'px-6'} relative ${isRepositioningCredit ? 'cursor-move ring-2 ring-yellow-500' : ''}`}
+                        className={`w-full z-10 text-left px-6 relative ${isRepositioningCredit ? 'cursor-move ring-2 ring-yellow-500' : ''}`}
                         style={{
-                            left: preset.name === 'ceo hustle advice' || preset.name === 'wealth lessons india' || preset.name === 'indian business com' || preset.name === 'indian-founders-co' || preset.name === 'Entrepreneurial India' ? '8.33%' : `${localCreditPos.x}%`, // Align with video frame (8.33% = 60px/720px)
+                            left: `${localCreditPos.x}%`,
                             top: `${localCreditPos.y}%`,
                             position: 'relative',
-                            marginTop: preset.name === 'ceo hustle advice' || preset.name === 'wealth lessons india' ? '8px' : '4px'
+                            marginTop: '4px'
                         }}
                         onDoubleClick={(e) => { e.stopPropagation(); setIsRepositioningCredit(!isRepositioningCredit); }}
                         onMouseDown={handleCreditMouseDown}
@@ -1361,33 +1366,17 @@ export default function App() {
                             clearInterval(serverPollIntervalRef.current);
                             serverPollIntervalRef.current = null;
                         }
-                        setExportStatus('Export complete! Preparing downloads...');
+                        setExportStatus('Export complete! Starting download...');
                         setExportProgress(100);
 
                         try {
-                            setExportStatus('Creating zip file...');
                             const zipUrl = `${SERVER_URL}/api/download/${jobId}`;
-                            const response = await fetch(zipUrl, { signal });
-                            if (signal.aborted) return;
-                            if (!response.ok) throw new Error(`Failed to download zip: ${await response.text()}`);
+                            // Navigate directly to the zip URL so the browser handles the download
+                            window.location.href = zipUrl;
 
-                            const blob = await response.blob();
-                            if (signal.aborted) return;
-                            const zipFileName = `export-${jobId}.zip`;
-                            const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = zipFileName;
-                            a.style.display = 'none';
-                            document.body.appendChild(a);
-                            a.click();
+                            // Reset UI shortly after navigation trigger
                             setTimeout(() => {
-                                document.body.removeChild(a);
-                                window.URL.revokeObjectURL(url);
-                            }, 100);
-
-                            setExportStatus(`Done! Zip file downloaded: ${zipFileName}`);
-                            setTimeout(() => {
+                                if (signal.aborted) return;
                                 setIsExporting(false);
                                 setExportStatus('');
                                 setExportProgress(0);
