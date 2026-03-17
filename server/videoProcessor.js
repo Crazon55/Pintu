@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { existsSync, statSync } from 'fs';
 import { execSync } from 'child_process';
+import { loadSync as opentypeLoad } from 'opentype.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -94,11 +95,30 @@ if (existsSync(poppinsRegular)) {
 if (existsSync(poppinsBold)) {
   registerFont(poppinsBold, { family: 'Poppins Bold', weight: 'bold', style: 'normal' });
   registerFont(poppinsBold, { family: 'Poppins', weight: 'bold', style: 'normal' });
+  // PoppinsBoldM: registered as weight:normal so canvas uses raw TTF metrics without
+  // GDI synthetic-bold widening (which over-widens uppercase I/T in Poppins Bold on Windows).
+  registerFont(poppinsBold, { family: 'PoppinsBoldM', weight: 'normal', style: 'normal' });
   console.log('✓ Poppins Bold font registered');
 }
 if (existsSync(poppinsThin)) {
   registerFont(poppinsThin, { family: 'Poppins Thin', weight: 'normal', style: 'normal' });
   console.log('✓ Poppins Thin font registered');
+}
+
+// Load Poppins TTF via opentype.js for pixel-accurate advance width measurement.
+// Canvas falls back to Sans on Windows (pango can't find unregistered fonts by alias),
+// so we bypass canvas measureText entirely for Poppins and read directly from the TTF.
+let _otPoppinsReg = null, _otPoppinsBold = null;
+try {
+  if (existsSync(poppinsRegular)) { _otPoppinsReg = opentypeLoad(poppinsRegular); console.log('✓ Poppins Regular loaded via opentype.js'); }
+  if (existsSync(poppinsBold))    { _otPoppinsBold = opentypeLoad(poppinsBold);   console.log('✓ Poppins Bold loaded via opentype.js'); }
+} catch(e) { console.warn('opentype.js load failed:', e.message); }
+
+// Measure a string's advance width in px using opentype.js (same metrics FFmpeg uses).
+function measurePoppins(text, size, bold) {
+  const font = bold ? _otPoppinsBold : _otPoppinsReg;
+  if (!font) return size * text.length * 0.6; // fallback if font not loaded
+  return font.getAdvanceWidth(text, size);
 }
 
 const stripHTML = (html) => (html ? html.replace(/<[^>]*>/g, '') : '');
@@ -258,12 +278,12 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const isBestIndianPodcast = nameLower === 'bestindianpodcast';
   const isRiseWithContent = nameLower === 'risewithcontent';
   const isPoppinsHeadlinePreset =
-    isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack || isRealIndiaBusiness || isBestIndianPodcast || isRiseWithContent;
+    isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isStartupsoncrack || isRiseWithContent || isIndiasBestFounders || isElitefoundrs || isRealIndiaBusiness;
 
   // --- 3. LAYOUT CONSTANTS ---
   const GAP = 20;
   const LOGO_BOX_H =
-    (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isBestIndianPodcast || isRiseWithContent)
+    (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isRiseWithContent)
       ? 0
       : (isBestFounderClips ? 120 : (isBestBusinessClips ? 450 : (isAdsByMarketer ? 360 : (isStartupMadness ? 100 : 80))));
 
@@ -277,13 +297,13 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const presetsWithNarrowVideo = ['wealth lessons india', 'ceo hustle advice', 'indian business com', 'indian-founders-co', 'entrepreneurial india', 'finding good ai', 'finding good tech'];
   const videoPadding = 0; // No video frame padding (video is full width)
   // For indian business com, use more conservative width to ensure text stays within video frame
-  // Utilize side space: hook-only Poppins use 620 so text sits across frame; logo-group (e.g. Real India Business) keep 580.
+  // Utilize side space: hook-only headline pages use 620 so text sits across frame; logo-group pages keep 580.
   let maxTextWidth;
-  if (isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack || isBestIndianPodcast || isRiseWithContent) {
-    // Hook-only Poppins: use full width so preset utilizes side space (wrap keeps text in frame)
+  if (isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack || isBestIndianPodcast || isRealIndiaBusiness || isRiseWithContent) {
+    // Hook-only headline pages: use full width so preset utilizes side space (wrap keeps text in frame)
     maxTextWidth = 620;
-  } else if (isFoundersIndia || isTechnologyInIndia || isDailyTechIndia || isThePrimeAiPage || isDhandhaIndia || isTheAiGauntlet || isRealIndiaBusiness) {
-    // Poppins + logo group pages: slightly wider but still safe
+  } else if (isFoundersIndia || isTechnologyInIndia || isDailyTechIndia || isThePrimeAiPage || isDhandhaIndia || isTheAiGauntlet) {
+    // Logo group pages: slightly wider but still safe
     maxTextWidth = 580;
   } else if (name === 'indian business com') {
     maxTextWidth = targetW - 60;
@@ -332,8 +352,8 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     logoY = isAllBoldWhite ? startY - 20 : startY;
   }
 
-  // For peakofai / theprimefounder / aicracked / theevolvinggpt / foundrsonig / indianfoundr / indianstartupstory / neworderai / indiasbestfounders / elitefoundrs / startupsoncrack / bestindianpodcast / risewithcontent (hook-only, no logo): set video position explicitly so it is always defined
-  if (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack || isBestIndianPodcast || isRiseWithContent) {
+  // For peakofai / theprimefounder / aicracked / theevolvinggpt / foundrsonig / indianfoundr / indianstartupstory / neworderai / indiasbestfounders / elitefoundrs / startupsoncrack / bestindianpodcast / realindianbusiness / risewithcontent (hook-only, no logo): set video position explicitly so it is always defined
+  if (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack || isBestIndianPodcast || isRealIndiaBusiness || isRiseWithContent) {
     videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + textH + textToVideoGap;
   }
 
@@ -379,7 +399,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     'startupcoded',
     'founders-in-india'
   ];
-  const hasLogoGroup = logoGroupPresets.includes(name) || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet';
+  const hasLogoGroup = logoGroupPresets.includes(name) || name === 'Business Cracked' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet';
 
   let logoPathForOverlay = null;
 
@@ -534,12 +554,12 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
           } else if (hasLogoGroup) {
             // Logo group: logo + header text + verified checkmark + handle
             // Only apply special positioning for logo group presets
-            const logoGroupY = logoY;
+            const logoGroupY = logoY + 25; // Shift logo group lower to reduce gap with hook text
             const headerTextY = logoGroupY + 35; // Keep text at original position
 
             // Calculate text position first
             ctx.font = 'bold 26px Inter';
-            const nameY = name === 'Business Cracked' ? headerTextY - 15 : headerTextY - 5;
+            const nameY = headerTextY - 5;
             const displayName = name === 'founders-in-india' ? 'Foundersinindia' : (name === 'mktg-wtf' ? 'mktg Wtf' : (name === 'Entrepreneurial India' ? 'Entrepreneurial.India' : name));
             const nameWidth = ctx.measureText(displayName).width;
 
@@ -553,8 +573,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
 
             // Get logo scale factor for each preset
             let logoScale = 1.6; // Default
-            if (name === 'Business Cracked') logoScale = 2.2;
-            else if (name === 'Billionaires of Bharat') logoScale = 1.6;
+            if (name === 'Billionaires of Bharat') logoScale = 1.6;
             else if (name === 'startupcoded' || name === 'founders-in-india') logoScale = 1.6;
             else if (name === 'Life Wealth Lessons' || name === 'Business India Lessons') logoScale = 1.0;
             else if (name === 'The Founders Show') logoScale = 1.6;
@@ -569,35 +588,16 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
             const offset = (scaledSize - logoSize) / 2;
             // Calculate finalLogoY so that logo top (after offset) aligns with logoTop
             // Move logo higher for specific presets
-            const logoTopAdjustment = (nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet') ? -10 : ((name === 'Billionaires of Bharat' || name === 'CEO Mindset India' || name === 'Entrepreneurial India' || name === 'Finding Good AI' || name === 'Finding Good Tech' || name === 'Smart Business.in' || name === 'Founders wtf' || name === 'mktg-wtf' || name === 'Business wtf' || name === 'Startups wtf' || name === 'Founders God' || name === 'The Founders Show' || name === 'startupcoded' || name === 'founders-in-india') ? -25 : 0);
+            const logoTopAdjustment = (nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet') ? -10 : ((name === 'Billionaires of Bharat' || name === 'CEO Mindset India' || name === 'Entrepreneurial India' || name === 'Finding Good AI' || name === 'Finding Good Tech' || name === 'Smart Business.in' || name === 'Founders wtf' || name === 'mktg-wtf' || name === 'Business wtf' || name === 'Startups wtf' || name === 'Founders God' || name === 'The Founders Show' || name === 'startupcoded' || name === 'founders-in-india' || name === 'Business Cracked') ? -25 : 0);
             const finalLogoY = logoTop + offset + logoTopAdjustment;
             const centerX = logoX + logoSize / 2;
             const centerY = finalLogoY + logoSize / 2;
             const radius = logoSize / 2;
 
-            // For Business Cracked, center the logo group and shift left
             let actualLogoX = logoX;
             let actualHeaderTextX = logoX + 70 + 8; // Logo-to-text gap for all logo-group presets
 
-            if (name === 'Business Cracked') {
-              // Calculate center position for logo group
-              const gap = 4;
-              const badgeWidth = 20;
-              const totalGroupWidth = logoSize + gap + nameWidth + badgeWidth;
-              const centerXGroup = (720 - totalGroupWidth) / 2;
-              actualLogoX = centerXGroup - 20; // Move logo 20px to the left
-              actualHeaderTextX = centerXGroup + logoSize + gap;
-              // Recalculate center after logoX change
-              const newCenterX = actualLogoX + logoSize / 2;
-              const newCenterY = finalLogoY + logoSize / 2;
-              // Draw logo with scale
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(newCenterX, newCenterY, radius, 0, Math.PI * 2);
-              ctx.clip();
-              ctx.drawImage(img, actualLogoX - offset, finalLogoY - offset, scaledSize, scaledSize);
-              ctx.restore();
-            } else {
+            {
               // Draw logo: Founders God = square, Founders wtf / mktg-wtf / Business wtf / Startups wtf = square with rounded corners, others = circle
               ctx.save();
               if (name === 'Founders wtf' || name === 'mktg-wtf' || name === 'Business wtf' || name === 'Startups wtf') {
@@ -638,7 +638,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
             ctx.fillText(displayName, actualHeaderTextX, nameY);
 
             // Draw verified checkmark - right beside the name with respectable gap, positioned slightly above
-            const tickSpacing = name === 'Business Cracked' ? 28 : 20; // Respectable gap matching client-side
+            const tickSpacing = 20;
             const tickX = actualHeaderTextX + nameWidth + tickSpacing;
             // Position tick mark slightly above the text baseline
             const tickY = nameY - 7; // Position tick mark slightly above text baseline (7px higher)
@@ -658,38 +658,12 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
             // Draw handle
             ctx.font = '500 18px Inter';
             ctx.fillStyle = isWhiteBg ? '#4a4a4a' : '#9ca3af';
-            const handleY = name === 'Business Cracked' ? headerTextY + 15 : headerTextY + 25;
+            const handleY = headerTextY + 25;
             ctx.fillText(preset.handle, actualHeaderTextX, handleY);
 
             videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + textH + textToVideoGap;
           } else {
-            if (name === 'Business Cracked') {
-              // Business Cracked: centered logo above hook text
-              const logoScale = 1.0;
-              const logoSize = 70;
-              const scaledSize = logoSize * logoScale;
-              const offset = (scaledSize - logoSize) / 2;
-
-              // Calculate headline position to place logo above it
-              const headlineY = (logoY + LOGO_BOX_H + logoToTextGap) + (1280 * (preset.headlinePosition?.y / 100 || 0));
-              // Position logo above headline with some gap, slightly lower
-              const logoYPos = headlineY - scaledSize - 10; // 10px gap above headline (moved down)
-
-              // Center the logo horizontally
-              const logoXPos = 360 - scaledSize / 2;
-              const centerX = logoXPos + scaledSize / 2;
-              const centerY = logoYPos + scaledSize / 2;
-              const radius = scaledSize / 2;
-
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-              ctx.clip();
-              ctx.drawImage(img, logoXPos - offset, logoYPos - offset, scaledSize, scaledSize);
-              ctx.restore();
-
-              videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + textH + textToVideoGap;
-            } else if (name === 'Real India Business') {
+            if (name === 'Real India Business') {
               // Real India Business: centered logo above hook text (circular)
               const logoScale = preset.rules?.logoScale || 1.2;
               const logoSize = 70;
@@ -842,17 +816,15 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
               ? t.bold
               : (nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet')
                 ? t.bold
-                : ((isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack || isRealIndiaBusiness || isBestIndianPodcast || isRiseWithContent)
+                : ((isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isStartupsoncrack || isRiseWithContent || isIndiasBestFounders || isElitefoundrs)
                   ? t.bold
-                  : ((isStartupMadness || name === 'startupcoded' || name === 'indian business com' || name === 'founders-in-india')
+                  : ((isStartupMadness || name === 'startupcoded' || name === 'indian business com' || name === 'founders-in-india' || isRealIndiaBusiness)
                     ? true
                     : (allRegularFont || !t.bold ? false : true)));
-        if (isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isFoundersIndia || isTechnologyInIndia || isDailyTechIndia || isThePrimeAiPage || isDhandhaIndia || isTheAiGauntlet || isPureCodeAi || isNobelAiPage || isRealIndiaBusiness || isBestIndianPodcast || isRiseWithContent) {
-          // Poppins via FFmpeg: advance = scaled word width + font space (proportional buffer so gaps stay even)
-          if (!headlineDrawtextSegments) headlineDrawtextSegments = [];
-          ctx.font = useBold ? `${fontSize}px "Poppins Bold"` : `${fontSize}px "Poppins Regular"`;
-          const measuredW = ctx.measureText(t.text).width;
-          const spaceW = ctx.measureText(' ').width;
+        if (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isFoundersIndia || isTechnologyInIndia || isDailyTechIndia || isThePrimeAiPage || isDhandhaIndia || isTheAiGauntlet || isPureCodeAi || isNobelAiPage || isRiseWithContent || isIndiasBestFounders || isElitefoundrs || isRealIndiaBusiness) {
+          // Poppins: measure via opentype.js (exact TTF advance = what FFmpeg drawtext uses).
+          // Canvas falls back to Sans on Windows so we bypass ctx.measureText for Poppins entirely.
+          // FFmpeg drawtext renders with fontfile= so actual Poppins glyphs appear in the export.
           const segmentColor =
             isDhandhaIndia
               ? (t.bold ? '#FB9C39' : '#FFFFFF')
@@ -876,26 +848,20 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                                 ? '#FFFFFF'
                                 : (isRiseWithContent
                                   ? (t.bold ? '#E53935' : '#FFFFFF')
-                                  : ((isAICracked || isTheEvolvingGPT || isIndianFoundr || isNewOrderAI || isStartupsoncrack || isRealIndiaBusiness || isBestIndianPodcast)
+                                  : ((isPeakOfAI || isAICracked || isTheEvolvingGPT || isIndianFoundr || isNewOrderAI || isStartupsoncrack || isRealIndiaBusiness)
                                     ? '#FFFFFF'
                                     : (t.bold ? '#1DB077' : '#FFFFFF')))))))))));
-          headlineDrawtextSegments.push({
-            text: t.text,
-            x: Math.round(cx),
-            baselineY,
-            bold: useBold,
-            color: segmentColor,
-            width: measuredW
-          });
-          cx += measuredW * POPPINS_WIDTH_SCALE + spaceW;
+          if (!headlineDrawtextSegments) headlineDrawtextSegments = [];
+          const measuredW = measurePoppins(t.text, fontSize, useBold);
+          headlineDrawtextSegments.push({ text: t.text, x: Math.round(cx), baselineY, bold: useBold, color: segmentColor, width: measuredW });
+          cx += measuredW + adjSpacing * fontSize;
         } else {
           ctx.font = `${useBold ? 'bold' : 'normal'} ${fontSize}px ${headlineFontFamily}`;
           // kwazyfounders: white bg; bold = highlight (black), regular = non-highlight (black)
           ctx.fillStyle = (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF'))))));
           ctx.fillText(t.text, cx, headlineY + (i * lineHeight));
           const interW = ctx.measureText(t.text).width;
-          const interSpaceW = ctx.measureText(' ').width;
-          cx += interW + interSpaceW;
+          cx += interW + adjSpacing * fontSize;
         }
       });
     });
@@ -924,8 +890,8 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     videoW: targetW,
     videoH: targetH,
     isBC: name === 'Business Cracked',
-    // aicracked, theevolvinggpt, foundrsonig, indianfoundr, indianstartupstory, neworderai, indiasbestfounders, elitefoundrs, intelligence by ai, the ai phaze, That AI page, Revolution in tech, startupsoncrack, bestindianpodcast, risewithcontent must NEVER have watermark in video (force null by name)
-    watermark: (isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isBestIndianPodcast || isRiseWithContent)
+    // aicracked, theevolvinggpt, foundrsonig, indianfoundr, indianstartupstory, neworderai, indiasbestfounders, elitefoundrs, intelligence by ai, the ai phaze, That AI page, Revolution in tech, startupsoncrack, bestindianpodcast, realindianbusiness, risewithcontent must NEVER have watermark in video (force null by name)
+    watermark: (isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isBestIndianPodcast || isRealIndiaBusiness || isRiseWithContent)
       ? null
       : (preset.layout === 'watermark' && !isPeakOfAI && !isThePrimeFounder)
         ? { text: preset.handle, x: preset.watermarkPosition?.x / 100 || 0.5, y: preset.watermarkPosition?.y || 16 }
@@ -950,8 +916,11 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   return layout;
 }
 
-// Poppins width scale used when drawing; must match draw advance so wrap stays in frame
-const POPPINS_WIDTH_SCALE = 1.25;
+// Canvas loads the WRONG font for regular Poppins (fallback ~18% narrower than actual TTF).
+// FFmpeg uses the actual TTF directly → regular needs 1.18 scale to match FFmpeg rendering.
+// Bold: canvas correctly loads Poppins-Bold.ttf after font string fix → FFmpeg ratio ~1.049.
+// Scale 1.06 (just above 1.049) gives bold gap ≈ adjSpacing with no overlap.
+// Poppins advance widths come from opentype.js (exact TTF metrics = what FFmpeg uses). No scale needed.
 
 function calculateRichLines(ctx, html, maxW, size, spacing, forceBold, fontFamily = 'Inter') {
   let cleanedHtml = cleanHTML(html);
@@ -970,15 +939,14 @@ function calculateRichLines(ctx, html, maxW, size, spacing, forceBold, fontFamil
     });
     const lines = []; let cur = { tokens: [], width: 0 };
     tokens.forEach(t => {
-      if (usePoppinsFamilies) {
-        ctx.font = `${size}px "${t.bold ? 'Poppins Bold' : 'Poppins Regular'}"`;
-      } else {
-        ctx.font = `${t.bold ? 'bold' : 'normal'} ${size}px ${fontFamily}`;
-      }
-      const w = ctx.measureText(t.text).width;
-      const spaceW = ctx.measureText(' ').width;
-      // Use same advance as draw so text never goes outside frame (wrap = draw advance)
-      const advance = usePoppinsFamilies ? (w * POPPINS_WIDTH_SCALE + spaceW) : (w + spaceW);
+      const isBoldWord = t.bold || forceBold;
+      // Use same font strings as draw loop so line-break widths match rendered widths exactly.
+      // Poppins: use opentype.js for exact TTF advance (canvas falls back to Sans on Windows).
+      // Inter/others: use canvas measureText as usual.
+      const w = usePoppinsFamilies
+        ? measurePoppins(t.text, size, isBoldWord)
+        : (ctx.font = `${isBoldWord ? 'bold' : 'normal'} ${size}px ${fontFamily}`, ctx.measureText(t.text).width);
+      const advance = w + spacing * size;
       if (cur.width + advance > maxW && cur.tokens.length > 0) { lines.push(cur); cur = { tokens: [], width: 0 }; }
       cur.tokens.push(t); cur.width += advance;
     });
