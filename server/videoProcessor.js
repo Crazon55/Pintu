@@ -141,6 +141,8 @@ const cleanHTML = (html) => {
   cleaned = cleaned.replace(/<\/p\s*>/gi, '\n');
   cleaned = cleaned.replace(/<div[^>]*>/gi, '');
   cleaned = cleaned.replace(/<p[^>]*>/gi, '');
+  // Strip any remaining HTML tags (span, font, i, etc.) but keep <b>/</b> for bold detection
+  cleaned = cleaned.replace(/<(?!\/?b\b)[^>]*>/gi, '');
   // Collapse spaces/tabs only (keep newlines so multi-line headlines work)
   cleaned = cleaned.replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n');
   return cleaned.trim();
@@ -801,7 +803,6 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
       line.tokens.forEach(t => {
         const allRegularFont =
           preset.rules?.textFontWeight === 400 ||
-          name === 'ceo hustle advice' ||
           name === 'indian hustle advice' ||
           name === 'rich indian ceo' ||
           name === 'founders cracked' ||
