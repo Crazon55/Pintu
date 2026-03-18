@@ -32,7 +32,7 @@ const LOGO_FOUNDERS_WTF = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/20
 const DEFAULT_HEADLINE = "The <b>trick</b> to making your employees loyal";
 const DEFAULT_FOOTER = "Credit: The Founders Show";
 
-// --- CONFIGURATION: PRESETS (inactive section presets start unchecked) ---
+// --- CONFIGURATION: PRESETS ---
 const INITIAL_PRESETS_RAW = [
     { id: 1, name: '101xfounders', handle: '@101xfounders', ratio: '4:3', color: '#ffa302', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 2, name: 'bizzindia', handle: '@bizzindia', ratio: '4:3', color: '#E31D38', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
@@ -112,14 +112,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 76, name: 'risewithcontent', handle: '@risewithcontent', ratio: '4:3', color: '#E53935', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
 ];
 
-// Pages to show under the "INACTIVE PAGES" section (from user-provided list) — these start unchecked
-const INACTIVE_PAGES_NAMES = [
-    'Business wtf', 'best business clips', 'mktg-wtf', 'Ads by marketer', 'indian hustle advice',
-    'Business India Lessons', 'startup madness', 'Billionaires of Bharat', 'Life Wealth Lessons',
-    'kwazyfounders', 'foundersoncrack', 'founderbusinesstips', 'founderdaily', 'CEO Mindset India',
-    'Real India Business', 'Inspiring Founder', 'The Real Founder', 'The Rising Founder', 'Smart Business.in',
-    'Founders God', 'The Founders Show', 'Business Cracked', 'Best Founder Clips',
-];
+// All presets are shown in a single unified list (no active/inactive division).
 
 // Start with ALL presets unchecked by default; user must click to select them
 const INITIAL_PRESETS = INITIAL_PRESETS_RAW.map(p => ({ ...p, active: false }));
@@ -1936,7 +1929,7 @@ export default function App() {
                             <div className="p-6 space-y-4">
                                 <p className="text-xs text-neutral-400">Drag & Drop logos onto squares to update.</p>
                                 <div className="flex flex-col gap-2">
-                                    {presets.filter(p => !INACTIVE_PAGES_NAMES.includes(p.name)).map(p => (
+                                    {presets.map(p => (
                                         <div key={p.id} className={`flex items-center justify-between p-3 rounded-lg transition-colors border-2 ${p.active ? 'bg-neutral-900 border-orange-500 ring-1 ring-orange-500/50' : 'bg-neutral-900 border-orange-500/40 hover:border-orange-500/70'}`}>
                                             <div className="flex items-center gap-3 flex-1">
                                                 <div
@@ -1974,51 +1967,6 @@ export default function App() {
                                             </button>
                                         </div>
                                     ))}
-                                    {presets.filter(p => INACTIVE_PAGES_NAMES.includes(p.name)).length > 0 && (
-                                        <>
-                                            <div className="mt-4 pt-3 border-t border-neutral-700">
-                                                <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">INACTIVE PAGES</h3>
-                                            </div>
-                                            {presets.filter(p => INACTIVE_PAGES_NAMES.includes(p.name)).map(p => (
-                                                <div key={p.id} className={`flex items-center justify-between p-3 rounded-lg transition-colors border-2 ${p.active ? 'bg-neutral-900 border-orange-500 ring-1 ring-orange-500/50' : 'bg-neutral-900 border-orange-500/40 hover:border-orange-500/70'}`}>
-                                                    <div className="flex items-center gap-3 flex-1">
-                                                        <div
-                                                            className={`relative group cursor-pointer w-[70px] h-[70px] ${p.name === 'Best Founder Clips' || p.name === 'Founders God' ? 'rounded-none' : ((p.name === 'Founders wtf' || p.name === 'mktg-wtf' || p.name === 'Business wtf' || p.name === 'Startups wtf') ? 'rounded-lg' : 'rounded-full')} bg-neutral-700 flex items-center justify-center border border-neutral-600 overflow-hidden shrink-0 hover:border-neutral-400 transition-all`}
-                                                            onDragOver={(e) => e.preventDefault()}
-                                                            onDrop={(e) => onDropLogo(e, p.id)}
-                                                        >
-                                                            {getLogoUrl(p.logo) ? (
-                                                                <img src={getLogoUrl(p.logo)} className={`w-full h-full ${p.name === 'Best Founder Clips' || p.name === 'Founders God' ? 'rounded-none' : ((p.name === 'Founders wtf' || p.name === 'mktg-wtf' || p.name === 'Business wtf' || p.name === 'Startups wtf') ? 'rounded-lg' : 'rounded-full')}`} style={{ objectFit: 'cover', transform: p.name === 'Best Founder Clips' ? 'scale(1.0)' : 'scale(1.2)' }} />
-                                                            ) : (
-                                                                p.layout !== 'watermark' ? <ImageIcon className="w-4 h-4 text-neutral-500" /> : <span className="text-xs text-neutral-400">N/A</span>
-                                                            )}
-                                                            {(p.layout !== 'watermark' || p.name === 'The Rising Founder' || p.name === 'ceo hustle advice') && (
-                                                                <>
-                                                                    <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer pointer-events-none">
-                                                                        <Upload className="w-3 h-3 text-white" />
-                                                                    </label>
-                                                                    <input
-                                                                        type="file"
-                                                                        accept="image/*"
-                                                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                                                        onChange={(e) => handlePresetLogoUpload(e, p.id)}
-                                                                        id={`logo-upload-inactive-${p.id}`}
-                                                                    />
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm font-bold text-white">{p.name}</span>
-                                                            <span className="text-xs text-neutral-400">{p.ratio}</span>
-                                                        </div>
-                                                    </div>
-                                                    <button onClick={() => togglePresetActive(p.id)} title="Select for export" className="p-2 rounded border border-orange-500/40 hover:border-orange-500 hover:bg-orange-500/10 transition-colors">
-                                                        {p.active ? <CheckSquare className="w-5 h-5 text-orange-500" /> : <Square className="w-5 h-5 text-orange-500/60" />}
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </>
-                                    )}
                                 </div>
                             </div>
                         </div>
@@ -2105,10 +2053,8 @@ export default function App() {
                                 </div>
                             </div>
                             <p className="text-xs text-orange-400 w-full text-center">Presets highlighted in orange — click the checkbox on each card to select for export.</p>
-                            {/* Main pages (non-inactive) */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full items-start">
                                 {presets
-                                    .filter(p => !INACTIVE_PAGES_NAMES.includes(p.name))
                                     .filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery) || (p.handle || '').toLowerCase().includes(searchQuery))
                                     .sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0))
                                     .map((p, i) => (
@@ -2137,45 +2083,6 @@ export default function App() {
                                         </div>
                                     ))}
                             </div>
-                            {/* INACTIVE PAGES section */}
-                            {presets.filter(p => INACTIVE_PAGES_NAMES.includes(p.name)).length > 0 && (
-                                <>
-                                    <div className="w-full pt-4 border-t border-neutral-700/50">
-                                        <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">INACTIVE PAGES</h2>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full items-start">
-                                        {presets
-                                            .filter(p => INACTIVE_PAGES_NAMES.includes(p.name))
-                                            .filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery) || (p.handle || '').toLowerCase().includes(searchQuery))
-                                            .sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0))
-                                            .map((p, i) => (
-                                                <div key={p.id} className={`flex flex-col items-center gap-2 transition-opacity ${p.active ? 'opacity-100' : 'opacity-85'}`}>
-                                                    <div className="w-full aspect-[9/16]">
-                                                        <PreviewCard
-                                                            preset={p}
-                                                            videoSrc={videoSrc}
-                                                            isPlaying={isPlaying}
-                                                            videoRef={null}
-                                                            isMain={false}
-                                                            fitMode={fitMode}
-                                                            videoScale={videoScale}
-                                                            showCredit={showCredit}
-                                                            onToggle={togglePresetActive}
-                                                            fontScaleGlobal={fontScale}
-                                                            onPositionChange={handlePositionChange}
-                                                            onCreditPositionChange={handleCreditPositionChange}
-                                                            onWatermarkPositionChange={handleWatermarkPositionChange}
-                                                            onHeadlinePositionChange={handleHeadlinePositionChange}
-                                                            onVideoScaleChange={handleVideoScaleChange}
-                                                            isMuted={isMuted}
-                                                            wordSpacing={wordSpacing}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                    </div>
-                                </>
-                            )}
                         </div>
                     </div>
                 </div>
