@@ -207,11 +207,16 @@ app.get('/api/download/:jobId', async (req, res) => {
 
     archive.pipe(output);
 
-    // Add all existing video files to the zip
+    // Add all existing video files to the zip (re-check existence to avoid race condition)
     for (const videoPath of existingVideos) {
-      const fileName = videoPath.split(/[/\\]/).pop();
-      console.log(`Adding to zip: ${fileName} from ${videoPath}`);
-      archive.file(videoPath, { name: fileName });
+      try {
+        await fs.access(videoPath);
+        const fileName = videoPath.split(/[/\\]/).pop();
+        console.log(`Adding to zip: ${fileName} from ${videoPath}`);
+        archive.file(videoPath, { name: fileName });
+      } catch (e) {
+        console.warn(`Skipping missing file during zip: ${videoPath}`);
+      }
     }
 
     archive.finalize();
