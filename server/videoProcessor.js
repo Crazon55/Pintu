@@ -856,7 +856,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
         } else {
           ctx.font = `${useBold ? 'bold' : 'normal'} ${fontSize}px ${headlineFontFamily}`;
           // kwazyfounders: white bg; bold = highlight (black), regular = non-highlight (black)
-          ctx.fillStyle = (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF'))))));
+          ctx.fillStyle = (isBestIndianPodcast ? (t.bold ? '#FFD700' : '#FFFFFF') : (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF')))))));
           ctx.fillText(t.text, cx, headlineY + (i * lineHeight));
           const interW = ctx.measureText(t.text).width;
           cx += interW + adjSpacing * fontSize;
@@ -906,6 +906,9 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     // Word gap from client; minimum 0.12 so spacing never fails (slightly tighter default)
     layout.headlineAdjSpacing = Math.max(adjSpacing, 0.12);
   }
+  // Store headlineX/Y for tagline positioning (rich indian ceo)
+  layout.headlineX = 50 + (720 * (preset.headlinePosition?.x / 100 || 0));
+  layout.headlineY = (logoY + LOGO_BOX_H + logoToTextGap) + (1280 * (preset.headlinePosition?.y / 100 || 0));
   if (logoPathForOverlay) {
     console.log(`[generateOverlay] Logo overlay configured for "${name}": ${logoPathForOverlay}, position: ${(isTheRisingFounder || isTheRealFounder || isFoundersCracked) ? 'top-right' : 'top-left'}`);
   } else if (preset.logo && logoInsideVideo) {
@@ -1252,6 +1255,17 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
           filterChain.push(`[${inLabel}]drawtext=text='${textEsc}':fontfile=${fontFile}:fontsize=${headlineFontSize}:x=${drawX}:y=${seg.baselineY}:y_align=baseline:fontcolor=${fontcolor}[${outLabel}]`);
         }
         currentOutput = 'headlineOut';
+      }
+      // Tagline for rich indian ceo - "Premium side of Instagram for Founders" above hook, left aligned
+      if (presetNameLower === 'rich indian ceo') {
+        const taglineText = 'Premium side of Instagram for Founders';
+        const tagEsc = taglineText.replace(/'/g, "\\'");
+        const tagX = 24; // left padding matching px-6
+        const tagY = Math.max(10, Math.round(layout.headlineY - 70)); // above hook text with more gap
+        const tagInLabel = currentOutput;
+        const tagOutLabel = 'taglined';
+        filterChain.push(`[${tagInLabel}]drawtext=text='${tagEsc}':fontfile=assets/fonts/Inter_18pt-Bold.ttf:fontsize=20:fontcolor=white:x=${tagX}:y=${tagY}[${tagOutLabel}]`);
+        currentOutput = tagOutLabel;
       }
       // Orange border removed for Business Cracked
       filterChain.push(`[${currentOutput}]copy[out]`);
