@@ -716,6 +716,16 @@ const PreviewCard = memo(({
                 )}
 
 
+                {/* Tagline for rich indian ceo - just above hook text */}
+                {preset.name === 'rich indian ceo' && (
+                    <div className="w-full px-6 z-10 flex items-center gap-1" style={{ marginBottom: '35px' }}>
+                        <span style={{ fontSize: '11px', color: 'white', fontFamily: "'Inter', sans-serif", fontWeight: 600, letterSpacing: '0.02em' }}>
+                            Premium side of Instagram for Founders
+                        </span>
+                        <span style={{ fontSize: '11px', color: 'white' }}>▶</span>
+                    </div>
+                )}
+
                 {/* 2. HOOK TEXT */}
                 {preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer' && (
                     <div
@@ -779,6 +789,7 @@ const PreviewCard = memo(({
                                             if (preset.name === 'The Prime Ai Page') return segment.highlight ? '#FFCD1D' : 'white';
                                             if (preset.name === 'Dhandha India') return segment.highlight ? '#FB9C39' : 'white';
                                             if (preset.name === 'The Ai Gauntlet') return segment.highlight ? '#FFCD1D' : 'white';
+                                            if (presetNameLower === 'bestindianpodcast') return segment.highlight ? '#FFD700' : 'white';
                                             if (preset.name === 'peakofai' || isAicrackedOrEvolvingPreset) return 'white';
                                             if (['founderdaily', 'founderbusinesstips', 'foundersoncrack', 'kwazyfounders', 'startup madness'].includes(preset.name)) return 'black';
                                             if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return 'white';
