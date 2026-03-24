@@ -12,7 +12,7 @@ export default defineConfig({
     strictPort: false,
     open: false,
     // Allow access from your ngrok public URL
-    allowedHosts: ['senary-helen-subjunior.ngrok-free.dev', '.ngrok-free.dev', '.ngrok.app'],
+    allowedHosts: 'all',
     // Proxy API to backend so one ngrok tunnel works for both frontend and export
     proxy: {
       '/api': {

@@ -125,7 +125,7 @@ const getLogoUrl = (logo) => {
         return logo;
     }
     // If it's a filename, convert to server URL
-    return `http://localhost:3002/assets/logos/${logo}`;
+    return `${window.location.origin}/assets/logos/${logo}`;
 };
 
 // Helper to strip HTML tags for length calculations
