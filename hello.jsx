@@ -125,7 +125,12 @@ const getLogoUrl = (logo) => {
         return logo;
     }
     // If it's a filename, convert to server URL
-    return `${window.location.origin}/assets/logos/${logo}`;
+    // For EC2/remote access, logos are served from port 3002 (backend)
+    const host = window.location.hostname;
+    const base = (host === 'localhost' || host === '127.0.0.1' || window.location.origin.includes('ngrok'))
+        ? window.location.origin
+        : `http://${host}:3002`;
+    return `${base}/assets/logos/${logo}`;
 };
 
 // Helper to strip HTML tags for length calculations
@@ -1277,10 +1282,16 @@ export default function App() {
     }, [isPlaying]);
 
 
-    // Server API URL: in the browser always use the current page origin so that when users
-    // access via ngrok, the download happens in their device (not the host). Server-side use env or ''.
+    // Server API URL: use the same hostname but on port 3002 (backend).
+    // This works for localhost, EC2 public IP, and ngrok (via proxy).
+    // For ngrok, the Vite proxy handles /api → localhost:3002.
+    // For direct EC2 access, we talk to port 3002 directly (CORS enabled).
     const SERVER_URL = typeof window !== 'undefined'
-        ? window.location.origin
+        ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? window.location.origin  // localhost: use Vite proxy
+            : window.location.origin.includes('ngrok')
+                ? window.location.origin  // ngrok: use Vite proxy
+                : `http://${window.location.hostname}:3002`)  // EC2/remote: talk to backend directly
         : ((import.meta.env.VITE_SERVER_URL && import.meta.env.VITE_SERVER_URL.trim()) || '');
 
     // --- SERVER-SIDE EXPORT LOGIC ---

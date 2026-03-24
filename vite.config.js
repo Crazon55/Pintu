@@ -17,6 +17,12 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:3002',
+        changeOrigin: true,
+        timeout: 600000,  // 10 min for video export
+        proxyTimeout: 600000
+      },
+      '/assets': {
+        target: 'http://localhost:3002',
         changeOrigin: true
       }
     }
