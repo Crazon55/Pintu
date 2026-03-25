@@ -328,9 +328,9 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const isTightGapPreset = name === 'startupcoded' || name === 'Dhandha India' || name === 'kwazyfounders';
   // Same gap logic as 101xfounders for theprimefounder, aicracked, theevolvinggpt (headline on canvas = gap baked in)
   const textToVideoGapBase = (shouldUseGap || !(isAllBoldWhite || isHookCentered)) ? GAP : 0;
-  const textToVideoGap = isTightGapPreset ? Math.round(textToVideoGapBase * 0.4) : textToVideoGapBase;
+  const textToVideoGap = isFoundersIndia ? 0 : (isTightGapPreset ? Math.round(textToVideoGapBase * 0.4) : textToVideoGapBase);
   // For these three presets, use standard GAP like Life Wealth Lessons
-  const logoToTextGap = shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : GAP));
+  const logoToTextGap = shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : (isFoundersIndia ? (GAP + 20) : GAP)));
   const logoToVideoGap_NoHook = (isBestFounderClips || isBestBusinessClips || isAdsByMarketer) ? (GAP * 2) : (isStartupMadness ? (GAP * 3) : GAP);
 
   const totalStackH = (LOGO_BOX_H) + (hasHeadline ? (logoToTextGap + textH + textToVideoGap) : logoToVideoGap_NoHook) + targetH + GAP + 30;
@@ -864,7 +864,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
         } else {
           ctx.font = `${useBold ? 'bold' : 'normal'} ${fontSize}px ${headlineFontFamily}`;
           // kwazyfounders: white bg; bold = highlight (black), regular = non-highlight (black)
-          ctx.fillStyle = (isBestIndianPodcast ? (t.bold ? '#FFD700' : '#FFFFFF') : (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF')))))));
+          ctx.fillStyle = (isBestIndianPodcast ? (t.bold ? '#fde601' : '#FFFFFF') : (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF')))))));
           ctx.fillText(t.text, cx, headlineY + (i * lineHeight));
           const interW = ctx.measureText(t.text).width;
           cx += interW + adjSpacing * fontSize;
