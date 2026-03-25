@@ -798,7 +798,7 @@ const PreviewCard = memo(({
                                             if (preset.name === 'The Prime Ai Page') return segment.highlight ? '#FFCD1D' : 'white';
                                             if (preset.name === 'Dhandha India') return segment.highlight ? '#FB9C39' : 'white';
                                             if (preset.name === 'The Ai Gauntlet') return segment.highlight ? '#FFCD1D' : 'white';
-                                            if (presetNameLower === 'bestindianpodcast') return segment.highlight ? '#FFD700' : 'white';
+                                            if (presetNameLower === 'bestindianpodcast') return segment.highlight ? '#fde601' : 'white';
                                             if (preset.name === 'peakofai' || isAicrackedOrEvolvingPreset) return 'white';
                                             if (['founderdaily', 'founderbusinesstips', 'foundersoncrack', 'kwazyfounders', 'startup madness'].includes(preset.name)) return 'black';
                                             if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return 'white';
