@@ -789,7 +789,9 @@ const PreviewCard = memo(({
                                         color: (() => {
                                             if (preset.name === 'theprimefounder') return segment.highlight ? '#1DB077' : 'white';
                                             if (preset.name === 'foundrsonig') return segment.highlight ? '#ECECDC' : 'white';
-                                            if (preset.name === 'indiasbestfounders' || preset.name === 'elitefoundrs' || preset.name === 'intelligence by ai') return segment.highlight ? '#ECECDC' : 'white';
+                                            if (preset.name === 'indiasbestfounders' || preset.name === 'intelligence by ai') return segment.highlight ? '#ECECDC' : 'white';
+                                            if (preset.name === 'elitefoundrs') return segment.highlight ? '#5887FF' : 'white';
+                                            if (preset.name === 'indianfoundr') return segment.highlight ? '#8BACD0' : 'white';
                                             if (preset.name === 'the ai phaze') return segment.highlight ? '#95C5D1' : 'white';
                                             if (preset.name === 'That AI page') return segment.highlight ? '#6523FF' : 'white';
                                             if (preset.name === 'Revolution in tech') return segment.highlight ? '#FDB05E' : 'white';
