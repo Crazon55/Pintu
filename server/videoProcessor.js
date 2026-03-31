@@ -942,7 +942,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
               if (part.type === 'emoji') {
                 const emojiImg = emojiCache[emojiCodepoint(part.value)];
                 const emojiSize = fontSize * 0.85;
-                if (emojiImg) ctx.drawImage(emojiImg, cx, headlineY + (i * lineHeight), emojiSize, emojiSize);
+                if (emojiImg) ctx.drawImage(emojiImg, cx, headlineY + (i * lineHeight) + fontSize * 0.15, emojiSize, emojiSize);
                 cx += emojiSize;
               } else {
                 const partW = measurePoppins(part.value, fontSize, useBold);
@@ -965,7 +965,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                 const emojiImg = emojiCache[emojiCodepoint(part.value)];
                 const emojiSize = fontSize * 0.85;
                 if (emojiImg) {
-                  ctx.drawImage(emojiImg, cx, headlineY + (i * lineHeight), emojiSize, emojiSize);
+                  ctx.drawImage(emojiImg, cx, headlineY + (i * lineHeight) + fontSize * 0.15, emojiSize, emojiSize);
                 }
                 cx += emojiSize;
               } else {
