@@ -840,8 +840,10 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                   ? '#FFFFFF'
                   : (isFoundrsonig
                     ? (t.bold ? '#ECECDC' : '#FFFFFF')
-                    : (isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi
+                    : (isIndiasBestFounders || isIntelligenceByAi
                       ? (t.bold ? '#ECECDC' : '#FFFFFF')
+                      : (isElitefoundrs
+                        ? (t.bold ? '#5887FF' : '#FFFFFF')
                       : (isTheAiPhaze
                         ? (t.bold ? '#95C5D1' : '#FFFFFF')
                         : (isThatAiPage
@@ -854,9 +856,11 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                                 ? '#FFFFFF'
                                 : (isRiseWithContent
                                   ? (t.bold ? '#E53935' : '#FFFFFF')
-                                  : ((isPeakOfAI || isAICracked || isTheEvolvingGPT || isIndianFoundr || isNewOrderAI || isStartupsoncrack || isRealIndiaBusiness)
-                                    ? '#FFFFFF'
-                                    : (t.bold ? '#1DB077' : '#FFFFFF')))))))))));
+                                  : (isIndianFoundr
+                                    ? (t.bold ? '#8BACD0' : '#FFFFFF')
+                                    : ((isPeakOfAI || isAICracked || isTheEvolvingGPT || isNewOrderAI || isStartupsoncrack || isRealIndiaBusiness)
+                                      ? '#FFFFFF'
+                                      : (t.bold ? '#1DB077' : '#FFFFFF')))))))))))));
           if (!headlineDrawtextSegments) headlineDrawtextSegments = [];
           const measuredW = measurePoppins(t.text, fontSize, useBold);
           headlineDrawtextSegments.push({ text: t.text, x: Math.round(cx), baselineY, bold: useBold, color: segmentColor, width: measuredW });
@@ -1010,44 +1014,21 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
     const posX = preset.position?.x ?? 50;
     const posY = preset.position?.y ?? 50;
 
-    let vFilter;
-    if (fitMode === 'cover') {
-      const targetAspect = sw / sh;
-      const originalAspect = originalWidth / originalHeight;
-      let scaledWidth, scaledHeight;
-      if (originalAspect > targetAspect) {
-        scaledHeight = sh;
-        scaledWidth = Math.round(sh * originalAspect / 2) * 2;
-      } else {
-        scaledWidth = sw;
-        scaledHeight = Math.round(sw / originalAspect / 2) * 2;
-      }
-      const centerX = (scaledWidth - sw) / 2;
-      const centerY = (scaledHeight - sh) / 2;
-      const offsetX = (scaledWidth - sw) * ((posX - 50) / 50);
-      const offsetY = (scaledHeight - sh) * ((posY - 50) / 50);
-      const cropX = Math.max(0, Math.min(scaledWidth - sw, centerX + offsetX));
-      const cropY = Math.max(0, Math.min(scaledHeight - sh, centerY + offsetY));
-      vFilter = `scale=${scaledWidth}:${scaledHeight}:force_original_aspect_ratio=increase,crop=${sw}:${sh}:${Math.round(cropX)}:${Math.round(cropY)}`;
+    // Cover mode: scale up to cover the frame, then crop using posX/posY (0-100).
+    // Formula matches CSS object-position: cropOffset = overflow * pos / 100
+    const targetAspect = sw / sh;
+    const originalAspect = originalWidth / originalHeight;
+    let scaledWidth, scaledHeight;
+    if (originalAspect > targetAspect) {
+      scaledHeight = sh;
+      scaledWidth = Math.round(sh * originalAspect / 2) * 2;
     } else {
-      const targetAspect = sw / sh;
-      const originalAspect = originalWidth / originalHeight;
-      let scaledWidth, scaledHeight;
-      if (originalAspect > targetAspect) {
-        scaledHeight = sh;
-        scaledWidth = Math.round(sh * originalAspect / 2) * 2;
-      } else {
-        scaledWidth = sw;
-        scaledHeight = Math.round(sw / originalAspect / 2) * 2;
-      }
-      const centerX = (scaledWidth - sw) / 2;
-      const centerY = (scaledHeight - sh) / 2;
-      const offsetX = (scaledWidth - sw) * ((posX - 50) / 50);
-      const offsetY = (scaledHeight - sh) * ((posY - 50) / 50);
-      const cropX = Math.max(0, Math.min(scaledWidth - sw, centerX + offsetX));
-      const cropY = Math.max(0, Math.min(scaledHeight - sh, centerY + offsetY));
-      vFilter = `scale=${scaledWidth}:${scaledHeight}:force_original_aspect_ratio=increase,crop=${sw}:${sh}:${Math.round(cropX)}:${Math.round(cropY)}`;
+      scaledWidth = sw;
+      scaledHeight = Math.round(sw / originalAspect / 2) * 2;
     }
+    const cropX = Math.max(0, Math.min(scaledWidth - sw, Math.round((scaledWidth - sw) * posX / 100)));
+    const cropY = Math.max(0, Math.min(scaledHeight - sh, Math.round((scaledHeight - sh) * posY / 100)));
+    const vFilter = `scale=${scaledWidth}:${scaledHeight}:force_original_aspect_ratio=increase,crop=${sw}:${sh}:${cropX}:${cropY}`;
 
     // Check if preset has rounded corners
     const borderRadius = preset.rules?.videoBorderRadius || 0;
@@ -1190,7 +1171,9 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
                         : seg.color === '#95C5D1' ? '0x95C5D1'
                           : seg.color === '#6523FF' ? '0x6523FF'
                             : seg.color === '#FDB05E' ? '0xFDB05E'
-                              : 'white';
+                              : seg.color === '#5887FF' ? '0x5887FF'
+                                : seg.color === '#8BACD0' ? '0x8BACD0'
+                                  : 'white';
           // Escape headline text for FFmpeg drawtext:
           // - '\'  -> '\\'
           // - ':'  -> '\:'
@@ -1249,7 +1232,9 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
                         : seg.color === '#95C5D1' ? '0x95C5D1'
                           : seg.color === '#6523FF' ? '0x6523FF'
                             : seg.color === '#FDB05E' ? '0xFDB05E'
-                              : 'white';
+                              : seg.color === '#5887FF' ? '0x5887FF'
+                                : seg.color === '#8BACD0' ? '0x8BACD0'
+                                  : 'white';
           // Escape headline text for FFmpeg drawtext:
           // - '\'  -> '\\'
           // - ':'  -> '\:'
