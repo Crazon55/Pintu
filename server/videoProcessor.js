@@ -123,9 +123,6 @@ function measurePoppins(text, size, bold) {
 
 const stripHTML = (html) => (html ? html.replace(/<[^>]*>/g, '') : '');
 
-// Strip emoji characters from text (emojis don't render in FFmpeg drawtext / server-side canvas fonts)
-const stripEmoji = (text) => text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').replace(/\s+/g, ' ').trim();
-
 // Clean HTML entities, normalize <br> to newline (so it never shows as literal text), and normalize spaces
 const cleanHTML = (html) => {
   if (!html) return '';
@@ -295,8 +292,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
       : (isBestFounderClips ? 120 : (isBestBusinessClips ? 450 : (isAdsByMarketer ? 360 : (isStartupMadness ? 100 : 80))));
 
   // Use preset headline when set (Per Brand edits, including bold) so export matches preview; else fall back to global
-  // Strip emojis since server-side fonts (Inter/Poppins) and FFmpeg drawtext cannot render them
-  const rawHeadline = stripEmoji((preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || ''));
+  const rawHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
   const fontSize = (stripHTML(rawHeadline).length < 25 ? 50 : (stripHTML(rawHeadline).length < 50 ? 40 : 32)) * (fontScale || 1);
   const lineHeight = fontSize * (preset.lineSpacing || 1.25);
   const adjSpacing = isAllBoldWhite ? 0.2 : wordSpacingMultiplier;
