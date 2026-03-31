@@ -123,6 +123,78 @@ function measurePoppins(text, size, bold) {
 
 const stripHTML = (html) => (html ? html.replace(/<[^>]*>/g, '') : '');
 
+// --- EMOJI SUPPORT (Twemoji images for color emoji in export) ---
+const EMOJI_RE = /(\p{Emoji_Presentation}|\p{Extended_Pictographic})[\uFE0F\u200D\p{Emoji_Presentation}\p{Extended_Pictographic}]*/gu;
+
+function splitEmojiText(text) {
+  const parts = [];
+  let last = 0;
+  let m;
+  EMOJI_RE.lastIndex = 0;
+  while ((m = EMOJI_RE.exec(text)) !== null) {
+    if (m.index > last) parts.push({ type: 'text', value: text.slice(last, m.index) });
+    parts.push({ type: 'emoji', value: m[0] });
+    last = EMOJI_RE.lastIndex;
+  }
+  if (last < text.length) parts.push({ type: 'text', value: text.slice(last) });
+  return parts;
+}
+
+function textHasEmoji(text) { EMOJI_RE.lastIndex = 0; return EMOJI_RE.test(text); }
+
+function emojiCodepoint(emoji) {
+  return [...emoji].map(c => c.codePointAt(0).toString(16)).filter(h => h !== 'fe0f').join('-');
+}
+
+const emojiCache = {};
+async function loadTwemoji(emoji) {
+  const cp = emojiCodepoint(emoji);
+  if (cp in emojiCache) return emojiCache[cp];
+  const cacheDir = join(__dirname, 'assets', 'emoji-cache');
+  const cachePath = join(cacheDir, `${cp}.png`);
+  try {
+    if (existsSync(cachePath)) { const img = await loadImage(cachePath); emojiCache[cp] = img; return img; }
+    await fs.mkdir(cacheDir, { recursive: true });
+    const res = await fetch(`https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${cp}.png`);
+    if (!res.ok) { emojiCache[cp] = null; return null; }
+    const buf = Buffer.from(await res.arrayBuffer());
+    await fs.writeFile(cachePath, buf);
+    const img = await loadImage(buf);
+    emojiCache[cp] = img;
+    return img;
+  } catch (e) { console.warn(`Emoji load failed (${cp}):`, e.message); emojiCache[cp] = null; return null; }
+}
+
+// Measure token width, using emoji image size for emoji parts
+function measureTokenWidth(ctx, text, fontSize, bold, fontFamily) {
+  if (!textHasEmoji(text)) {
+    ctx.font = `${bold ? 'bold' : 'normal'} ${fontSize}px ${fontFamily}`;
+    return ctx.measureText(text).width;
+  }
+  let w = 0;
+  for (const p of splitEmojiText(text)) {
+    if (p.type === 'emoji') { w += fontSize * 0.85; }
+    else { ctx.font = `${bold ? 'bold' : 'normal'} ${fontSize}px ${fontFamily}`; w += ctx.measureText(p.value).width; }
+  }
+  return w;
+}
+
+// Pre-load all emoji images found in rich lines
+async function preloadEmojis(richLines) {
+  const promises = [];
+  const seen = new Set();
+  for (const line of richLines) {
+    for (const t of line.tokens) {
+      if (textHasEmoji(t.text)) {
+        for (const p of splitEmojiText(t.text)) {
+          if (p.type === 'emoji' && !seen.has(p.value)) { seen.add(p.value); promises.push(loadTwemoji(p.value)); }
+        }
+      }
+    }
+  }
+  await Promise.all(promises);
+}
+
 // Clean HTML entities, normalize <br> to newline (so it never shows as literal text), and normalize spaces
 const cleanHTML = (html) => {
   if (!html) return '';
@@ -795,7 +867,9 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     const centerBlockWidth = (isCenterBlockPreset && richLines.length > 0)
       ? Math.max(...richLines.map(l => l.width || 0))
       : 0;
-    richLines.forEach((line, i) => {
+    await preloadEmojis(richLines);
+    for (let i = 0; i < richLines.length; i++) {
+      const line = richLines[i];
       let cx;
       if (preset.alignment === 'center') {
         const widthForCenter = (isCenterBlockPreset && centerBlockWidth) ? centerBlockWidth : line.width;
@@ -808,7 +882,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
       cx += (720 * (preset.headlinePosition?.x / 100 || 0));
       const lineY = Math.round(headlineY + (i * lineHeight));
       const baselineY = lineY + Math.round(fontSize * 0.82);
-      line.tokens.forEach(t => {
+      for (const t of line.tokens) {
         const allRegularFont =
           preset.rules?.textFontWeight === 400 ||
           name === 'indian hustle advice' ||
@@ -862,19 +936,55 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                                       ? '#FFFFFF'
                                       : (t.bold ? '#1DB077' : '#FFFFFF')))))))))))));
           if (!headlineDrawtextSegments) headlineDrawtextSegments = [];
-          const measuredW = measurePoppins(t.text, fontSize, useBold);
-          headlineDrawtextSegments.push({ text: t.text, x: Math.round(cx), baselineY, bold: useBold, color: segmentColor, width: measuredW });
-          cx += measuredW + adjSpacing * fontSize;
+          // For Poppins/FFmpeg drawtext: emojis can't render via fontfile, so draw them on canvas and skip in drawtext
+          if (textHasEmoji(t.text)) {
+            for (const part of splitEmojiText(t.text)) {
+              if (part.type === 'emoji') {
+                const emojiImg = emojiCache[emojiCodepoint(part.value)];
+                const emojiSize = fontSize * 0.85;
+                if (emojiImg) ctx.drawImage(emojiImg, cx, headlineY + (i * lineHeight), emojiSize, emojiSize);
+                cx += emojiSize;
+              } else {
+                const partW = measurePoppins(part.value, fontSize, useBold);
+                headlineDrawtextSegments.push({ text: part.value, x: Math.round(cx), baselineY, bold: useBold, color: segmentColor, width: partW });
+                cx += partW;
+              }
+            }
+            cx += adjSpacing * fontSize;
+          } else {
+            const measuredW = measurePoppins(t.text, fontSize, useBold);
+            headlineDrawtextSegments.push({ text: t.text, x: Math.round(cx), baselineY, bold: useBold, color: segmentColor, width: measuredW });
+            cx += measuredW + adjSpacing * fontSize;
+          }
         } else {
-          ctx.font = `${useBold ? 'bold' : 'normal'} ${fontSize}px ${headlineFontFamily}`;
-          // kwazyfounders: white bg; bold = highlight (black), regular = non-highlight (black)
-          ctx.fillStyle = (isBestIndianPodcast ? (t.bold ? '#fde601' : '#FFFFFF') : (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF')))))));
-          ctx.fillText(t.text, cx, headlineY + (i * lineHeight));
-          const interW = ctx.measureText(t.text).width;
-          cx += interW + adjSpacing * fontSize;
+          const fillColor = (isBestIndianPodcast ? (t.bold ? '#fde601' : '#FFFFFF') : (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF')))))));
+          // Render token, drawing emojis as Twemoji images for color support
+          if (textHasEmoji(t.text)) {
+            for (const part of splitEmojiText(t.text)) {
+              if (part.type === 'emoji') {
+                const emojiImg = emojiCache[emojiCodepoint(part.value)];
+                const emojiSize = fontSize * 0.85;
+                if (emojiImg) {
+                  ctx.drawImage(emojiImg, cx, headlineY + (i * lineHeight), emojiSize, emojiSize);
+                }
+                cx += emojiSize;
+              } else {
+                ctx.font = `${useBold ? 'bold' : 'normal'} ${fontSize}px ${headlineFontFamily}`;
+                ctx.fillStyle = fillColor;
+                ctx.fillText(part.value, cx, headlineY + (i * lineHeight));
+                cx += ctx.measureText(part.value).width;
+              }
+            }
+            cx += adjSpacing * fontSize;
+          } else {
+            ctx.font = `${useBold ? 'bold' : 'normal'} ${fontSize}px ${headlineFontFamily}`;
+            ctx.fillStyle = fillColor;
+            ctx.fillText(t.text, cx, headlineY + (i * lineHeight));
+            cx += ctx.measureText(t.text).width + adjSpacing * fontSize;
+          }
         }
-      });
-    });
+      }
+    }
   }
 
   // --- 6. WATERMARK (Will be added in FFmpeg on top of video) ---
@@ -958,7 +1068,7 @@ function calculateRichLines(ctx, html, maxW, size, spacing, forceBold, fontFamil
       // Inter/others: use canvas measureText as usual.
       const w = usePoppinsFamilies
         ? measurePoppins(t.text, size, isBoldWord)
-        : (ctx.font = `${isBoldWord ? 'bold' : 'normal'} ${size}px ${fontFamily}`, ctx.measureText(t.text).width);
+        : measureTokenWidth(ctx, t.text, size, isBoldWord, fontFamily);
       const advance = w + spacing * size;
       if (cur.width + advance > maxW && cur.tokens.length > 0) { lines.push(cur); cur = { tokens: [], width: 0 }; }
       cur.tokens.push(t); cur.width += advance;
