@@ -361,7 +361,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const LOGO_BOX_H =
     (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isRiseWithContent)
       ? 0
-      : (isBestFounderClips ? 120 : (isBestBusinessClips ? 450 : (isAdsByMarketer ? 360 : (isStartupMadness ? 100 : 80))));
+      : (isBestFounderClips ? 120 : (isBestBusinessClips ? 450 : (isAdsByMarketer ? 360 : (isStartupMadness ? 100 : (isDailyTechIndia ? 120 : 80)))));
 
   // Use preset headline when set (Per Brand edits, including bold) so export matches preview; else fall back to global
   const rawHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
@@ -402,7 +402,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const textToVideoGapBase = (shouldUseGap || !(isAllBoldWhite || isHookCentered)) ? GAP : 0;
   const textToVideoGap = isFoundersIndia ? 0 : (isTightGapPreset ? Math.round(textToVideoGapBase * 0.4) : textToVideoGapBase);
   // For these three presets, use standard GAP like Life Wealth Lessons
-  const logoToTextGap = (name === 'Daily Tech India') ? (GAP + 30) : (shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : (isFoundersIndia ? (GAP + 20) : GAP))));
+  const logoToTextGap = shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : (isFoundersIndia ? (GAP + 20) : GAP)));
   const logoToVideoGap_NoHook = (isBestFounderClips || isBestBusinessClips || isAdsByMarketer) ? (GAP * 2) : (isStartupMadness ? (GAP * 3) : GAP);
 
   const totalStackH = (LOGO_BOX_H) + (hasHeadline ? (logoToTextGap + textH + textToVideoGap) : logoToVideoGap_NoHook) + targetH + GAP + 30;
