@@ -818,7 +818,7 @@ const PreviewCard = memo(({
                                             if (preset.name === 'founders cracked') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'ceo hustle advice') return segment.highlight ? 700 : 400;
                                             if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return segment.highlight ? 800 : 400;
-                                            if (['Founders God', 'CEO Mindset India', 'Real India Business', 'startupcoded', 'founders-in-india'].includes(preset.name)) return 800;
+                                            if (['Founders God', 'CEO Mindset India', 'Real India Business', 'startupcoded', 'founders-in-india', 'bizzindia'].includes(preset.name)) return 800;
                                             if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return segment.highlight ? 800 : 400;
                                             return segment.highlight ? 800 : 400;
                                         })(),
