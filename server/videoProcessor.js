@@ -898,7 +898,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                 ? t.bold
                 : ((isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isStartupsoncrack || isRiseWithContent || isIndiasBestFounders || isElitefoundrs)
                   ? t.bold
-                  : ((isStartupMadness || name === 'startupcoded' || name === 'founders-in-india' || isRealIndiaBusiness)
+                  : ((isStartupMadness || name === 'startupcoded' || name === 'founders-in-india' || isRealIndiaBusiness || name === 'bizzindia')
                     ? true
                     : (allRegularFont || !t.bold ? false : true)));
         if (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isFoundersIndia || isTechnologyInIndia || isDailyTechIndia || isThePrimeAiPage || isDhandhaIndia || isTheAiGauntlet || isPureCodeAi || isNobelAiPage || isRiseWithContent || isIndiasBestFounders || isElitefoundrs || isRealIndiaBusiness) {
