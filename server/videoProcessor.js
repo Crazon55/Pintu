@@ -1224,7 +1224,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       // The x coordinate is the center point where text will be centered
       // For most presets watermark uses Inter Thin; for bizzindia and 101xfounders
       // it should be bold like the preview.
-      const escapedText = layout.watermark.text.replace(/'/g, "\\'").replace(/\\/g, "\\\\");
+      const escapedText = layout.watermark.text.replace(/\\/g, "\\\\").replace(/%/g, '%%').replace(/'/g, "\\'");
       let fontFileParam = '';
       // Choose bold fontfile only for these two watermark presets
       const isBoldWatermarkPreset = presetName === 'bizzindia' || presetName === '101xfounders';
@@ -1290,6 +1290,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
           // - '''  -> '\''
           const textEsc = seg.text
             .replace(/\\/g, '\\\\')
+            .replace(/%/g, '%%')
             .replace(/:/g, '\\:')
             .replace(/'/g, "\\'");
           const inLabel = i === 0 ? currentOutput : `ht${i}`;
@@ -1351,6 +1352,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
           // - '''  -> '\''
           const textEsc = seg.text
             .replace(/\\/g, '\\\\')
+            .replace(/%/g, '%%')
             .replace(/:/g, '\\:')
             .replace(/'/g, "\\'");
           const inLabel = i === 0 ? currentOutput : `ht${i}`;
