@@ -1236,7 +1236,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       // The x coordinate is the center point where text will be centered
       // For most presets watermark uses Inter Thin; for bizzindia and 101xfounders
       // it should be bold like the preview.
-      const escapedText = layout.watermark.text.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+      const escapedText = layout.watermark.text.replace(/\\/g, "\\\\").replace(/'/g, '\u2019');
       let fontFileParam = '';
       // Choose bold fontfile only for these two watermark presets
       const isBoldWatermarkPreset = presetName === 'bizzindia' || presetName === '101xfounders';
@@ -1303,7 +1303,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
           const textEsc = seg.text
             .replace(/\\/g, '\\\\')
             .replace(/:/g, '\\:')
-            .replace(/'/g, "\\'");
+            .replace(/'/g, '\u2019');
           const inLabel = i === 0 ? currentOutput : `ht${i}`;
           const outLabel = i === segs.length - 1 ? 'headlineOut' : `ht${i + 1}`;
           filterChain.push(`[${inLabel}]drawtext=text='${textEsc}':expansion=none:fontfile=${fontFile}:fontsize=${headlineFontSize}:x=${drawX}:y=${seg.baselineY}:y_align=baseline:fontcolor=${fontcolor}[${outLabel}]`);
@@ -1364,7 +1364,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
           const textEsc = seg.text
             .replace(/\\/g, '\\\\')
             .replace(/:/g, '\\:')
-            .replace(/'/g, "\\'");
+            .replace(/'/g, '\u2019');
           const inLabel = i === 0 ? currentOutput : `ht${i}`;
           const outLabel = i === segs.length - 1 ? 'headlineOut' : `ht${i + 1}`;
           filterChain.push(`[${inLabel}]drawtext=text='${textEsc}':expansion=none:fontfile=${fontFile}:fontsize=${headlineFontSize}:x=${drawX}:y=${seg.baselineY}:y_align=baseline:fontcolor=${fontcolor}[${outLabel}]`);
@@ -1374,7 +1374,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       // Tagline for rich indian ceo - "Premium side of Instagram for Founders" above hook, left aligned
       if (presetNameLower === 'rich indian ceo') {
         const taglineText = 'Premium side of Instagram for Founders';
-        const tagEsc = taglineText.replace(/'/g, "\\'");
+        const tagEsc = taglineText.replace(/'/g, '\u2019');
         const tagX = 24; // left padding matching px-6
         const tagY = Math.max(10, Math.round(layout.headlineY - 70)); // above hook text with more gap
         const tagInLabel = currentOutput;
