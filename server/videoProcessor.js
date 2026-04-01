@@ -456,6 +456,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     'indianaipage',
     'indiantechdaily',
     '101xtechnology',
+    'startupbydog',
     'Pure Code AI',
     'Nobel AI Page',
     'therisingai',
@@ -480,7 +481,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     'founders-in-india-tweet',
     'indian-founders-co-tweet'
   ];
-  const hasLogoGroup = logoGroupPresets.includes(name) || name === 'Business Cracked' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet';
+  const hasLogoGroup = logoGroupPresets.includes(name) || name === 'Business Cracked' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'startupbydog' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet';
 
   let logoPathForOverlay = null;
 
@@ -523,6 +524,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
         'indianaipage': 'indianaipage.png',
         'indiantechdaily': 'indiantechdaily.png',
         '101xtechnology': '101xtechnology.png',
+        'startupbydog': 'startupbydog.png',
         'Pure Code AI': 'Pure-Code-AI.png',
         'Nobel AI Page': 'Nobel-AI-Page.png',
         'therisingai': 'therisingai.png',
@@ -558,6 +560,9 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
       }
       if (nameLower === '101xtechnology') {
         possibleNames.push('101xtechnology.png');
+      }
+      if (nameLower === 'startupbydog') {
+        possibleNames.push('startupbydog.png');
       }
       if (nameLower === 'pure code ai') {
         possibleNames.push('Pure-Code-AI.png');
@@ -666,7 +671,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
             else if (name === 'The Founders Show') logoScale = 1.6;
             else if (name === 'Founders God') logoScale = 1.6;
             else if (nameLower === 'indianaipage') logoScale = 1.35;
-            else if (nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet' || nameLower === '101xfounders-tweet' || nameLower === 'bizzindia-tweet' || nameLower === 'founders-in-india-tweet' || nameLower === 'indian-founders-co-tweet') logoScale = 1.2;
+            else if (nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'startupbydog' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet' || nameLower === '101xfounders-tweet' || nameLower === 'bizzindia-tweet' || nameLower === 'founders-in-india-tweet' || nameLower === 'indian-founders-co-tweet') logoScale = 1.2;
             else if (name === 'CEO Mindset India' || name === 'Entrepreneurial India' || name === 'Finding Good AI' || name === 'Finding Good Tech') logoScale = 1.6;
             else if (name === 'Smart Business.in' || name === 'Founders wtf' || name === 'mktg-wtf' || name === 'Business wtf' || name === 'Startups wtf') logoScale = 1.6;
 
@@ -675,7 +680,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
             const offset = (scaledSize - logoSize) / 2;
             // Calculate finalLogoY so that logo top (after offset) aligns with logoTop
             // Move logo higher for specific presets
-            const logoTopAdjustment = (nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet' || nameLower === '101xfounders-tweet' || nameLower === 'bizzindia-tweet' || nameLower === 'founders-in-india-tweet' || nameLower === 'indian-founders-co-tweet') ? -10 : ((name === 'Billionaires of Bharat' || name === 'CEO Mindset India' || name === 'Entrepreneurial India' || name === 'Finding Good AI' || name === 'Finding Good Tech' || name === 'Smart Business.in' || name === 'Founders wtf' || name === 'mktg-wtf' || name === 'Business wtf' || name === 'Startups wtf' || name === 'Founders God' || name === 'The Founders Show' || name === 'startupcoded' || name === 'founders-in-india' || name === 'Business Cracked' || name === 'wealth lessons india') ? -25 : 0);
+            const logoTopAdjustment = (nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'startupbydog' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet' || nameLower === '101xfounders-tweet' || nameLower === 'bizzindia-tweet' || nameLower === 'founders-in-india-tweet' || nameLower === 'indian-founders-co-tweet') ? -10 : ((name === 'Billionaires of Bharat' || name === 'CEO Mindset India' || name === 'Entrepreneurial India' || name === 'Finding Good AI' || name === 'Finding Good Tech' || name === 'Smart Business.in' || name === 'Founders wtf' || name === 'mktg-wtf' || name === 'Business wtf' || name === 'Startups wtf' || name === 'Founders God' || name === 'The Founders Show' || name === 'startupcoded' || name === 'founders-in-india' || name === 'Business Cracked' || name === 'wealth lessons india') ? -25 : 0);
             const finalLogoY = logoTop + offset + logoTopAdjustment;
             const centerX = logoX + logoSize / 2;
             const centerY = finalLogoY + logoSize / 2;
@@ -709,7 +714,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
               ctx.drawImage(img, actualLogoX - offset, finalLogoY - offset, scaledSize, scaledSize);
               ctx.restore();
               // Finding Good AI / Finding Good Tech / startupsinthelast24hrs: white thin border around logo
-              if (name === 'Finding Good AI' || name === 'Finding Good Tech' || name === 'wealth lessons india' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet' || nameLower === '101xfounders-tweet' || nameLower === 'bizzindia-tweet' || nameLower === 'founders-in-india-tweet' || nameLower === 'indian-founders-co-tweet') {
+              if (name === 'Finding Good AI' || name === 'Finding Good Tech' || name === 'wealth lessons india' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'startupbydog' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet' || nameLower === '101xfounders-tweet' || nameLower === 'bizzindia-tweet' || nameLower === 'founders-in-india-tweet' || nameLower === 'indian-founders-co-tweet') {
                 ctx.strokeStyle = 'rgba(255,255,255,0.7)';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
@@ -802,7 +807,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
         let logoX = 50 + videoPadding;
         const logoSize = 70;
         const offset = 21;
-        const logoTopAdjustment = (nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet' || nameLower === '101xfounders-tweet' || nameLower === 'bizzindia-tweet' || nameLower === 'founders-in-india-tweet' || nameLower === 'indian-founders-co-tweet') ? -10 : ((name === 'Billionaires of Bharat' || name === 'CEO Mindset India' || name === 'Entrepreneurial India' || name === 'Finding Good AI' || name === 'Finding Good Tech' || name === 'Smart Business.in' || name === 'Founders wtf' || name === 'mktg-wtf' || name === 'Business wtf' || name === 'Startups wtf' || name === 'Founders God' || name === 'The Founders Show' || name === 'startupcoded' || name === 'founders-in-india') ? -25 : 0);
+        const logoTopAdjustment = (nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'startupbydog' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet' || nameLower === '101xfounders-tweet' || nameLower === 'bizzindia-tweet' || nameLower === 'founders-in-india-tweet' || nameLower === 'indian-founders-co-tweet') ? -10 : ((name === 'Billionaires of Bharat' || name === 'CEO Mindset India' || name === 'Entrepreneurial India' || name === 'Finding Good AI' || name === 'Finding Good Tech' || name === 'Smart Business.in' || name === 'Founders wtf' || name === 'mktg-wtf' || name === 'Business wtf' || name === 'Startups wtf' || name === 'Founders God' || name === 'The Founders Show' || name === 'startupcoded' || name === 'founders-in-india') ? -25 : 0);
         const finalLogoY = logoTop + offset + logoTopAdjustment;
         const centerX = logoX + logoSize / 2;
         const centerY = finalLogoY + logoSize / 2;
@@ -818,7 +823,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
         ctx.beginPath();
         ctx.arc(actualLogoX + logoSize / 2, finalLogoY + logoSize / 2, radius, 0, Math.PI * 2);
         ctx.fill();
-        if (name === 'Finding Good AI' || name === 'Finding Good Tech' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet' || nameLower === '101xfounders-tweet' || nameLower === 'bizzindia-tweet' || nameLower === 'founders-in-india-tweet' || nameLower === 'indian-founders-co-tweet') {
+        if (name === 'Finding Good AI' || name === 'Finding Good Tech' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'startupbydog' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet' || nameLower === '101xfounders-tweet' || nameLower === 'bizzindia-tweet' || nameLower === 'founders-in-india-tweet' || nameLower === 'indian-founders-co-tweet') {
           ctx.strokeStyle = 'rgba(255,255,255,0.7)';
           ctx.lineWidth = 1;
           ctx.beginPath();
@@ -888,7 +893,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
           name === 'indian hustle advice' ||
           name === 'Finding Good AI' ||
           name === 'Finding Good Tech' ||
-          nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future';
+          nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'startupbydog';
         const useBold =
           (nameLower === 'techinthelast24hrs')
             ? true
