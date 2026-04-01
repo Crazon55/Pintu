@@ -395,14 +395,14 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
 
   const isHookCentered = ['The Rising Founder', 'The Real Founder', 'Inspiring Founder', 'Business Cracked', 'The Founders Show', 'founders cracked'].includes(name);
   // Exclude CEO Mindset India, Founders God, The Founders Show, and Entrepreneurial India from zero gap to match Life Wealth Lessons spacing
-  const shouldUseGap = name === 'CEO Mindset India' || name === 'Founders God' || name === 'The Founders Show' || name === 'Entrepreneurial India' || name === 'Daily Tech India';
+  const shouldUseGap = name === 'CEO Mindset India' || name === 'Founders God' || name === 'The Founders Show' || name === 'Entrepreneurial India';
   // For startupcoded, Dhandha India, Finding Good AI/Tech, keep hook sitting closer to the video (smaller gap)
   const isTightGapPreset = name === 'startupcoded' || name === 'Dhandha India' || name === 'kwazyfounders' || name === 'Finding Good AI' || name === 'Finding Good Tech';
   // Same gap logic as 101xfounders for theprimefounder, aicracked, theevolvinggpt (headline on canvas = gap baked in)
   const textToVideoGapBase = (shouldUseGap || !(isAllBoldWhite || isHookCentered)) ? GAP : 0;
   const textToVideoGap = isFoundersIndia ? 0 : (isTightGapPreset ? Math.round(textToVideoGapBase * 0.4) : textToVideoGapBase);
   // For these three presets, use standard GAP like Life Wealth Lessons
-  const logoToTextGap = shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : (isFoundersIndia ? (GAP + 20) : GAP)));
+  const logoToTextGap = (name === 'Daily Tech India') ? (GAP + 30) : (shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : (isFoundersIndia ? (GAP + 20) : GAP))));
   const logoToVideoGap_NoHook = (isBestFounderClips || isBestBusinessClips || isAdsByMarketer) ? (GAP * 2) : (isStartupMadness ? (GAP * 3) : GAP);
 
   const totalStackH = (LOGO_BOX_H) + (hasHeadline ? (logoToTextGap + textH + textToVideoGap) : logoToVideoGap_NoHook) + targetH + GAP + 30;
