@@ -1224,7 +1224,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       // The x coordinate is the center point where text will be centered
       // For most presets watermark uses Inter Thin; for bizzindia and 101xfounders
       // it should be bold like the preview.
-      const escapedText = layout.watermark.text.replace(/\\/g, "\\\\").replace(/%/g, '%%').replace(/'/g, "\\'");
+      const escapedText = layout.watermark.text.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
       let fontFileParam = '';
       // Choose bold fontfile only for these two watermark presets
       const isBoldWatermarkPreset = presetName === 'bizzindia' || presetName === '101xfounders';
@@ -1236,7 +1236,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         const relativeFontPath = 'assets/fonts/Inter_18pt-Thin.ttf';
         fontFileParam = `:fontfile=${relativeFontPath}`;
       }
-      const drawtextFilter = `[ovl]drawtext=text='${escapedText}':fontcolor=white@0.4:fontsize=24:x=${textX}:y=${textY}:text_align=center${fontFileParam}[watermarked]`;
+      const drawtextFilter = `[ovl]drawtext=text='${escapedText}':expansion=none:fontcolor=white@0.4:fontsize=24:x=${textX}:y=${textY}:text_align=center${fontFileParam}[watermarked]`;
       console.log('Watermark filter:', drawtextFilter);
       filterChain.push(drawtextFilter);
 
@@ -1290,12 +1290,11 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
           // - '''  -> '\''
           const textEsc = seg.text
             .replace(/\\/g, '\\\\')
-            .replace(/%/g, '%%')
             .replace(/:/g, '\\:')
             .replace(/'/g, "\\'");
           const inLabel = i === 0 ? currentOutput : `ht${i}`;
           const outLabel = i === segs.length - 1 ? 'headlineOut' : `ht${i + 1}`;
-          filterChain.push(`[${inLabel}]drawtext=text='${textEsc}':fontfile=${fontFile}:fontsize=${headlineFontSize}:x=${drawX}:y=${seg.baselineY}:y_align=baseline:fontcolor=${fontcolor}[${outLabel}]`);
+          filterChain.push(`[${inLabel}]drawtext=text='${textEsc}':expansion=none:fontfile=${fontFile}:fontsize=${headlineFontSize}:x=${drawX}:y=${seg.baselineY}:y_align=baseline:fontcolor=${fontcolor}[${outLabel}]`);
         }
         currentOutput = 'headlineOut';
       }
@@ -1352,12 +1351,11 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
           // - '''  -> '\''
           const textEsc = seg.text
             .replace(/\\/g, '\\\\')
-            .replace(/%/g, '%%')
             .replace(/:/g, '\\:')
             .replace(/'/g, "\\'");
           const inLabel = i === 0 ? currentOutput : `ht${i}`;
           const outLabel = i === segs.length - 1 ? 'headlineOut' : `ht${i + 1}`;
-          filterChain.push(`[${inLabel}]drawtext=text='${textEsc}':fontfile=${fontFile}:fontsize=${headlineFontSize}:x=${drawX}:y=${seg.baselineY}:y_align=baseline:fontcolor=${fontcolor}[${outLabel}]`);
+          filterChain.push(`[${inLabel}]drawtext=text='${textEsc}':expansion=none:fontfile=${fontFile}:fontsize=${headlineFontSize}:x=${drawX}:y=${seg.baselineY}:y_align=baseline:fontcolor=${fontcolor}[${outLabel}]`);
         }
         currentOutput = 'headlineOut';
       }
@@ -1369,7 +1367,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         const tagY = Math.max(10, Math.round(layout.headlineY - 70)); // above hook text with more gap
         const tagInLabel = currentOutput;
         const tagOutLabel = 'taglined';
-        filterChain.push(`[${tagInLabel}]drawtext=text='${tagEsc}':fontfile=assets/fonts/Inter_18pt-Bold.ttf:fontsize=20:fontcolor=white:x=${tagX}:y=${tagY}[${tagOutLabel}]`);
+        filterChain.push(`[${tagInLabel}]drawtext=text='${tagEsc}':expansion=none:fontfile=assets/fonts/Inter_18pt-Bold.ttf:fontsize=20:fontcolor=white:x=${tagX}:y=${tagY}[${tagOutLabel}]`);
         currentOutput = tagOutLabel;
       }
       // Orange border removed for Business Cracked
