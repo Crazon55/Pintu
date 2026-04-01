@@ -395,7 +395,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
 
   const isHookCentered = ['The Rising Founder', 'The Real Founder', 'Inspiring Founder', 'Business Cracked', 'The Founders Show', 'founders cracked'].includes(name);
   // Exclude CEO Mindset India, Founders God, The Founders Show, and Entrepreneurial India from zero gap to match Life Wealth Lessons spacing
-  const shouldUseGap = name === 'CEO Mindset India' || name === 'Founders God' || name === 'The Founders Show' || name === 'Entrepreneurial India';
+  const shouldUseGap = name === 'CEO Mindset India' || name === 'Founders God' || name === 'The Founders Show' || name === 'Entrepreneurial India' || name === 'Daily Tech India';
   // For startupcoded, Dhandha India, Finding Good AI/Tech, keep hook sitting closer to the video (smaller gap)
   const isTightGapPreset = name === 'startupcoded' || name === 'Dhandha India' || name === 'kwazyfounders' || name === 'Finding Good AI' || name === 'Finding Good Tech';
   // Same gap logic as 101xfounders for theprimefounder, aicracked, theevolvinggpt (headline on canvas = gap baked in)
