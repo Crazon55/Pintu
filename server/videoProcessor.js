@@ -903,8 +903,10 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                 ? t.bold
                 : ((isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isStartupsoncrack || isRiseWithContent || isIndiasBestFounders || isElitefoundrs)
                   ? t.bold
-                  : ((isStartupMadness || name === 'startupcoded' || name === 'founders-in-india' || isRealIndiaBusiness || name === 'bizzindia')
+                  : ((isStartupMadness || name === 'startupcoded' || isRealIndiaBusiness || name === 'bizzindia')
                     ? true
+                : (name === 'founders-in-india')
+                    ? t.bold
                     : (allRegularFont || !t.bold ? false : true)));
         if (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isFoundersIndia || isTechnologyInIndia || isDailyTechIndia || isThePrimeAiPage || isDhandhaIndia || isTheAiGauntlet || isPureCodeAi || isNobelAiPage || isRiseWithContent || isIndiasBestFounders || isElitefoundrs || isRealIndiaBusiness) {
           // Poppins: measure via opentype.js (exact TTF advance = what FFmpeg drawtext uses).
@@ -962,7 +964,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
             cx += measuredW + adjSpacing * fontSize;
           }
         } else {
-          const fillColor = (isBestIndianPodcast ? (t.bold ? '#fde601' : '#FFFFFF') : (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF')))))));
+          const fillColor = (name === 'founders-in-india' ? (t.bold ? '#7F53FF' : '#FFFFFF') : (isBestIndianPodcast ? (t.bold ? '#fde601' : '#FFFFFF') : (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF'))))))));
           // Render token, drawing emojis as Twemoji images for color support
           if (textHasEmoji(t.text)) {
             for (const part of splitEmojiText(t.text)) {

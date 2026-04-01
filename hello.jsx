@@ -802,10 +802,11 @@ const PreviewCard = memo(({
                                             if (preset.name === 'Dhandha India') return segment.highlight ? '#FB9C39' : 'white';
                                             if (preset.name === 'The Ai Gauntlet') return segment.highlight ? '#FFCD1D' : 'white';
                                             if (presetNameLower === 'bestindianpodcast') return segment.highlight ? '#fde601' : 'white';
+                                            if (preset.name === 'founders-in-india') return segment.highlight ? '#7F53FF' : 'white';
                                             if (preset.name === 'peakofai' || isAicrackedOrEvolvingPreset) return 'white';
                                             if (['founderdaily', 'founderbusinesstips', 'foundersoncrack', 'kwazyfounders', 'startup madness'].includes(preset.name)) return 'black';
                                             if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return 'white';
-                                            if (['Founders God', 'CEO Mindset India', 'Real India Business', 'The Founders Show', 'Life Wealth Lessons', 'Billionaires of Bharat', 'ceo hustle advice', 'indian hustle advice', 'rich indian ceo', 'startupcoded', 'founders-in-india', 'founders cracked', 'indian business com', 'indian-founders-co', 'Entrepreneurial India', 'Finding Good AI', 'Finding Good Tech', 'startupsinthelast24hrs', 'indian ai future', 'techinthelast24hrs', 'indianaipage', 'indiantechdaily', '101xtechnology', 'therisingai', 'Revolution in ai', 'Founders.India', 'Technology In India', 'Daily Tech India', 'The Prime Ai Page', 'Dhandha India', 'The Ai Gauntlet', 'startupbydog'].includes(preset.name)) return 'white';
+                                            if (['Founders God', 'CEO Mindset India', 'Real India Business', 'The Founders Show', 'Life Wealth Lessons', 'Billionaires of Bharat', 'ceo hustle advice', 'indian hustle advice', 'rich indian ceo', 'startupcoded', 'founders cracked', 'indian business com', 'indian-founders-co', 'Entrepreneurial India', 'Finding Good AI', 'Finding Good Tech', 'startupsinthelast24hrs', 'indian ai future', 'techinthelast24hrs', 'indianaipage', 'indiantechdaily', '101xtechnology', 'therisingai', 'Revolution in ai', 'Founders.India', 'Technology In India', 'Daily Tech India', 'The Prime Ai Page', 'Dhandha India', 'The Ai Gauntlet', 'startupbydog'].includes(preset.name)) return 'white';
                                             return segment.highlight ? preset.color : 'white';
                                         })(),
                                         fontWeight: (() => {
@@ -819,7 +820,8 @@ const PreviewCard = memo(({
                                             if (preset.name === 'founders cracked') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'ceo hustle advice') return segment.highlight ? 700 : 400;
                                             if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return segment.highlight ? 800 : 400;
-                                            if (['Founders God', 'CEO Mindset India', 'Real India Business', 'startupcoded', 'founders-in-india', 'bizzindia'].includes(preset.name)) return 800;
+                                            if (preset.name === 'founders-in-india') return segment.highlight ? 700 : 400;
+                                            if (['Founders God', 'CEO Mindset India', 'Real India Business', 'startupcoded', 'bizzindia'].includes(preset.name)) return 800;
                                             if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return segment.highlight ? 800 : 400;
                                             return segment.highlight ? 800 : 400;
                                         })(),
