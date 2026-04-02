@@ -361,7 +361,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const LOGO_BOX_H =
     (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isRiseWithContent)
       ? 0
-      : (isBestFounderClips ? 120 : (isBestBusinessClips ? 450 : (isAdsByMarketer ? 360 : (isStartupMadness ? 100 : (isDailyTechIndia ? 120 : 80)))));
+      : (isBestFounderClips ? 120 : (isBestBusinessClips ? 450 : (isAdsByMarketer ? 360 : (isStartupMadness ? 100 : 120))));
 
   // Use preset headline when set (Per Brand edits, including bold) so export matches preview; else fall back to global
   const rawHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
