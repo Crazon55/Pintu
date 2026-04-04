@@ -316,7 +316,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const isBestBusinessClips = name === 'best business clips';
   const isAdsByMarketer = name === 'Ads by marketer';
   const hasHeadline = !isBestFounderClips && !isBestBusinessClips && !isStartupMadness && !isAdsByMarketer;
-  const isAllBoldWhite = ['Founders God', 'CEO Mindset India', 'Real India Business'].includes(name);
+  const isAllBoldWhite = ['Founders God', 'CEO Mindset India'].includes(name);
   const isWhiteBg = ['founderdaily', 'founderbusinesstips', 'kwazyfounders', 'startup madness'].includes(name);
   const isPeakOfAI = nameLower === 'peakofai';
   const isThePrimeFounder = nameLower === 'theprimefounder';
@@ -350,7 +350,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const isThePrimeAiPage = nameLower === 'the prime ai page';
   const isDhandhaIndia = nameLower === 'dhandha india';
   const isTheAiGauntlet = nameLower === 'the ai gauntlet';
-  const isRealIndiaBusiness = name === 'Real India Business' || nameLower === 'realindianbusiness';
+  const isRealIndiaBusiness = false; // Converted to logo-group tweet-style preset
   const isBestIndianPodcast = nameLower === 'bestindianpodcast';
   const isRiseWithContent = nameLower === 'risewithcontent';
   const isPoppinsHeadlinePreset =
@@ -458,6 +458,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     '101xtechnology',
     'startupbydog',
     'foundersoncrack',
+    'Real India Business',
     'Pure Code AI',
     'Nobel AI Page',
     'therisingai',
@@ -482,7 +483,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     'founders-in-india-tweet',
     'indian-founders-co-tweet'
   ];
-  const hasLogoGroup = logoGroupPresets.includes(name) || name === 'Business Cracked' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'startupbydog' || nameLower === 'foundersoncrack' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet';
+  const hasLogoGroup = logoGroupPresets.includes(name) || name === 'Business Cracked' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'startupbydog' || nameLower === 'foundersoncrack' || name === 'Real India Business' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet';
 
   let logoPathForOverlay = null;
 
@@ -527,6 +528,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
         '101xtechnology': '101xtechnology.png',
         'startupbydog': 'startupbydog.png',
         'foundersoncrack': 'foundersoncrack.png',
+        'Real India Business': 'realindianbusiness.png',
         'Pure Code AI': 'Pure-Code-AI.png',
         'Nobel AI Page': 'Nobel-AI-Page.png',
         'therisingai': 'therisingai.png',
@@ -908,9 +910,9 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                 ? t.bold
                 : ((isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isStartupsoncrack || isRiseWithContent || isIndiasBestFounders || isElitefoundrs)
                   ? t.bold
-                  : ((isStartupMadness || name === 'startupcoded' || isRealIndiaBusiness || name === 'bizzindia' || name === 'foundersoncrack')
+                  : ((isStartupMadness || name === 'startupcoded' || name === 'bizzindia' || name === 'foundersoncrack')
                     ? true
-                : (name === 'founders-in-india')
+                : (name === 'founders-in-india' || name === 'Real India Business')
                     ? t.bold
                     : (allRegularFont || !t.bold ? false : true)));
         if (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isFoundersIndia || isTechnologyInIndia || isDailyTechIndia || isThePrimeAiPage || isDhandhaIndia || isTheAiGauntlet || isPureCodeAi || isNobelAiPage || isRiseWithContent || isIndiasBestFounders || isElitefoundrs || isRealIndiaBusiness) {
@@ -969,6 +971,8 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
             cx += measuredW + adjSpacing * fontSize;
           }
         } else {
+          // Real India Business: thin 300 / semi-bold 600 Inter
+          const fontWeight = (name === 'Real India Business') ? (useBold ? '600' : '300') : (useBold ? 'bold' : 'normal');
           const fillColor = (name === 'founders-in-india' ? (t.bold ? '#7F53FF' : '#FFFFFF') : (isBestIndianPodcast ? (t.bold ? '#fde601' : '#FFFFFF') : (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF'))))))));
           // Render token, drawing emojis as Twemoji images for color support
           if (textHasEmoji(t.text)) {
@@ -981,7 +985,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                 }
                 cx += emojiSize;
               } else {
-                ctx.font = `${useBold ? 'bold' : 'normal'} ${fontSize}px ${headlineFontFamily}`;
+                ctx.font = `${fontWeight} ${fontSize}px ${headlineFontFamily}`;
                 ctx.fillStyle = fillColor;
                 ctx.fillText(part.value, cx, headlineY + (i * lineHeight));
                 cx += ctx.measureText(part.value).width;
@@ -989,7 +993,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
             }
             cx += adjSpacing * fontSize;
           } else {
-            ctx.font = `${useBold ? 'bold' : 'normal'} ${fontSize}px ${headlineFontFamily}`;
+            ctx.font = `${fontWeight} ${fontSize}px ${headlineFontFamily}`;
             ctx.fillStyle = fillColor;
             ctx.fillText(t.text, cx, headlineY + (i * lineHeight));
             cx += ctx.measureText(t.text).width + adjSpacing * fontSize;
