@@ -458,7 +458,6 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     '101xtechnology',
     'startupbydog',
     'foundersoncrack',
-    'Real India Business',
     'Pure Code AI',
     'Nobel AI Page',
     'therisingai',
@@ -483,7 +482,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     'founders-in-india-tweet',
     'indian-founders-co-tweet'
   ];
-  const hasLogoGroup = logoGroupPresets.includes(name) || name === 'Business Cracked' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'startupbydog' || nameLower === 'foundersoncrack' || name === 'Real India Business' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet';
+  const hasLogoGroup = logoGroupPresets.includes(name) || name === 'Business Cracked' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'startupbydog' || nameLower === 'foundersoncrack' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet';
 
   let logoPathForOverlay = null;
 
@@ -528,7 +527,6 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
         '101xtechnology': '101xtechnology.png',
         'startupbydog': 'startupbydog.png',
         'foundersoncrack': 'foundersoncrack.png',
-        'Real India Business': 'realindianbusiness.png',
         'Pure Code AI': 'Pure-Code-AI.png',
         'Nobel AI Page': 'Nobel-AI-Page.png',
         'therisingai': 'therisingai.png',
