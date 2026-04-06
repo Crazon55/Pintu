@@ -780,13 +780,29 @@ const PreviewCard = memo(({
                                 letterSpacing: isPoppinsFont ? '0px' : undefined
                             }}
                         >
-                            {segments.map((segment, idx) => segment.lineBreak ? (
+                            {/* Pre-compute highlight group index for Real India Business dual-color logic */}
+                            {(() => {
+                                let highlightGroupIndex = 0;
+                                let prevWasHighlight = false;
+                                const groupMap = segments.map(seg => {
+                                    if (seg.lineBreak) { prevWasHighlight = false; return -1; }
+                                    if (seg.highlight) {
+                                        if (!prevWasHighlight) highlightGroupIndex++;
+                                        prevWasHighlight = true;
+                                        return highlightGroupIndex;
+                                    }
+                                    prevWasHighlight = false;
+                                    return 0;
+                                });
+                                return segments.map((segment, idx) => segment.lineBreak ? (
                                 <br key={idx} />
                             ) : (
                                 <span
                                     key={idx}
                                     style={{
                                         color: (() => {
+                                            const highlightGroup = groupMap[idx];
+                                            if (preset.name === 'Real India Business') return highlightGroup === 1 ? '#FF8323' : highlightGroup >= 2 ? '#0DC100' : 'white';
                                             if (preset.name === 'theprimefounder') return segment.highlight ? '#1DB077' : 'white';
                                             if (preset.name === 'foundrsonig') return segment.highlight ? '#ECECDC' : 'white';
                                             if (preset.name === 'indiasbestfounders' || preset.name === 'intelligence by ai') return segment.highlight ? '#ECECDC' : 'white';
@@ -834,7 +850,8 @@ const PreviewCard = memo(({
                                 >
                                     {segment.text}
                                 </span>
-                            ))}
+                            ));
+                            })()}
                         </div>
                     </div>
                 )}
