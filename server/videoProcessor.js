@@ -878,6 +878,17 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
       ? Math.max(...richLines.map(l => l.width || 0))
       : 0;
     await preloadEmojis(richLines);
+    // Pre-compute highlight group index for Real India Business dual-color (1st bold = orange, 2nd bold = green)
+    let _hlGroup = 0, _prevHL = false;
+    const hlGroupMap = [];
+    for (const ln of richLines) {
+      const lineGroups = [];
+      for (const tk of ln.tokens) {
+        if (tk.bold) { if (!_prevHL) _hlGroup++; _prevHL = true; lineGroups.push(_hlGroup); }
+        else { _prevHL = false; lineGroups.push(0); }
+      }
+      hlGroupMap.push(lineGroups);
+    }
     for (let i = 0; i < richLines.length; i++) {
       const line = richLines[i];
       let cx;
@@ -892,7 +903,9 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
       cx += (720 * (preset.headlinePosition?.x / 100 || 0));
       const lineY = Math.round(headlineY + (i * lineHeight));
       const baselineY = lineY + Math.round(fontSize * 0.82);
-      for (const t of line.tokens) {
+      for (let ti = 0; ti < line.tokens.length; ti++) {
+        const t = line.tokens[ti];
+        const tokenHLGroup = hlGroupMap[i]?.[ti] || 0;
         const allRegularFont =
           preset.rules?.textFontWeight === 400 ||
           name === 'indian hustle advice' ||
@@ -971,7 +984,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
         } else {
           // Real India Business: thin 300 / semi-bold 600 Inter
           const fontWeight = (name === 'Real India Business') ? (useBold ? '600' : '300') : (useBold ? 'bold' : 'normal');
-          const fillColor = (name === 'founders-in-india' ? (t.bold ? '#7F53FF' : '#FFFFFF') : (isBestIndianPodcast ? (t.bold ? '#fde601' : '#FFFFFF') : (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF'))))))));
+          const fillColor = (name === 'Real India Business' ? (tokenHLGroup === 1 ? '#FF8323' : tokenHLGroup >= 2 ? '#0DC100' : '#FFFFFF') : (name === 'founders-in-india' ? (t.bold ? '#7F53FF' : '#FFFFFF') : (isBestIndianPodcast ? (t.bold ? '#fde601' : '#FFFFFF') : (name === 'kwazyfounders' ? '#000' : (isPeakOfAI ? '#FFF' : (isAllBoldWhite ? '#FFF' : (allRegularFont ? '#FFF' : (t.bold && !allRegularFont ? preset.color : (isWhiteBg ? '#000' : '#FFF')))))))));
           // Render token, drawing emojis as Twemoji images for color support
           if (textHasEmoji(t.text)) {
             for (const part of splitEmojiText(t.text)) {
