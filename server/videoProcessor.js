@@ -956,7 +956,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                                 : (isRiseWithContent
                                   ? (t.bold ? '#E53935' : '#FFFFFF')
                                   : (isIndianFoundr
-                                    ? (t.bold ? '#8BACD0' : '#FFFFFF')
+                                    ? (t.bold ? '#487AF9' : '#FFFFFF')
                                     : ((isPeakOfAI || isAICracked || isTheEvolvingGPT || isNewOrderAI || isStartupsoncrack || isRealIndiaBusiness)
                                       ? '#FFFFFF'
                                       : (t.bold ? '#1DB077' : '#FFFFFF')))))))))))));
@@ -1309,7 +1309,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
                           : seg.color === '#6523FF' ? '0x6523FF'
                             : seg.color === '#FDB05E' ? '0xFDB05E'
                               : seg.color === '#5887FF' ? '0x5887FF'
-                                : seg.color === '#8BACD0' ? '0x8BACD0'
+                                : seg.color === '#487AF9' ? '0x487AF9'
                                   : 'white';
           // Escape headline text for FFmpeg drawtext:
           // - '\'  -> '\\'
@@ -1370,7 +1370,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
                           : seg.color === '#6523FF' ? '0x6523FF'
                             : seg.color === '#FDB05E' ? '0xFDB05E'
                               : seg.color === '#5887FF' ? '0x5887FF'
-                                : seg.color === '#8BACD0' ? '0x8BACD0'
+                                : seg.color === '#487AF9' ? '0x487AF9'
                                   : 'white';
           // Escape headline text for FFmpeg drawtext:
           // - '\'  -> '\\'
