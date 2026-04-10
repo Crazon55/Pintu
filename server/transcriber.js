@@ -35,8 +35,18 @@ export async function transcribeAudio(audioPath, modelSize = 'base', language = 
   const args = [scriptPath, audioPath, modelSize];
   if (language) args.push(language);
 
-  console.log(`[transcribe] Running: python3 ${args.join(' ')}`);
-  const { stdout, stderr } = await execFileAsync('python3', args, {
+  // Use venv Python if available, fallback to system python3
+  const pythonPaths = [
+    join('/home/ubuntu/whisper-env/bin/python'),
+    'python3',
+  ];
+  let python = pythonPaths[1];
+  for (const p of pythonPaths) {
+    try { await execFileAsync(p, ['--version']); python = p; break; } catch {}
+  }
+
+  console.log(`[transcribe] Running: ${python} ${args.join(' ')}`);
+  const { stdout, stderr } = await execFileAsync(python, args, {
     timeout: 600000, // 10 min max
     maxBuffer: 50 * 1024 * 1024, // 50MB
   });
