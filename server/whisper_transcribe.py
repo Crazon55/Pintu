@@ -25,7 +25,12 @@ def transcribe(audio_path, model_size="base", language=None):
                     "text": w.word.strip(),
                 })
 
-    # Group words into subtitle chunks (max 3 words or 1.5s per chunk)
+    # Group words into subtitle chunks — break at punctuation to keep phrases together
+    # Rules: break AFTER a word that ends with . , ? ! ; : (punctuation = natural pause)
+    # Also break if chunk hits 5 words or 2.5s without punctuation (hard limit)
+    import re
+    PUNCT_END = re.compile(r'[.,!?;:]$')
+
     chunks = []
     current = {"start": 0, "end": 0, "words": []}
     for w in words:
@@ -36,7 +41,11 @@ def transcribe(audio_path, model_size="base", language=None):
         current["words"].append(w["text"])
         current["end"] = w["end"]
         duration = current["end"] - current["start"]
-        if len(current["words"]) >= 3 or duration >= 1.5:
+        # Break after punctuation, or at hard limits
+        has_punct = PUNCT_END.search(w["text"])
+        at_hard_limit = len(current["words"]) >= 5 or duration >= 2.5
+        at_soft_limit = len(current["words"]) >= 3 and has_punct
+        if at_hard_limit or at_soft_limit:
             chunks.append({
                 "start": current["start"],
                 "end": current["end"],
