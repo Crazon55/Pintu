@@ -1582,12 +1582,18 @@ export default function App() {
             {/* --- PINNED HEADER --- */}
             <div className="fixed top-0 left-0 right-0 bg-neutral-800 border-b border-neutral-700 z-50 shadow-lg">
                 <div className="p-4">
-                    <h1
-                        className="text-2xl font-bold text-center text-orange-500 cursor-pointer select-none"
-                        onDoubleClick={() => setShowKoushikPopup(true)}
-                    >
-                        PINTU
-                    </h1>
+                    <div className="flex items-center justify-between">
+                        <div className="w-24" />
+                        <h1
+                            className="text-2xl font-bold text-center text-orange-500 cursor-pointer select-none"
+                            onDoubleClick={() => setShowKoushikPopup(true)}
+                        >
+                            PINTU
+                        </h1>
+                        <a href="/transcribe.html" className="text-xs text-orange-500 hover:text-orange-400 transition-colors w-24 text-right">
+                            Transcribe Tool
+                        </a>
+                    </div>
                 </div>
             </div>
 
