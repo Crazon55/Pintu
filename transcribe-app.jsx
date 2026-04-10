@@ -58,9 +58,8 @@ export default function TranscribeApp() {
             const formData = new FormData();
             formData.append('video', videoFile);
             formData.append('modelSize', 'small');
-            // Both English and Hinglish use 'en' — forces Roman script output
-            // Hinglish: Whisper transcribes Hindi words phonetically in English (aapko, mein, hai)
-            formData.append('language', 'en');
+            // English: force 'en'. Hinglish: no language sent = auto-detect (Romanized mixed output)
+            if (language === 'en') formData.append('language', 'en');
 
             const res = await fetch(`${SERVER_URL}/api/transcribe`, {
                 method: 'POST',
