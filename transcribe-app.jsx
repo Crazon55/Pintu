@@ -51,7 +51,7 @@ export default function TranscribeApp() {
         if (!videoFile) return;
         setStep('transcribing');
         setError(null);
-        setProgress('Uploading video...');
+        setProgress(`Uploading video... (${language === 'hi' ? 'Hinglish' : 'English'} mode)`);
 
         try {
             const formData = new FormData();
@@ -68,7 +68,7 @@ export default function TranscribeApp() {
             if (!res.ok) throw new Error(data.error || 'Transcription failed');
 
             setJobId(data.jobId);
-            setProgress('Transcribing audio...');
+            setProgress(`Transcribing in ${language === 'hi' ? 'Hinglish (medium model)' : 'English (small model)'}...`);
 
             // Poll for completion
             pollRef.current = setInterval(async () => {
