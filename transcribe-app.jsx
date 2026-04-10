@@ -174,48 +174,18 @@ export default function TranscribeApp() {
         }
     }, [subtitledPath]);
 
-    // Save state to localStorage so it persists across navigation
-    useEffect(() => {
-        if (segments.length > 0) {
-            localStorage.setItem('transcribe_segments', JSON.stringify(segments));
-        }
-        if (videoPath) localStorage.setItem('transcribe_videoPath', videoPath);
-        if (subtitledUrl) localStorage.setItem('transcribe_subtitledUrl', subtitledUrl);
-        if (subtitledPath) localStorage.setItem('transcribe_subtitledPath', subtitledPath);
-        if (step !== 'upload') localStorage.setItem('transcribe_step', step);
-    }, [segments, videoPath, subtitledUrl, subtitledPath, step]);
-
-    // Restore state from localStorage on mount
-    useEffect(() => {
-        try {
-            const savedSegments = localStorage.getItem('transcribe_segments');
-            const savedVideoPath = localStorage.getItem('transcribe_videoPath');
-            const savedSubtitledUrl = localStorage.getItem('transcribe_subtitledUrl');
-            const savedSubtitledPath = localStorage.getItem('transcribe_subtitledPath');
-            const savedStep = localStorage.getItem('transcribe_step');
-            if (savedSegments) setSegments(JSON.parse(savedSegments));
-            if (savedVideoPath) setVideoPath(savedVideoPath);
-            if (savedSubtitledUrl) setSubtitledUrl(savedSubtitledUrl);
-            if (savedSubtitledPath) setSubtitledPath(savedSubtitledPath);
-            if (savedStep && savedStep !== 'upload') setStep(savedStep);
-        } catch {}
-    }, []);
-
-    // Clear saved state when starting fresh
+    // Clear everything and start over
     const startFresh = useCallback(() => {
-        localStorage.removeItem('transcribe_segments');
-        localStorage.removeItem('transcribe_videoPath');
-        localStorage.removeItem('transcribe_subtitledUrl');
-        localStorage.removeItem('transcribe_subtitledPath');
-        localStorage.removeItem('transcribe_step');
         setStep('upload');
         setSegments([]);
+        setWords([]);
         setVideoFile(null);
         setVideoSrc(null);
         setVideoPath(null);
         setSubtitledUrl(null);
         setSubtitledPath(null);
         setError(null);
+        setCaptionStyle('clean');
     }, []);
 
     // Cleanup polling on unmount
