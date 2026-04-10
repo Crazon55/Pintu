@@ -25,7 +25,7 @@ def transcribe(audio_path, model_size="base", language=None):
                     "text": w.word.strip(),
                 })
 
-    # Group words into subtitle chunks (max 6 words or 2.5s per chunk)
+    # Group words into subtitle chunks (max 3 words or 1.5s per chunk)
     chunks = []
     current = {"start": 0, "end": 0, "words": []}
     for w in words:
@@ -36,7 +36,7 @@ def transcribe(audio_path, model_size="base", language=None):
         current["words"].append(w["text"])
         current["end"] = w["end"]
         duration = current["end"] - current["start"]
-        if len(current["words"]) >= 6 or duration >= 2.5:
+        if len(current["words"]) >= 3 or duration >= 1.5:
             chunks.append({
                 "start": current["start"],
                 "end": current["end"],

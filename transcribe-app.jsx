@@ -18,11 +18,12 @@ export default function TranscribeApp() {
     const [subtitledPath, setSubtitledPath] = useState(null);
     const [error, setError] = useState(null);
     const [style, setStyle] = useState({
-        fontName: 'Inter',
-        fontSize: 52,
-        bold: true,
+        fontName: 'Neue Haas Grotesk Display Pro',
+        fontSize: 48,
+        bold: false,
         outline: 3,
-        marginV: 60,
+        marginV: 10,
+        alignment: 5,
     });
     const videoRef = useRef(null);
     const pollRef = useRef(null);
