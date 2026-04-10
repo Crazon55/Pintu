@@ -41,10 +41,10 @@ def transcribe(audio_path, model_size="base", language=None):
         current["words"].append(w["text"])
         current["end"] = w["end"]
         duration = current["end"] - current["start"]
-        # Break after punctuation, or at hard limits
+        # Break after ANY punctuation, or at hard limit of 4 words / 2s
         has_punct = PUNCT_END.search(w["text"])
-        at_hard_limit = len(current["words"]) >= 5 or duration >= 2.5
-        at_soft_limit = len(current["words"]) >= 3 and has_punct
+        at_hard_limit = len(current["words"]) >= 4 or duration >= 2.0
+        at_soft_limit = has_punct and len(current["words"]) >= 1
         if at_hard_limit or at_soft_limit:
             chunks.append({
                 "start": current["start"],
