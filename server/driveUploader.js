@@ -1,13 +1,15 @@
 import { google } from 'googleapis';
 import { createReadStream } from 'fs';
-import { basename } from 'path';
+import { basename, dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
 let driveClient = null;
 
 function getDriveClient() {
   if (driveClient) return driveClient;
+  const keyFile = join(dirname(fileURLToPath(import.meta.url)), 'service-account.json');
   const auth = new google.auth.GoogleAuth({
-    keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS || './service-account.json',
+    keyFile,
     scopes: ['https://www.googleapis.com/auth/drive.file'],
   });
   driveClient = google.drive({ version: 'v3', auth });
