@@ -1,7 +1,8 @@
+import 'dotenv/config';
 import express from 'express';
 import multer from 'multer';
 import cors from 'cors';
-import { dirname, join } from 'path';
+import { dirname, join, basename } from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { createWriteStream, existsSync } from 'fs';
@@ -10,6 +11,7 @@ import { createVideoProcessor } from './videoProcessor.js';
 import { createJobQueue } from './simpleQueue.js'; // Use your simpleQueue or Bull
 import { transcribeVideo } from './transcriber.js';
 import { generateASS, generateIndianFounderASS } from './subtitleGenerator.js';
+import { uploadToDrive, uploadBatchToDrive } from './driveUploader.js';
 import { burnSubtitles } from './subtitleBurner.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -310,6 +312,48 @@ app.get('/api/download-subtitled', async (req, res) => {
     return res.status(404).json({ error: 'File not found.' });
   }
   res.download(filePath);
+});
+
+// --- GOOGLE DRIVE UPLOAD ---
+
+// Upload exported videos to Drive after export completes
+app.post('/api/upload-to-drive', express.json(), async (req, res) => {
+  try {
+    const { jobId } = req.body;
+    if (!jobId) return res.status(400).json({ error: 'jobId is required.' });
+
+    const job = await jobQueue.getJob(jobId);
+    if (!job || job.state !== 'completed' || !job.returnvalue?.videoPaths) {
+      return res.status(400).json({ error: 'Job not found or not completed.' });
+    }
+
+    const videoPaths = job.returnvalue.videoPaths.filter(p => existsSync(p));
+    if (videoPaths.length === 0) {
+      return res.status(400).json({ error: 'No video files found.' });
+    }
+
+    const folderName = `Pintu Export ${new Date().toISOString().split('T')[0]}`;
+    const result = await uploadBatchToDrive(videoPaths, folderName);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('[drive] Upload error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Upload a single file to Drive
+app.post('/api/upload-file-to-drive', express.json(), async (req, res) => {
+  try {
+    const { filePath, fileName } = req.body;
+    if (!filePath || !existsSync(filePath)) {
+      return res.status(400).json({ error: 'File not found.' });
+    }
+    const result = await uploadToDrive(filePath, fileName || basename(filePath));
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('[drive] Upload error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = Number(process.env.PORT) || 3002;
