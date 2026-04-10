@@ -2,41 +2,97 @@
 """Transcribe audio using faster-whisper (local, no API key needed)."""
 import sys
 import json
+import re
+import unicodedata
 from faster_whisper import WhisperModel
+
+
+def is_devanagari(text):
+    """Check if text contains Devanagari characters."""
+    for ch in text:
+        if '\u0900' <= ch <= '\u097F':
+            return True
+    return False
+
+
+# Devanagari to Roman transliteration mapping
+DEVANAGARI_MAP = {
+    'अ': 'a', 'आ': 'aa', 'इ': 'i', 'ई': 'ee', 'उ': 'u', 'ऊ': 'oo',
+    'ए': 'e', 'ऐ': 'ai', 'ओ': 'o', 'औ': 'au', 'ऋ': 'ri',
+    'क': 'ka', 'ख': 'kha', 'ग': 'ga', 'घ': 'gha', 'ङ': 'nga',
+    'च': 'cha', 'छ': 'chha', 'ज': 'ja', 'झ': 'jha', 'ञ': 'nya',
+    'ट': 'ta', 'ठ': 'tha', 'ड': 'da', 'ढ': 'dha', 'ण': 'na',
+    'त': 'ta', 'थ': 'tha', 'द': 'da', 'ध': 'dha', 'न': 'na',
+    'प': 'pa', 'फ': 'pha', 'ब': 'ba', 'भ': 'bha', 'म': 'ma',
+    'य': 'ya', 'र': 'ra', 'ल': 'la', 'व': 'va', 'श': 'sha',
+    'ष': 'sha', 'स': 'sa', 'ह': 'ha',
+    'क्ष': 'ksha', 'त्र': 'tra', 'ज्ञ': 'gya',
+    'ा': 'a', 'ि': 'i', 'ी': 'ee', 'ु': 'u', 'ू': 'oo',
+    'े': 'e', 'ै': 'ai', 'ो': 'o', 'ौ': 'au', 'ृ': 'ri',
+    '्': '', 'ं': 'n', 'ः': 'h', 'ँ': 'n',
+    '।': '.', '॥': '.', '़': '',
+    'ऑ': 'o', 'ॉ': 'o', 'फ़': 'fa', 'ज़': 'za', 'ड़': 'da', 'ढ़': 'dha',
+}
+
+
+def transliterate_devanagari(text):
+    """Convert Devanagari text to Roman script."""
+    result = []
+    i = 0
+    while i < len(text):
+        # Try 2-char match first (conjuncts, vowel signs after consonants)
+        if i + 1 < len(text) and text[i:i+2] in DEVANAGARI_MAP:
+            result.append(DEVANAGARI_MAP[text[i:i+2]])
+            i += 2
+        elif text[i] in DEVANAGARI_MAP:
+            result.append(DEVANAGARI_MAP[text[i]])
+            i += 1
+        elif '\u0900' <= text[i] <= '\u097F':
+            # Unknown Devanagari char, skip
+            i += 1
+        else:
+            # Non-Devanagari (English, punctuation, etc.) — keep as-is
+            result.append(text[i])
+            i += 1
+    return ''.join(result)
+
+
+def romanize_word(word):
+    """If a word has Devanagari, transliterate it. Otherwise keep as-is."""
+    if is_devanagari(word):
+        return transliterate_devanagari(word)
+    return word
+
 
 def transcribe(audio_path, model_size="base", language=None):
     model = WhisperModel(model_size, device="cpu", compute_type="int8", download_root="/home/ubuntu/.cache/whisper")
 
-    # For Hinglish: use Hindi language but with Romanized prompt to guide output
     hinglish = language == "hi"
-    initial_prompt = None
-    if hinglish:
-        initial_prompt = "Yeh ek Hinglish podcast hai. Sabse zyada important hai ki output Roman script mein ho, jaise aap, mein, kya, hai, toh, sabse."
 
     segments, info = model.transcribe(
         audio_path,
         beam_size=5,
         word_timestamps=True,
-        language=language,
+        language="hi" if hinglish else language,
         vad_filter=True,
         vad_parameters=dict(min_silence_duration_ms=500),
-        initial_prompt=initial_prompt,
     )
 
     words = []
     for segment in segments:
         if segment.words:
             for w in segment.words:
+                text = w.word.strip()
+                # For Hinglish: transliterate Devanagari to Roman
+                if hinglish and text:
+                    text = romanize_word(text)
                 words.append({
                     "start": round(w.start, 3),
                     "end": round(w.end, 3),
-                    "text": w.word.strip(),
+                    "text": text,
                 })
 
-    # Group words into subtitle chunks — break at punctuation to keep phrases together
-    # Rules: break AFTER a word that ends with . , ? ! ; : (punctuation = natural pause)
-    # Also break if chunk hits 5 words or 2.5s without punctuation (hard limit)
-    import re
+    # Group words into subtitle chunks
     PUNCT_END = re.compile(r'[.,!?;:]$')
 
     chunks = []
@@ -49,7 +105,6 @@ def transcribe(audio_path, model_size="base", language=None):
         current["words"].append(w["text"])
         current["end"] = w["end"]
         duration = current["end"] - current["start"]
-        # Break after ANY punctuation, or at hard limit of 4 words / 2s
         has_punct = PUNCT_END.search(w["text"])
         at_hard_limit = len(current["words"]) >= 4 or duration >= 2.0
         at_soft_limit = has_punct and len(current["words"]) >= 1

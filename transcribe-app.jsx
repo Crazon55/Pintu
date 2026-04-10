@@ -57,10 +57,9 @@ export default function TranscribeApp() {
         try {
             const formData = new FormData();
             formData.append('video', videoFile);
-            // Hinglish needs medium model for proper mixed-language detection
+            // Hinglish: use medium model + language='hi', then transliterate Devanagari to Roman
             formData.append('modelSize', language === 'hi' ? 'medium' : 'small');
-            // English: force 'en'. Hinglish: no language = auto-detect
-            if (language === 'en') formData.append('language', 'en');
+            formData.append('language', language === 'hi' ? 'hi' : 'en');
 
             const res = await fetch(`${SERVER_URL}/api/transcribe`, {
                 method: 'POST',
