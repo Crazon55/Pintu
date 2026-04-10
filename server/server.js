@@ -332,9 +332,13 @@ app.post('/api/upload-to-drive', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'No video files found.' });
     }
 
-    const folderName = `Pintu Export ${new Date().toISOString().split('T')[0]}`;
-    const result = await uploadBatchToDrive(videoPaths, folderName);
-    res.json({ success: true, ...result });
+    // Upload directly to shared folder (service accounts have no storage quota of their own)
+    const results = [];
+    for (const vp of videoPaths) {
+      const result = await uploadToDrive(vp, basename(vp));
+      results.push(result);
+    }
+    res.json({ success: true, files: results });
   } catch (err) {
     console.error('[drive] Upload error:', err.message);
     res.status(500).json({ error: err.message });
