@@ -35,15 +35,8 @@ export async function transcribeAudio(audioPath, modelSize = 'base', language = 
   const args = [scriptPath, audioPath, modelSize];
   if (language) args.push(language);
 
-  // Use venv Python if available, fallback to system python3
-  const pythonPaths = [
-    join('/home/ubuntu/whisper-env/bin/python'),
-    'python3',
-  ];
-  let python = pythonPaths[1];
-  for (const p of pythonPaths) {
-    try { await execFileAsync(p, ['--version']); python = p; break; } catch {}
-  }
+  // Use venv Python (faster-whisper installed there)
+  const python = '/home/ubuntu/whisper-env/bin/python';
 
   console.log(`[transcribe] Running: ${python} ${args.join(' ')}`);
   const { stdout, stderr } = await execFileAsync(python, args, {
