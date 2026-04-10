@@ -1,7 +1,7 @@
 // Simple in-memory job queue without Redis dependency
 const jobs = new Map();
 let jobIdCounter = 1;
-let processorFunction = null;
+const processors = new Map(); // named processors
 
 export function createJobQueue() {
   const queue = {
@@ -32,15 +32,16 @@ export function createJobQueue() {
       jobs.set(jobId, job);
       console.log(`Job ${jobId} added to queue`);
       
-      // Process immediately if processor is registered
-      if (processorFunction) {
-        console.log(`Job ${jobId} - Processor is registered, scheduling processing in 100ms...`);
+      // Process immediately if a processor for this job name is registered
+      const proc = processors.get(jobName);
+      if (proc) {
+        console.log(`Job ${jobId} - Processor for '${jobName}' is registered, scheduling processing in 100ms...`);
         setTimeout(() => {
           console.log(`Job ${jobId} - Starting processing now...`);
-          processJob(job, processorFunction);
+          processJob(job, proc);
         }, 100);
       } else {
-        console.warn(`Job ${jobId} - Processor not registered yet, job will be processed when processor is registered`);
+        console.warn(`Job ${jobId} - No processor registered for '${jobName}', job will be processed when processor is registered`);
       }
       
       return job;
@@ -51,18 +52,18 @@ export function createJobQueue() {
     },
     
     process(jobName, concurrency, processor) {
-      // Store processor for later use
-      processorFunction = processor;
+      // Store processor by name so multiple job types can coexist
+      processors.set(jobName, processor);
       console.log(`✓ Job processor registered for: ${jobName} (concurrency: ${concurrency})`);
-      
-      // Process any waiting jobs
+
+      // Process any waiting jobs for this name
       const waitingJobs = [];
       for (const [jobId, job] of jobs.entries()) {
         if (job.state === 'waiting' && job.name === jobName) {
           waitingJobs.push(job);
         }
       }
-      
+
       if (waitingJobs.length > 0) {
         console.log(`Found ${waitingJobs.length} waiting job(s), processing them now...`);
         waitingJobs.forEach(job => {
