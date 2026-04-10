@@ -8,6 +8,9 @@ import { createWriteStream, existsSync } from 'fs';
 import archiver from 'archiver';
 import { createVideoProcessor } from './videoProcessor.js';
 import { createJobQueue } from './simpleQueue.js'; // Use your simpleQueue or Bull
+import { transcribeVideo } from './transcriber.js';
+import { generateASS } from './subtitleGenerator.js';
+import { burnSubtitles } from './subtitleBurner.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -234,6 +237,76 @@ jobQueue.process('process-video', 1, async (job) => {
     ...job.data,
     onProgress: (p) => job.progress(p)
   });
+});
+
+// --- TRANSCRIPTION & SUBTITLE ENDPOINTS ---
+
+app.post('/api/transcribe', upload.single('video'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No video file received.' });
+    const { modelSize, language } = req.body;
+    const job = await jobQueue.add('transcribe', {
+      videoPath: req.file.path,
+      modelSize: modelSize || 'base',
+      language: language || null,
+    });
+    res.json({ jobId: job.id });
+  } catch (err) {
+    console.error('[transcribe] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+jobQueue.process('transcribe', 1, async (job) => {
+  const tempDir = join(__dirname, 'temp', `transcribe-${Date.now()}`);
+  await fs.mkdir(tempDir, { recursive: true });
+  job.progress({ step: 'extracting', percent: 10 });
+  const result = await transcribeVideo(job.data.videoPath, tempDir, {
+    modelSize: job.data.modelSize,
+    language: job.data.language,
+  });
+  job.progress({ step: 'done', percent: 100 });
+  // Store the original video path so burn-subtitles can use it
+  result.videoPath = job.data.videoPath;
+  return result;
+});
+
+app.post('/api/burn-subtitles', express.json(), async (req, res) => {
+  try {
+    const { videoPath, segments, style } = req.body;
+    if (!videoPath || !segments || !segments.length) {
+      return res.status(400).json({ error: 'videoPath and segments are required.' });
+    }
+
+    const outputDir = join(__dirname, 'outputs', `subtitled-${Date.now()}`);
+    await fs.mkdir(outputDir, { recursive: true });
+
+    // Generate ASS file
+    const assContent = generateASS(segments, style || {});
+    const assPath = join(outputDir, 'subtitles.ass');
+    await fs.writeFile(assPath, assContent, 'utf-8');
+
+    // Burn subtitles
+    const outputPath = join(outputDir, 'subtitled.mp4');
+    await burnSubtitles(videoPath, assPath, outputPath);
+
+    res.json({
+      videoPath: outputPath,
+      downloadUrl: `/outputs/${outputDir.split('outputs')[1].replace(/\\/g, '/')}subtitled.mp4`,
+    });
+  } catch (err) {
+    console.error('[burn-subtitles] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Serve subtitled video for download
+app.get('/api/download-subtitled', async (req, res) => {
+  const filePath = req.query.path;
+  if (!filePath || !existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found.' });
+  }
+  res.download(filePath);
 });
 
 const PORT = Number(process.env.PORT) || 3002;
