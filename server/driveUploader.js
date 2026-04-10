@@ -5,12 +5,17 @@ import { fileURLToPath } from 'url';
 
 let driveClient = null;
 
+const __driveDir = dirname(fileURLToPath(import.meta.url));
+const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '1mg-q6sQmQZ8cieiXe10fE7iYUn04AzL8';
+
 function getDriveClient() {
   if (driveClient) return driveClient;
-  const keyFile = join(dirname(fileURLToPath(import.meta.url)), 'service-account.json');
+  const keyFile = join(__driveDir, 'service-account.json');
+  console.log('[drive] Using key file:', keyFile);
+  console.log('[drive] Target folder:', DRIVE_FOLDER_ID);
   const auth = new google.auth.GoogleAuth({
     keyFile,
-    scopes: ['https://www.googleapis.com/auth/drive.file'],
+    scopes: ['https://www.googleapis.com/auth/drive'],
   });
   driveClient = google.drive({ version: 'v3', auth });
   return driveClient;
@@ -26,7 +31,7 @@ function getDriveClient() {
  */
 export async function uploadToDrive(filePath, fileName, folderId, mimeType = 'video/mp4') {
   const drive = getDriveClient();
-  const targetFolder = folderId || process.env.GOOGLE_DRIVE_FOLDER_ID;
+  const targetFolder = folderId || DRIVE_FOLDER_ID;
 
   console.log(`[drive] Uploading: ${fileName} to folder ${targetFolder}`);
 
@@ -56,7 +61,7 @@ export async function uploadToDrive(filePath, fileName, folderId, mimeType = 'vi
  */
 export async function uploadBatchToDrive(filePaths, subfolderName, parentFolderId) {
   const drive = getDriveClient();
-  const parent = parentFolderId || process.env.GOOGLE_DRIVE_FOLDER_ID;
+  const parent = parentFolderId || DRIVE_FOLDER_ID;
 
   // Create subfolder
   const folder = await drive.files.create({
