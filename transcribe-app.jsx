@@ -24,6 +24,8 @@ export default function TranscribeApp() {
         outline: 3,
         marginV: 10,
         alignment: 5,
+        posX: 360,  // center of 720px width
+        posY: 900,  // lower third area of 1280px height
     });
     const videoRef = useRef(null);
     const pollRef = useRef(null);
@@ -270,13 +272,33 @@ export default function TranscribeApp() {
                 {(step === 'edit') && segments.length > 0 && (
                     <div className="mb-8">
                         <h2 className="text-lg font-semibold mb-4">3. Subtitle Style</h2>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="text-xs text-neutral-500 block mb-1">Position X (0-720)</label>
+                                <input
+                                    type="range"
+                                    min="100" max="620" value={style.posX}
+                                    onChange={(e) => setStyle(s => ({ ...s, posX: parseInt(e.target.value) }))}
+                                    className="w-full"
+                                />
+                                <span className="text-xs text-neutral-500">{style.posX} px</span>
+                            </div>
+                            <div>
+                                <label className="text-xs text-neutral-500 block mb-1">Position Y (0-1280)</label>
+                                <input
+                                    type="range"
+                                    min="100" max="1200" value={style.posY}
+                                    onChange={(e) => setStyle(s => ({ ...s, posY: parseInt(e.target.value) }))}
+                                    className="w-full"
+                                />
+                                <span className="text-xs text-neutral-500">{style.posY} px</span>
+                            </div>
                             <div>
                                 <label className="text-xs text-neutral-500 block mb-1">Font Size</label>
                                 <input
                                     type="number"
                                     value={style.fontSize}
-                                    onChange={(e) => setStyle(s => ({ ...s, fontSize: parseInt(e.target.value) || 52 }))}
+                                    onChange={(e) => setStyle(s => ({ ...s, fontSize: parseInt(e.target.value) || 48 }))}
                                     className="w-full bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm"
                                 />
                             </div>
@@ -286,15 +308,6 @@ export default function TranscribeApp() {
                                     type="number"
                                     value={style.outline}
                                     onChange={(e) => setStyle(s => ({ ...s, outline: parseInt(e.target.value) || 3 }))}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs text-neutral-500 block mb-1">Bottom Margin</label>
-                                <input
-                                    type="number"
-                                    value={style.marginV}
-                                    onChange={(e) => setStyle(s => ({ ...s, marginV: parseInt(e.target.value) || 60 }))}
                                     className="w-full bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm"
                                 />
                             </div>
