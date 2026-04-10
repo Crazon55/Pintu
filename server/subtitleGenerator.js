@@ -33,14 +33,15 @@ function toASSTime(seconds) {
  */
 export function generateASS(segments, options = {}) {
   const {
-    fontName = 'Inter',
-    fontSize = 52,
+    fontName = 'Neue Haas Grotesk Display Pro',
+    fontSize = 48,
     primaryColor = '&H00FFFFFF',
     outlineColor = '&H00000000',
     outline = 3,
     shadow = 1,
-    bold = true,
-    marginV = 60,
+    bold = false,
+    marginV = 10,
+    alignment = 5, // 5 = middle-center, 2 = bottom-center
     resX = 720,
     resY = 1280,
   } = options;
@@ -57,7 +58,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${fontName},${fontSize},${primaryColor},&H000000FF,${outlineColor},&H80000000,${boldFlag},0,0,0,100,100,0,0,1,${outline},${shadow},2,20,20,${marginV},1
+Style: Default,${fontName},${fontSize},${primaryColor},&H000000FF,${outlineColor},&H80000000,${boldFlag},0,0,0,100,100,0,0,1,${outline},${shadow},${alignment},20,20,${marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`;
