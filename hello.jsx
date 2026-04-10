@@ -1430,14 +1430,29 @@ export default function App() {
                             clearInterval(serverPollIntervalRef.current);
                             serverPollIntervalRef.current = null;
                         }
-                        setExportStatus('Export complete! Uploading to cloud...');
+                        setExportStatus('Export complete! Downloading...');
                         setExportProgress(100);
 
                         try {
+                            // Download locally first
+                            const zipUrl = `${SERVER_URL}/api/download/${jobId}`;
+                            const dlResponse = await fetch(zipUrl, { signal });
+                            if (dlResponse.ok) {
+                                const blob = await dlResponse.blob();
+                                const blobUrl = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = blobUrl;
+                                a.download = `export-${jobId}.zip`;
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                                window.URL.revokeObjectURL(blobUrl);
+                            }
+
                             setIsExporting(false);
                             setExportProgress(0);
 
-                            // Upload to Cloudinary (no local download)
+                            // Then upload to Cloudinary
                             setExportStatus('Uploading to cloud...');
                             try {
                                 const cloudRes = await fetch(`${SERVER_URL}/api/upload-to-cloud`, {
