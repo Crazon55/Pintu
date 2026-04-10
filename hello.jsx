@@ -1448,8 +1448,26 @@ export default function App() {
                             window.URL.revokeObjectURL(blobUrl);
 
                             setIsExporting(false);
-                            setExportStatus('');
                             setExportProgress(0);
+
+                            // Auto-upload to Google Drive
+                            setExportStatus('Uploading to Google Drive...');
+                            try {
+                                const driveRes = await fetch(`${SERVER_URL}/api/upload-to-drive`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ jobId }),
+                                });
+                                const driveData = await driveRes.json();
+                                if (driveRes.ok) {
+                                    setExportStatus(`Uploaded to Drive! (${driveData.files?.length || 0} files)`);
+                                } else {
+                                    setExportStatus(`Drive upload failed: ${driveData.error}`);
+                                }
+                            } catch (driveErr) {
+                                setExportStatus(`Drive upload failed: ${driveErr.message}`);
+                            }
+                            setTimeout(() => { setExportStatus(''); }, 5000);
                         } catch (err) {
                             if (err.name === 'AbortError') return;
                             console.error('Download error:', err);

@@ -3,4 +3,5 @@ uploads/
 outputs/
 temp/
 .env
+service-account.json
 *.log
