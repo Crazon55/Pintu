@@ -25,10 +25,9 @@ export default function TranscribeApp() {
         fontSize: 48,
         bold: false,
         outline: 3,
-        marginV: 10,
-        alignment: 5,
-        posX: 360,  // center of 720px width
-        posY: 900,  // lower third area of 1280px height
+        marginV: 300, // distance from bottom (higher = subtitles move up)
+        posX: 360,
+        posY: 900,
     });
     const videoRef = useRef(null);
     const previewVideoRef = useRef(null);
@@ -448,9 +447,9 @@ export default function TranscribeApp() {
                                                 <div
                                                     className="absolute pointer-events-none"
                                                     style={{
-                                                        left: `${(style.posX / 720) * 100}%`,
-                                                        top: `${(style.posY / 1280) * 100}%`,
-                                                        transform: 'translate(-50%, -50%)',
+                                                        left: '50%',
+                                                        bottom: `${(style.marginV / 1280) * 100}%`,
+                                                        transform: 'translateX(-50%)',
                                                         fontSize: `${(style.fontSize / 720) * 320}px`,
                                                         fontWeight: '800',
                                                         fontFamily: "'Montserrat', sans-serif",
@@ -480,9 +479,9 @@ export default function TranscribeApp() {
                                             <div
                                                 className="absolute pointer-events-none"
                                                 style={{
-                                                    left: `${(style.posX / 720) * 100}%`,
-                                                    top: `${(style.posY / 1280) * 100}%`,
-                                                    transform: 'translate(-50%, -50%)',
+                                                    left: '50%',
+                                                    bottom: `${(style.marginV / 1280) * 100}%`,
+                                                    transform: 'translateX(-50%)',
                                                     fontSize: `${(style.fontSize / 720) * 320}px`,
                                                     fontWeight: style.bold ? '800' : '500',
                                                     color: 'white',
@@ -502,24 +501,14 @@ export default function TranscribeApp() {
                             {/* Controls */}
                             <div className="flex-1 space-y-4">
                                 <div>
-                                    <label className="text-xs text-neutral-500 block mb-1">Position X (horizontal)</label>
+                                    <label className="text-xs text-neutral-500 block mb-1">Vertical Position (higher = subtitles move up)</label>
                                     <input
                                         type="range"
-                                        min="50" max="670" value={style.posX}
-                                        onChange={(e) => setStyle(s => ({ ...s, posX: parseInt(e.target.value) }))}
+                                        min="50" max="700" value={style.marginV}
+                                        onChange={(e) => setStyle(s => ({ ...s, marginV: parseInt(e.target.value) }))}
                                         className="w-full"
                                     />
-                                    <span className="text-xs text-neutral-500">{style.posX} px</span>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-neutral-500 block mb-1">Position Y (vertical — lower = further down)</label>
-                                    <input
-                                        type="range"
-                                        min="100" max="1200" value={style.posY}
-                                        onChange={(e) => setStyle(s => ({ ...s, posY: parseInt(e.target.value) }))}
-                                        className="w-full"
-                                    />
-                                    <span className="text-xs text-neutral-500">{style.posY} px</span>
+                                    <span className="text-xs text-neutral-500">{style.marginV} px from bottom</span>
                                 </div>
                                 <div className="grid grid-cols-3 gap-4">
                                     <div>
