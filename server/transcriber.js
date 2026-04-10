@@ -56,7 +56,7 @@ export async function transcribeAudio(audioPath, modelSize = 'base', language = 
  */
 export async function transcribeVideo(videoPath, tempDir, options = {}) {
   const audioPath = join(tempDir, 'audio.mp3');
-  const modelSize = options.modelSize || 'base';
+  const modelSize = options.modelSize || 'small';
   const language = options.language || null;
 
   console.log('[transcribe] Extracting audio...');

@@ -50,7 +50,7 @@ export default function TranscribeApp() {
         try {
             const formData = new FormData();
             formData.append('video', videoFile);
-            formData.append('modelSize', 'base');
+            formData.append('modelSize', 'small');
 
             const res = await fetch(`${SERVER_URL}/api/transcribe`, {
                 method: 'POST',
