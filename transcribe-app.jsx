@@ -57,7 +57,7 @@ export default function TranscribeApp() {
             const formData = new FormData();
             formData.append('video', videoFile);
             // Hinglish: use medium model + language='hi', then transliterate Devanagari to Roman
-            formData.append('modelSize', language === 'hi' ? 'medium' : 'small');
+            formData.append('modelSize', 'small');
             formData.append('language', language === 'hi' ? 'hi' : 'en');
 
             const res = await fetch(`${SERVER_URL}/api/transcribe`, {
@@ -68,7 +68,7 @@ export default function TranscribeApp() {
             if (!res.ok) throw new Error(data.error || 'Transcription failed');
 
             setJobId(data.jobId);
-            setProgress(`Transcribing in ${language === 'hi' ? 'Hinglish (medium model)' : 'English (small model)'}...`);
+            setProgress(`Transcribing in ${language === 'hi' ? 'Hinglish' : 'English'}...`);
 
             // Poll for completion
             pollRef.current = setInterval(async () => {
