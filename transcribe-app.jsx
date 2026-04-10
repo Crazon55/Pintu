@@ -102,7 +102,7 @@ export default function TranscribeApp() {
             setStep('upload');
             setProgress(null);
         }
-    }, [videoFile]);
+    }, [videoFile, language]);
 
     // Update segment text
     const updateSegment = useCallback((idx, field, value) => {
