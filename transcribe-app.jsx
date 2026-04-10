@@ -423,7 +423,7 @@ export default function TranscribeApp() {
                                             for (const w of words) {
                                                 if (!w.text) continue;
                                                 cur.push(w);
-                                                if (cur.length >= 7 || (cur.length > 0 && w.end - cur[0].start >= 3) || PUNCT.test(w.text)) {
+                                                if (cur.length >= 4 || (cur.length > 0 && w.end - cur[0].start >= 2) || PUNCT.test(w.text)) {
                                                     phrases.push([...cur]); cur = [];
                                                 }
                                             }
