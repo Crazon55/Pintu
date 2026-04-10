@@ -57,8 +57,9 @@ export default function TranscribeApp() {
         try {
             const formData = new FormData();
             formData.append('video', videoFile);
-            formData.append('modelSize', 'small');
-            // English: force 'en'. Hinglish: no language sent = auto-detect (Romanized mixed output)
+            // Hinglish needs medium model for proper mixed-language detection
+            formData.append('modelSize', language === 'hi' ? 'medium' : 'small');
+            // English: force 'en'. Hinglish: no language = auto-detect
             if (language === 'en') formData.append('language', 'en');
 
             const res = await fetch(`${SERVER_URL}/api/transcribe`, {
