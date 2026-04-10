@@ -1141,6 +1141,7 @@ export default function App() {
     const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay compatibility
     const [isExporting, setIsExporting] = useState(false);
     const [exportStatus, setExportStatus] = useState('');
+    const [cloudLinks, setCloudLinks] = useState([]);
     const [exportProgress, setExportProgress] = useState(0);
     const [showKoushikPopup, setShowKoushikPopup] = useState(false);
     const [presetSearch, setPresetSearch] = useState('');
@@ -1445,15 +1446,15 @@ export default function App() {
                                     body: JSON.stringify({ jobId }),
                                 });
                                 const cloudData = await cloudRes.json();
-                                if (cloudRes.ok) {
-                                    setExportStatus(`Uploaded! (${cloudData.files?.length || 0} files)`);
+                                if (cloudRes.ok && cloudData.files) {
+                                    setCloudLinks(cloudData.files.map(f => f.url));
+                                    setExportStatus(`Uploaded ${cloudData.files.length} file(s) to cloud!`);
                                 } else {
                                     setExportStatus(`Upload failed: ${cloudData.error}`);
                                 }
                             } catch (cloudErr) {
                                 setExportStatus(`Upload failed: ${cloudErr.message}`);
                             }
-                            setTimeout(() => { setExportStatus(''); }, 5000);
                         } catch (err) {
                             if (err.name === 'AbortError') return;
                             console.error('Download error:', err);
@@ -2104,6 +2105,36 @@ export default function App() {
                                 <div className="h-full bg-yellow-500 transition-all duration-300" style={{ width: `${exportProgress}%` }}></div>
                             </div>
                             <p className="text-neutral-500 text-xs mt-4">Please keep this tab open.</p>
+                            {cloudLinks.length > 0 && (
+                                <div className="mt-4 w-full max-w-md">
+                                    <p className="text-sm text-green-400 mb-2">Cloud links (click to copy):</p>
+                                    {cloudLinks.map((link, i) => (
+                                        <div key={i} className="flex items-center gap-2 mb-1">
+                                            <button
+                                                onClick={() => { navigator.clipboard.writeText(link); }}
+                                                className="text-xs text-blue-400 hover:text-blue-300 truncate max-w-xs text-left"
+                                                title={link}
+                                            >
+                                                {link.split('/').pop()}
+                                            </button>
+                                            <span className="text-neutral-600 text-xs">|</span>
+                                            <a href={link} target="_blank" rel="noopener" className="text-xs text-orange-400 hover:text-orange-300">Open</a>
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={() => { navigator.clipboard.writeText(cloudLinks.join('\n')); }}
+                                        className="mt-2 px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs text-white"
+                                    >
+                                        Copy All Links
+                                    </button>
+                                    <button
+                                        onClick={() => setCloudLinks([])}
+                                        className="mt-2 ml-2 px-3 py-1 bg-neutral-700 hover:bg-neutral-600 rounded text-xs text-white"
+                                    >
+                                        Dismiss
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
