@@ -9,7 +9,7 @@ import archiver from 'archiver';
 import { createVideoProcessor } from './videoProcessor.js';
 import { createJobQueue } from './simpleQueue.js'; // Use your simpleQueue or Bull
 import { transcribeVideo } from './transcriber.js';
-import { generateASS } from './subtitleGenerator.js';
+import { generateASS, generateIndianFounderASS } from './subtitleGenerator.js';
 import { burnSubtitles } from './subtitleBurner.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -273,16 +273,18 @@ jobQueue.process('transcribe', 1, async (job) => {
 
 app.post('/api/burn-subtitles', express.json(), async (req, res) => {
   try {
-    const { videoPath, segments, style } = req.body;
-    if (!videoPath || !segments || !segments.length) {
-      return res.status(400).json({ error: 'videoPath and segments are required.' });
+    const { videoPath, segments, words, style, captionStyle } = req.body;
+    if (!videoPath || (!segments?.length && !words?.length)) {
+      return res.status(400).json({ error: 'videoPath and segments/words are required.' });
     }
 
     const outputDir = join(__dirname, 'outputs', `subtitled-${Date.now()}`);
     await fs.mkdir(outputDir, { recursive: true });
 
-    // Generate ASS file
-    const assContent = generateASS(segments, style || {});
+    // Generate ASS file based on caption style
+    const assContent = (captionStyle === 'indian-founder')
+      ? generateIndianFounderASS(words || segments, style || {})
+      : generateASS(segments, style || {});
     const assPath = join(outputDir, 'subtitles.ass');
     await fs.writeFile(assPath, assContent, 'utf-8');
 
