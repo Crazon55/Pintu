@@ -5,7 +5,7 @@ import json
 from faster_whisper import WhisperModel
 
 def transcribe(audio_path, model_size="base", language=None):
-    model = WhisperModel(model_size, device="cpu", compute_type="int8")
+    model = WhisperModel(model_size, device="cpu", compute_type="int8", download_root="/home/ubuntu/.cache/whisper")
     segments, info = model.transcribe(
         audio_path,
         beam_size=5,
