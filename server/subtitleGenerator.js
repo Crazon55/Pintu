@@ -79,26 +79,34 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
 }
 
 /**
- * Generate ASS for "Indian Founder" style — word-by-word display, ALL CAPS,
- * Montserrat Extra Bold, with optional yellow highlight for keywords.
+ * Generate ASS for "Indian Founder" style — words accumulate on screen one by one
+ * (karaoke build-up), with keyword highlights in yellow/green.
+ *
+ * How it works:
+ * - Words are grouped into phrases (5-8 words, or split at punctuation)
+ * - Within each phrase, words appear one at a time and stay on screen
+ * - The full phrase shows from first-word-start to last-word-end
+ * - Each word has its own timing for the "pop in" moment
+ * - Highlighted words render in bold italic yellow
+ * - When the phrase ends, screen clears and next phrase starts building
  *
  * @param {Array} words - Word-level timestamps [{start, end, text, highlight?}, ...]
- * @param {Object} options - Style options (same as generateASS + extras)
+ * @param {Object} options - Style options
  */
 export function generateIndianFounderASS(words, options = {}) {
   const {
     fontName = 'Montserrat',
-    fontSize = 58,
+    fontSize = 52,
     primaryColor = '&H00FFFFFF',       // white
     highlightColor = '&H0000FFFF',     // yellow (ASS BGR: 00FFFF = yellow)
     outlineColor = '&H00000000',       // black
     outline = 4,
     shadow = 2,
     posX = 360,
-    posY = 950,
+    posY = 900,
     resX = 720,
     resY = 1280,
-    wordsPerGroup = 2, // show N words at a time
+    maxWordsPerPhrase = 7,
   } = options;
 
   const header = `[Script Info]
@@ -111,33 +119,56 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${fontName},${fontSize},${primaryColor},&H000000FF,${outlineColor},&H80000000,-1,0,0,0,100,100,0,0,1,${outline},${shadow},5,20,20,10,1
-Style: Highlight,${fontName},${fontSize},${highlightColor},&H000000FF,${outlineColor},&H80000000,-1,0,0,0,100,100,0,0,1,${outline},${shadow},5,20,20,10,1
+Style: Default,${fontName},${fontSize},${primaryColor},&H000000FF,${outlineColor},&H80000000,-1,0,0,0,100,100,0,0,1,${outline},${shadow},5,40,40,10,1
+Style: Highlight,${fontName},${Math.round(fontSize * 1.15)},${highlightColor},&H000000FF,${outlineColor},&H80000000,-1,-1,0,0,100,100,0,0,1,${outline},${shadow},5,40,40,10,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`;
 
-  // Group words into pairs/triplets for display
+  // Step 1: Group words into phrases (split at punctuation or maxWordsPerPhrase)
+  const PUNCT = /[.,!?;:]$/;
+  const phrases = [];
+  let current = [];
+  for (const w of words) {
+    if (!w.text) continue;
+    current.push(w);
+    const duration = current.length > 0 ? w.end - current[0].start : 0;
+    if (current.length >= maxWordsPerPhrase || duration >= 3.0 || PUNCT.test(w.text)) {
+      phrases.push([...current]);
+      current = [];
+    }
+  }
+  if (current.length > 0) phrases.push(current);
+
+  // Step 2: For each phrase, generate accumulating word events
   const dialogues = [];
-  for (let i = 0; i < words.length; i += wordsPerGroup) {
-    const group = words.slice(i, i + wordsPerGroup);
-    if (group.length === 0) continue;
-    const start = toASSTime(group[0].start);
-    const end = toASSTime(group[group.length - 1].end);
+  for (const phrase of phrases) {
+    if (phrase.length === 0) continue;
+    const phraseEnd = phrase[phrase.length - 1].end;
 
-    // Build text with per-word highlight overrides
-    const textParts = group.map(w => {
-      const word = w.text.toUpperCase().replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
-      if (w.highlight) {
-        return `{\\c${highlightColor}}${word}{\\c${primaryColor}}`;
-      }
-      return word;
-    });
+    // Each word event: shows from its start time to the phrase end
+    // Text = all words up to and including this word (accumulating)
+    for (let wi = 0; wi < phrase.length; wi++) {
+      const word = phrase[wi];
+      const wordStart = toASSTime(word.start);
+      // This word's display ends when the NEXT word starts (replaced by next accumulation)
+      // Last word in phrase stays until phrase ends
+      const wordEnd = (wi < phrase.length - 1)
+        ? toASSTime(phrase[wi + 1].start)
+        : toASSTime(phraseEnd + 0.15); // slight linger
 
-    const posOverride = `{\\pos(${posX},${posY})}`;
-    // Add a subtle scale-in effect: \fscx80\fscy80 -> \fscx100\fscy100 over 50ms
-    const animOverride = `{\\t(0,80,\\fscx105\\fscy105)}{\\t(80,150,\\fscx100\\fscy100)}`;
-    dialogues.push(`Dialogue: 0,${start},${end},Default,,0,0,0,,${posOverride}${animOverride}${textParts.join(' ')}`);
+      // Build accumulated text: all words from 0..wi
+      const accText = phrase.slice(0, wi + 1).map(w => {
+        const escaped = w.text.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
+        if (w.highlight) {
+          return `{\\rHighlight}${escaped}{\\rDefault}`;
+        }
+        return escaped;
+      }).join(' ');
+
+      const posOverride = `{\\pos(${posX},${posY})}`;
+      dialogues.push(`Dialogue: 0,${wordStart},${wordEnd},Default,,0,0,0,,${posOverride}${accText}`);
+    }
   }
 
   return header + '\n' + dialogues.join('\n') + '\n';
