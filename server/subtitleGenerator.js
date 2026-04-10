@@ -40,10 +40,8 @@ export function generateASS(segments, options = {}) {
     outline = 3,
     shadow = 1,
     bold = false,
-    marginV = 10,
-    alignment = 5, // 5 = middle-center, 2 = bottom-center
-    posX = null,    // exact X position (null = use alignment)
-    posY = null,    // exact Y position (null = use alignment)
+    marginV = 300,
+    alignment = 2, // 2 = bottom-center (marginV controls distance from bottom)
     resX = 720,
     resY = 1280,
   } = options;
@@ -70,9 +68,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
     const end = toASSTime(seg.end);
     // Escape ASS special chars
     const text = seg.text.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
-    // Use \pos(x,y) override for exact positioning when posX/posY are set
-    const posOverride = (posX !== null && posY !== null) ? `{\\pos(${posX},${posY})}` : '';
-    return `Dialogue: 0,${start},${end},Default,,0,0,0,,${posOverride}${text}`;
+    return `Dialogue: 0,${start},${end},Default,,0,0,0,,${text}`;
   });
 
   return header + '\n' + dialogues.join('\n') + '\n';
