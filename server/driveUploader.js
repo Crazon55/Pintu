@@ -36,6 +36,7 @@ export async function uploadToDrive(filePath, fileName, folderId, mimeType = 'vi
   console.log(`[drive] Uploading: ${fileName} to folder ${targetFolder}`);
 
   const response = await drive.files.create({
+    supportsAllDrives: true,
     requestBody: {
       name: fileName || basename(filePath),
       parents: targetFolder ? [targetFolder] : [],
