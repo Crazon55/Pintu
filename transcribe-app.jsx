@@ -8,6 +8,7 @@ const SERVER_URL = (() => {
 
 export default function TranscribeApp() {
     const [step, setStep] = useState('upload'); // upload | transcribing | edit | burning | done
+    const [language, setLanguage] = useState('en'); // en = English, hi = Hinglish
     const [videoFile, setVideoFile] = useState(null);
     const [videoSrc, setVideoSrc] = useState(null);
     const [jobId, setJobId] = useState(null);
@@ -53,6 +54,9 @@ export default function TranscribeApp() {
             const formData = new FormData();
             formData.append('video', videoFile);
             formData.append('modelSize', 'small');
+            // Hinglish: don't force language, let Whisper auto-detect (outputs Romanized)
+            // English: force 'en' for accurate English-only transcription
+            if (language === 'en') formData.append('language', 'en');
 
             const res = await fetch(`${SERVER_URL}/api/transcribe`, {
                 method: 'POST',
@@ -270,14 +274,30 @@ export default function TranscribeApp() {
                     )}
                 </div>
 
-                {/* Transcribe button */}
+                {/* Language selection + Transcribe button */}
                 {step === 'upload' && videoFile && (
-                    <button
-                        onClick={startTranscribe}
-                        className="mb-8 px-8 py-3 bg-orange-600 hover:bg-orange-500 rounded-lg font-medium transition-colors"
-                    >
-                        Transcribe Video
-                    </button>
+                    <div className="mb-8 flex items-center gap-4">
+                        <div className="flex rounded-lg overflow-hidden border border-neutral-700">
+                            <button
+                                onClick={() => setLanguage('en')}
+                                className={`px-5 py-3 text-sm font-medium transition-colors ${language === 'en' ? 'bg-orange-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+                            >
+                                English
+                            </button>
+                            <button
+                                onClick={() => setLanguage('hi')}
+                                className={`px-5 py-3 text-sm font-medium transition-colors ${language === 'hi' ? 'bg-orange-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+                            >
+                                Hinglish
+                            </button>
+                        </div>
+                        <button
+                            onClick={startTranscribe}
+                            className="px-8 py-3 bg-orange-600 hover:bg-orange-500 rounded-lg font-medium transition-colors"
+                        >
+                            Transcribe Video
+                        </button>
+                    </div>
                 )}
 
                 {/* Step 2: Edit Transcript */}
