@@ -417,15 +417,59 @@ export default function TranscribeApp() {
                                     )}
                                     {/* Time-synced subtitle overlay */}
                                     {(() => {
-                                        const activeSegs = captionStyle === 'indian-founder'
-                                            ? words.filter(w => currentTime >= w.start && currentTime <= w.end)
-                                            : segments.filter(s => currentTime >= s.start && currentTime <= s.end);
-                                        const displayText = activeSegs.length > 0
-                                            ? (captionStyle === 'indian-founder'
-                                                ? activeSegs.map(w => w.text.toUpperCase()).join(' ')
-                                                : activeSegs[0]?.text)
-                                            : '';
-                                        if (!displayText) return null;
+                                        if (captionStyle === 'indian-founder') {
+                                            // Find which phrase we're in and show accumulated words
+                                            const PUNCT = /[.,!?;:]$/;
+                                            const phrases = [];
+                                            let cur = [];
+                                            for (const w of words) {
+                                                if (!w.text) continue;
+                                                cur.push(w);
+                                                if (cur.length >= 7 || (cur.length > 0 && w.end - cur[0].start >= 3) || PUNCT.test(w.text)) {
+                                                    phrases.push([...cur]); cur = [];
+                                                }
+                                            }
+                                            if (cur.length > 0) phrases.push(cur);
+                                            // Find active phrase
+                                            const activePhrase = phrases.find(p =>
+                                                currentTime >= p[0].start && currentTime <= p[p.length - 1].end + 0.15
+                                            );
+                                            if (!activePhrase) return null;
+                                            // Show accumulated words up to current time
+                                            const visibleWords = activePhrase.filter(w => currentTime >= w.start);
+                                            if (visibleWords.length === 0) return null;
+                                            return (
+                                                <div
+                                                    className="absolute pointer-events-none"
+                                                    style={{
+                                                        left: `${(style.posX / 720) * 100}%`,
+                                                        top: `${(style.posY / 1280) * 100}%`,
+                                                        transform: 'translate(-50%, -50%)',
+                                                        fontSize: `${(style.fontSize / 720) * 320}px`,
+                                                        fontWeight: '800',
+                                                        fontFamily: "'Montserrat', sans-serif",
+                                                        color: 'white',
+                                                        textShadow: `0 0 ${style.outline}px black, 0 0 ${style.outline * 2}px black, 2px 2px ${style.outline}px black, -2px -2px ${style.outline}px black`,
+                                                        textAlign: 'center',
+                                                        maxWidth: '85%',
+                                                        lineHeight: 1.3,
+                                                    }}
+                                                >
+                                                    {visibleWords.map((w, i) => (
+                                                        <span key={i} style={{
+                                                            color: w.highlight ? '#FFFF00' : 'white',
+                                                            fontStyle: w.highlight ? 'italic' : 'normal',
+                                                            fontSize: w.highlight ? '115%' : '100%',
+                                                        }}>
+                                                            {w.text}{' '}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            );
+                                        }
+                                        // Clean style
+                                        const activeSeg = segments.find(s => currentTime >= s.start && currentTime <= s.end);
+                                        if (!activeSeg) return null;
                                         return (
                                             <div
                                                 className="absolute pointer-events-none"
@@ -435,7 +479,6 @@ export default function TranscribeApp() {
                                                     transform: 'translate(-50%, -50%)',
                                                     fontSize: `${(style.fontSize / 720) * 320}px`,
                                                     fontWeight: style.bold ? '800' : '500',
-                                                    fontFamily: captionStyle === 'indian-founder' ? "'Montserrat', sans-serif" : 'inherit',
                                                     color: 'white',
                                                     textShadow: `0 0 ${style.outline}px black, 0 0 ${style.outline * 2}px black, 2px 2px ${style.outline}px black, -2px -2px ${style.outline}px black`,
                                                     textAlign: 'center',
@@ -443,7 +486,7 @@ export default function TranscribeApp() {
                                                     lineHeight: 1.2,
                                                 }}
                                             >
-                                                {displayText}
+                                                {activeSeg.text}
                                             </div>
                                         );
                                     })()}
