@@ -106,7 +106,7 @@ export function generateIndianFounderASS(words, options = {}) {
     posY = 900,
     resX = 720,
     resY = 1280,
-    maxWordsPerPhrase = 7,
+    maxWordsPerPhrase = 4,
   } = options;
 
   const header = `[Script Info]
@@ -132,7 +132,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
     if (!w.text) continue;
     current.push(w);
     const duration = current.length > 0 ? w.end - current[0].start : 0;
-    if (current.length >= maxWordsPerPhrase || duration >= 3.0 || PUNCT.test(w.text)) {
+    if (current.length >= maxWordsPerPhrase || duration >= 2.0 || PUNCT.test(w.text)) {
       phrases.push([...current]);
       current = [];
     }

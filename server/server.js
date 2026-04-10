@@ -245,10 +245,11 @@ app.post('/api/transcribe', upload.single('video'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No video file received.' });
     const { modelSize, language } = req.body;
+    console.log(`[transcribe] Received: modelSize=${modelSize}, language=${language}`);
     const job = await jobQueue.add('transcribe', {
       videoPath: req.file.path,
-      modelSize: modelSize || 'base',
-      language: language || null,
+      modelSize: modelSize || 'small',
+      language: language && language !== 'undefined' ? language : null,
     });
     res.json({ jobId: job.id });
   } catch (err) {
