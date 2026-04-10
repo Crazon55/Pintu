@@ -402,7 +402,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const textToVideoGapBase = (shouldUseGap || !(isAllBoldWhite || isHookCentered)) ? GAP : 0;
   const textToVideoGap = isFoundersIndia ? 0 : (isTightGapPreset ? Math.round(textToVideoGapBase * 0.4) : textToVideoGapBase);
   // For these three presets, use standard GAP like Life Wealth Lessons
-  const logoToTextGap = (name === 'Business Cracked') ? 0 : (shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : (isFoundersIndia ? (GAP + 20) : GAP))));
+  const logoToTextGap = (name === 'Business Cracked') ? GAP : (shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : (isFoundersIndia ? (GAP + 20) : GAP))));
   const logoToVideoGap_NoHook = (isBestFounderClips || isBestBusinessClips || isAdsByMarketer) ? (GAP * 2) : (isStartupMadness ? (GAP * 3) : GAP);
 
   const totalStackH = (LOGO_BOX_H) + (hasHeadline ? (logoToTextGap + textH + textToVideoGap) : logoToVideoGap_NoHook) + targetH + GAP + 30;
