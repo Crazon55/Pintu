@@ -1429,28 +1429,14 @@ export default function App() {
                             clearInterval(serverPollIntervalRef.current);
                             serverPollIntervalRef.current = null;
                         }
-                        setExportStatus('Export complete! Starting download...');
+                        setExportStatus('Export complete! Uploading to cloud...');
                         setExportProgress(100);
 
                         try {
-                            const zipUrl = `${SERVER_URL}/api/download/${jobId}`;
-                            // Fetch as blob and trigger download via anchor (works on EC2/remote, ngrok, and localhost)
-                            const dlResponse = await fetch(zipUrl, { signal });
-                            if (!dlResponse.ok) throw new Error('Download failed: ' + dlResponse.statusText);
-                            const blob = await dlResponse.blob();
-                            const blobUrl = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = blobUrl;
-                            a.download = `export-${jobId}.zip`;
-                            document.body.appendChild(a);
-                            a.click();
-                            a.remove();
-                            window.URL.revokeObjectURL(blobUrl);
-
                             setIsExporting(false);
                             setExportProgress(0);
 
-                            // Auto-upload to Cloudinary
+                            // Upload to Cloudinary (no local download)
                             setExportStatus('Uploading to cloud...');
                             try {
                                 const cloudRes = await fetch(`${SERVER_URL}/api/upload-to-cloud`, {
