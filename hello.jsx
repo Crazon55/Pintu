@@ -1450,26 +1450,8 @@ export default function App() {
                             }
 
                             setIsExporting(false);
+                            setExportStatus('');
                             setExportProgress(0);
-
-                            // Then upload to Cloudinary
-                            setExportStatus('Uploading to cloud...');
-                            try {
-                                const cloudRes = await fetch(`${SERVER_URL}/api/upload-to-cloud`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ jobId }),
-                                });
-                                const cloudData = await cloudRes.json();
-                                if (cloudRes.ok && cloudData.files) {
-                                    setCloudLinks(cloudData.files.map(f => f.url));
-                                    setExportStatus(`Uploaded ${cloudData.files.length} file(s) to cloud!`);
-                                } else {
-                                    setExportStatus(`Upload failed: ${cloudData.error}`);
-                                }
-                            } catch (cloudErr) {
-                                setExportStatus(`Upload failed: ${cloudErr.message}`);
-                            }
                         } catch (err) {
                             if (err.name === 'AbortError') return;
                             console.error('Download error:', err);
