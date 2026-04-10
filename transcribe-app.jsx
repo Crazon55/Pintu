@@ -140,6 +140,25 @@ export default function TranscribeApp() {
         }
     }, [videoPath, segments, style]);
 
+    // Download via fetch + blob (works cross-origin)
+    const downloadVideo = useCallback(async () => {
+        if (!subtitledUrl) return;
+        try {
+            const res = await fetch(`${SERVER_URL}${subtitledUrl}`);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'subtitled.mp4';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            setError('Download failed: ' + err.message);
+        }
+    }, [subtitledUrl]);
+
     // Send to Pintu batcher
     const sendToBatcher = useCallback(() => {
         if (subtitledPath) {
@@ -147,6 +166,50 @@ export default function TranscribeApp() {
             window.location.href = '/';
         }
     }, [subtitledPath]);
+
+    // Save state to localStorage so it persists across navigation
+    useEffect(() => {
+        if (segments.length > 0) {
+            localStorage.setItem('transcribe_segments', JSON.stringify(segments));
+        }
+        if (videoPath) localStorage.setItem('transcribe_videoPath', videoPath);
+        if (subtitledUrl) localStorage.setItem('transcribe_subtitledUrl', subtitledUrl);
+        if (subtitledPath) localStorage.setItem('transcribe_subtitledPath', subtitledPath);
+        if (step !== 'upload') localStorage.setItem('transcribe_step', step);
+    }, [segments, videoPath, subtitledUrl, subtitledPath, step]);
+
+    // Restore state from localStorage on mount
+    useEffect(() => {
+        try {
+            const savedSegments = localStorage.getItem('transcribe_segments');
+            const savedVideoPath = localStorage.getItem('transcribe_videoPath');
+            const savedSubtitledUrl = localStorage.getItem('transcribe_subtitledUrl');
+            const savedSubtitledPath = localStorage.getItem('transcribe_subtitledPath');
+            const savedStep = localStorage.getItem('transcribe_step');
+            if (savedSegments) setSegments(JSON.parse(savedSegments));
+            if (savedVideoPath) setVideoPath(savedVideoPath);
+            if (savedSubtitledUrl) setSubtitledUrl(savedSubtitledUrl);
+            if (savedSubtitledPath) setSubtitledPath(savedSubtitledPath);
+            if (savedStep && savedStep !== 'upload') setStep(savedStep);
+        } catch {}
+    }, []);
+
+    // Clear saved state when starting fresh
+    const startFresh = useCallback(() => {
+        localStorage.removeItem('transcribe_segments');
+        localStorage.removeItem('transcribe_videoPath');
+        localStorage.removeItem('transcribe_subtitledUrl');
+        localStorage.removeItem('transcribe_subtitledPath');
+        localStorage.removeItem('transcribe_step');
+        setStep('upload');
+        setSegments([]);
+        setVideoFile(null);
+        setVideoSrc(null);
+        setVideoPath(null);
+        setSubtitledUrl(null);
+        setSubtitledPath(null);
+        setError(null);
+    }, []);
 
     // Cleanup polling on unmount
     useEffect(() => {
@@ -383,18 +446,23 @@ export default function TranscribeApp() {
                     <div className="mb-8">
                         <h2 className="text-lg font-semibold mb-4">4. Done!</h2>
                         <div className="flex items-center gap-4">
-                            <a
-                                href={`${SERVER_URL}${subtitledUrl}`}
-                                download
-                                className="px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg font-medium transition-colors inline-block"
+                            <button
+                                onClick={downloadVideo}
+                                className="px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg font-medium transition-colors"
                             >
                                 Download Subtitled Video
-                            </a>
+                            </button>
                             <button
                                 onClick={sendToBatcher}
                                 className="px-6 py-3 bg-orange-600 hover:bg-orange-500 rounded-lg font-medium transition-colors"
                             >
                                 Send to Pintu Batcher
+                            </button>
+                            <button
+                                onClick={startFresh}
+                                className="px-6 py-3 bg-neutral-700 hover:bg-neutral-600 rounded-lg font-medium transition-colors"
+                            >
+                                Start Fresh
                             </button>
                         </div>
                         <div className="mt-4 max-w-md">
