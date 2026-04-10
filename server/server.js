@@ -11,7 +11,7 @@ import { createVideoProcessor } from './videoProcessor.js';
 import { createJobQueue } from './simpleQueue.js'; // Use your simpleQueue or Bull
 import { transcribeVideo } from './transcriber.js';
 import { generateASS, generateIndianFounderASS } from './subtitleGenerator.js';
-import { uploadToDrive, uploadBatchToDrive } from './driveUploader.js';
+import { uploadToCloudinary } from './cloudinaryUploader.js';
 import { burnSubtitles } from './subtitleBurner.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -316,8 +316,8 @@ app.get('/api/download-subtitled', async (req, res) => {
 
 // --- GOOGLE DRIVE UPLOAD ---
 
-// Upload exported videos to Drive after export completes
-app.post('/api/upload-to-drive', express.json(), async (req, res) => {
+// Upload exported videos to Cloudinary after export completes
+app.post('/api/upload-to-cloud', express.json(), async (req, res) => {
   try {
     const { jobId } = req.body;
     if (!jobId) return res.status(400).json({ error: 'jobId is required.' });
@@ -332,30 +332,14 @@ app.post('/api/upload-to-drive', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'No video files found.' });
     }
 
-    // Upload directly to shared folder (service accounts have no storage quota of their own)
     const results = [];
     for (const vp of videoPaths) {
-      const result = await uploadToDrive(vp, basename(vp));
+      const result = await uploadToCloudinary(vp, basename(vp));
       results.push(result);
     }
     res.json({ success: true, files: results });
   } catch (err) {
-    console.error('[drive] Upload error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Upload a single file to Drive
-app.post('/api/upload-file-to-drive', express.json(), async (req, res) => {
-  try {
-    const { filePath, fileName } = req.body;
-    if (!filePath || !existsSync(filePath)) {
-      return res.status(400).json({ error: 'File not found.' });
-    }
-    const result = await uploadToDrive(filePath, fileName || basename(filePath));
-    res.json({ success: true, ...result });
-  } catch (err) {
-    console.error('[drive] Upload error:', err.message);
+    console.error('[cloudinary] Upload error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

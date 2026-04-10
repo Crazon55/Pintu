@@ -1450,22 +1450,22 @@ export default function App() {
                             setIsExporting(false);
                             setExportProgress(0);
 
-                            // Auto-upload to Google Drive
-                            setExportStatus('Uploading to Google Drive...');
+                            // Auto-upload to Cloudinary
+                            setExportStatus('Uploading to cloud...');
                             try {
-                                const driveRes = await fetch(`${SERVER_URL}/api/upload-to-drive`, {
+                                const cloudRes = await fetch(`${SERVER_URL}/api/upload-to-cloud`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ jobId }),
                                 });
-                                const driveData = await driveRes.json();
-                                if (driveRes.ok) {
-                                    setExportStatus(`Uploaded to Drive! (${driveData.files?.length || 0} files)`);
+                                const cloudData = await cloudRes.json();
+                                if (cloudRes.ok) {
+                                    setExportStatus(`Uploaded! (${cloudData.files?.length || 0} files)`);
                                 } else {
-                                    setExportStatus(`Drive upload failed: ${driveData.error}`);
+                                    setExportStatus(`Upload failed: ${cloudData.error}`);
                                 }
-                            } catch (driveErr) {
-                                setExportStatus(`Drive upload failed: ${driveErr.message}`);
+                            } catch (cloudErr) {
+                                setExportStatus(`Upload failed: ${cloudErr.message}`);
                             }
                             setTimeout(() => { setExportStatus(''); }, 5000);
                         } catch (err) {
