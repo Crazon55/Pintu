@@ -238,9 +238,16 @@ export default function TranscribeApp() {
                     <span className="text-neutral-500">|</span>
                     <span className="text-sm text-neutral-400">Transcribe & Subtitle</span>
                 </div>
-                <a href="/" className="text-sm text-orange-500 hover:text-orange-400 transition-colors">
-                    Back to Batcher
-                </a>
+                <div className="flex items-center gap-4">
+                    {step !== 'upload' && (
+                        <button onClick={startFresh} className="text-sm text-red-400 hover:text-red-300 transition-colors">
+                            Clear & Reset
+                        </button>
+                    )}
+                    <a href="/" className="text-sm text-orange-500 hover:text-orange-400 transition-colors">
+                        Back to Batcher
+                    </a>
+                </div>
             </div>
 
             <div className="max-w-5xl mx-auto px-6 py-8">
