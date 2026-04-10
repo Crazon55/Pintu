@@ -13,7 +13,9 @@ export default function TranscribeApp() {
     const [videoSrc, setVideoSrc] = useState(null);
     const [jobId, setJobId] = useState(null);
     const [progress, setProgress] = useState(null);
+    const [captionStyle, setCaptionStyle] = useState('clean'); // clean | indian-founder
     const [segments, setSegments] = useState([]);
+    const [words, setWords] = useState([]); // word-level timestamps for indian-founder style
     const [videoPath, setVideoPath] = useState(null);
     const [subtitledUrl, setSubtitledUrl] = useState(null);
     const [subtitledPath, setSubtitledPath] = useState(null);
@@ -78,6 +80,7 @@ export default function TranscribeApp() {
                         clearInterval(pollRef.current);
                         const result = statusData.returnvalue;
                         setSegments(result.segments || []);
+                        setWords((result.words || []).map(w => ({ ...w, highlight: false })));
                         setVideoPath(result.videoPath);
                         setStep('edit');
                         setProgress(null);
@@ -119,7 +122,7 @@ export default function TranscribeApp() {
 
     // Burn subtitles
     const burnSubs = useCallback(async () => {
-        if (!videoPath || segments.length === 0) return;
+        if (!videoPath || (captionStyle === 'clean' ? segments.length === 0 : words.length === 0)) return;
         setStep('burning');
         setError(null);
         setProgress('Burning subtitles...');
@@ -128,7 +131,7 @@ export default function TranscribeApp() {
             const res = await fetch(`${SERVER_URL}/api/burn-subtitles`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ videoPath, segments, style }),
+                body: JSON.stringify({ videoPath, segments, words, style, captionStyle }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Subtitle burning failed');
@@ -300,10 +303,50 @@ export default function TranscribeApp() {
                     </div>
                 )}
 
-                {/* Step 2: Edit Transcript */}
+                {/* Caption Style Selector */}
                 {(step === 'edit' || step === 'burning' || step === 'done') && segments.length > 0 && (
+                    <div className="mb-6">
+                        <h2 className="text-lg font-semibold mb-3">2. Caption Style</h2>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setCaptionStyle('clean')}
+                                className={`px-5 py-3 rounded-lg text-sm font-medium transition-colors border ${captionStyle === 'clean' ? 'bg-orange-600 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700'}`}
+                            >
+                                Clean (Phrase-based)
+                            </button>
+                            <button
+                                onClick={() => setCaptionStyle('indian-founder')}
+                                className={`px-5 py-3 rounded-lg text-sm font-medium transition-colors border ${captionStyle === 'indian-founder' ? 'bg-orange-600 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700'}`}
+                            >
+                                Indian Founder (Word-by-word)
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Word-level editor for Indian Founder style */}
+                {(step === 'edit' || step === 'burning' || step === 'done') && captionStyle === 'indian-founder' && words.length > 0 && (
                     <div className="mb-8">
-                        <h2 className="text-lg font-semibold mb-4">2. Edit Transcript</h2>
+                        <h2 className="text-lg font-semibold mb-3">3. Tap words to highlight in yellow</h2>
+                        <p className="text-sm text-neutral-500 mb-4">Click any word to toggle yellow highlight. These will pop in yellow during playback.</p>
+                        <div className="flex flex-wrap gap-2 bg-neutral-900 rounded-lg p-4">
+                            {words.map((w, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setWords(prev => prev.map((word, i) => i === idx ? { ...word, highlight: !word.highlight } : word))}
+                                    className={`px-3 py-1.5 rounded text-sm font-bold uppercase transition-colors ${w.highlight ? 'bg-yellow-500 text-black' : 'bg-neutral-700 text-white hover:bg-neutral-600'}`}
+                                >
+                                    {w.text}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 3: Edit Transcript (Clean style) */}
+                {(step === 'edit' || step === 'burning' || step === 'done') && captionStyle === 'clean' && segments.length > 0 && (
+                    <div className="mb-8">
+                        <h2 className="text-lg font-semibold mb-4">3. Edit Transcript</h2>
                         <p className="text-sm text-neutral-500 mb-4">Edit the text or adjust timestamps. Delete segments you don't need.</p>
 
                         <div className="space-y-2">
