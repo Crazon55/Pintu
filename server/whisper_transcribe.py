@@ -6,6 +6,13 @@ from faster_whisper import WhisperModel
 
 def transcribe(audio_path, model_size="base", language=None):
     model = WhisperModel(model_size, device="cpu", compute_type="int8", download_root="/home/ubuntu/.cache/whisper")
+
+    # For Hinglish: use Hindi language but with Romanized prompt to guide output
+    hinglish = language == "hi"
+    initial_prompt = None
+    if hinglish:
+        initial_prompt = "Yeh ek Hinglish podcast hai. Sabse zyada important hai ki output Roman script mein ho, jaise aap, mein, kya, hai, toh, sabse."
+
     segments, info = model.transcribe(
         audio_path,
         beam_size=5,
@@ -13,6 +20,7 @@ def transcribe(audio_path, model_size="base", language=None):
         language=language,
         vad_filter=True,
         vad_parameters=dict(min_silence_duration_ms=500),
+        initial_prompt=initial_prompt,
     )
 
     words = []

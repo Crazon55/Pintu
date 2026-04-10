@@ -119,8 +119,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${fontName},${fontSize},${primaryColor},&H000000FF,${outlineColor},&H80000000,-1,0,0,0,100,100,0,0,1,${outline},${shadow},5,40,40,10,1
-Style: Highlight,${fontName},${Math.round(fontSize * 1.15)},${highlightColor},&H000000FF,${outlineColor},&H80000000,-1,-1,0,0,100,100,0,0,1,${outline},${shadow},5,40,40,10,1
+Style: Default,${fontName},${fontSize},${primaryColor},&HFF000000,${outlineColor},&H80000000,-1,0,0,0,100,100,0,0,1,${outline},${shadow},5,40,40,10,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`;
@@ -140,35 +139,43 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
   }
   if (current.length > 0) phrases.push(current);
 
-  // Step 2: For each phrase, generate accumulating word events
+  // Step 2: For each phrase, generate ONE dialogue with karaoke tags
+  // ASS \k tags make words appear one at a time — no flicker, perfectly smooth
+  // SecondaryColour is transparent so words are invisible until their karaoke time
   const dialogues = [];
   for (const phrase of phrases) {
     if (phrase.length === 0) continue;
-    const phraseEnd = phrase[phrase.length - 1].end;
+    const phraseStart = phrase[0].start;
+    const phraseEnd = phrase[phrase.length - 1].end + 0.2; // slight linger
 
-    // Each word event: shows from its start time to the phrase end
-    // Text = all words up to and including this word (accumulating)
+    // Build karaoke text: \kN = duration in centiseconds before this word appears
+    let karaokeText = '';
     for (let wi = 0; wi < phrase.length; wi++) {
-      const word = phrase[wi];
-      const wordStart = toASSTime(word.start);
-      // This word's display ends when the NEXT word starts (replaced by next accumulation)
-      // Last word in phrase stays until phrase ends
-      const wordEnd = (wi < phrase.length - 1)
-        ? toASSTime(phrase[wi + 1].start)
-        : toASSTime(phraseEnd + 0.15); // slight linger
+      const w = phrase[wi];
+      const escaped = w.text.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
 
-      // Build accumulated text: all words from 0..wi
-      const accText = phrase.slice(0, wi + 1).map(w => {
-        const escaped = w.text.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
-        if (w.highlight) {
-          return `{\\rHighlight}${escaped}{\\rDefault}`;
-        }
-        return escaped;
-      }).join(' ');
+      // Duration = time from previous word end (or phrase start) to this word's start
+      const prevEnd = wi === 0 ? phraseStart : phrase[wi - 1].end;
+      const gap = Math.max(0, w.start - prevEnd);
+      const wordDur = w.end - w.start;
+      // \k for the gap (invisible pause) + \k for the word itself
+      const gapCs = Math.round(gap * 100);
+      const wordCs = Math.round(wordDur * 100);
 
-      const posOverride = `{\\pos(${posX},${posY})}`;
-      dialogues.push(`Dialogue: 0,${wordStart},${wordEnd},Default,,0,0,0,,${posOverride}${accText}`);
+      if (w.highlight) {
+        // Highlighted word: yellow, italic, slightly bigger
+        if (gapCs > 0) karaokeText += `{\\k${gapCs}}`;
+        karaokeText += `{\\k${wordCs}\\c${highlightColor}\\i1\\fscx110\\fscy110}${escaped}{\\c${primaryColor}\\i0\\fscx100\\fscy100} `;
+      } else {
+        if (gapCs > 0) karaokeText += `{\\k${gapCs}}`;
+        karaokeText += `{\\k${wordCs}}${escaped} `;
+      }
     }
+
+    const start = toASSTime(phraseStart);
+    const end = toASSTime(phraseEnd);
+    const posOverride = `{\\pos(${posX},${posY})}`;
+    dialogues.push(`Dialogue: 0,${start},${end},Default,,0,0,0,,${posOverride}${karaokeText.trim()}`);
   }
 
   return header + '\n' + dialogues.join('\n') + '\n';
