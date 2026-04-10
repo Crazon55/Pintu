@@ -292,7 +292,7 @@ app.post('/api/burn-subtitles', express.json(), async (req, res) => {
 
     res.json({
       videoPath: outputPath,
-      downloadUrl: `/outputs/${outputDir.split('outputs')[1].replace(/\\/g, '/')}subtitled.mp4`,
+      downloadUrl: `/outputs/subtitled-${outputDir.match(/subtitled-(\d+)/)?.[1] || Date.now()}/subtitled.mp4`,
     });
   } catch (err) {
     console.error('[burn-subtitles] Error:', err.message);
