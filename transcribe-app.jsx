@@ -58,9 +58,7 @@ export default function TranscribeApp() {
             const formData = new FormData();
             formData.append('video', videoFile);
             formData.append('modelSize', 'small');
-            // Hinglish: don't force language, let Whisper auto-detect (outputs Romanized)
-            // English: force 'en' for accurate English-only transcription
-            if (language === 'en') formData.append('language', 'en');
+            formData.append('language', language); // 'en' for English, 'hi' for Hinglish
 
             const res = await fetch(`${SERVER_URL}/api/transcribe`, {
                 method: 'POST',
