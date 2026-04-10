@@ -268,59 +268,101 @@ export default function TranscribeApp() {
                     </div>
                 )}
 
-                {/* Style options */}
+                {/* Style options with live preview */}
                 {(step === 'edit') && segments.length > 0 && (
                     <div className="mb-8">
-                        <h2 className="text-lg font-semibold mb-4">3. Subtitle Style</h2>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="text-xs text-neutral-500 block mb-1">Position X (0-720)</label>
-                                <input
-                                    type="range"
-                                    min="100" max="620" value={style.posX}
-                                    onChange={(e) => setStyle(s => ({ ...s, posX: parseInt(e.target.value) }))}
-                                    className="w-full"
-                                />
-                                <span className="text-xs text-neutral-500">{style.posX} px</span>
-                            </div>
-                            <div>
-                                <label className="text-xs text-neutral-500 block mb-1">Position Y (0-1280)</label>
-                                <input
-                                    type="range"
-                                    min="100" max="1200" value={style.posY}
-                                    onChange={(e) => setStyle(s => ({ ...s, posY: parseInt(e.target.value) }))}
-                                    className="w-full"
-                                />
-                                <span className="text-xs text-neutral-500">{style.posY} px</span>
-                            </div>
-                            <div>
-                                <label className="text-xs text-neutral-500 block mb-1">Font Size</label>
-                                <input
-                                    type="number"
-                                    value={style.fontSize}
-                                    onChange={(e) => setStyle(s => ({ ...s, fontSize: parseInt(e.target.value) || 48 }))}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs text-neutral-500 block mb-1">Outline Width</label>
-                                <input
-                                    type="number"
-                                    value={style.outline}
-                                    onChange={(e) => setStyle(s => ({ ...s, outline: parseInt(e.target.value) || 3 }))}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm"
-                                />
-                            </div>
-                            <div className="flex items-end">
-                                <label className="flex items-center gap-2 text-sm">
-                                    <input
-                                        type="checkbox"
-                                        checked={style.bold}
-                                        onChange={(e) => setStyle(s => ({ ...s, bold: e.target.checked }))}
-                                        className="rounded"
+                        <h2 className="text-lg font-semibold mb-4">3. Subtitle Style & Position</h2>
+                        <div className="flex gap-6 flex-col lg:flex-row">
+                            {/* Live preview */}
+                            <div className="shrink-0">
+                                <p className="text-xs text-neutral-500 mb-2">Live Preview (drag sliders to position)</p>
+                                <div className="relative bg-black rounded-lg overflow-hidden" style={{ width: '320px', aspectRatio: '9/16' }}>
+                                    {videoSrc && (
+                                        <video src={videoSrc} className="w-full h-full object-cover" muted autoPlay loop playsInline />
+                                    )}
+                                    {/* Subtitle overlay */}
+                                    <div
+                                        className="absolute pointer-events-none"
+                                        style={{
+                                            left: `${(style.posX / 720) * 100}%`,
+                                            top: `${(style.posY / 1280) * 100}%`,
+                                            transform: 'translate(-50%, -50%)',
+                                            fontSize: `${(style.fontSize / 720) * 320}px`,
+                                            fontWeight: style.bold ? 'bold' : '500',
+                                            color: 'white',
+                                            textShadow: `0 0 ${style.outline}px black, 0 0 ${style.outline * 2}px black, 1px 1px ${style.outline}px black, -1px -1px ${style.outline}px black`,
+                                            textAlign: 'center',
+                                            maxWidth: '90%',
+                                            lineHeight: 1.2,
+                                        }}
+                                    >
+                                        {segments[0]?.text || 'Sample subtitle text'}
+                                    </div>
+                                    {/* Crosshair at position */}
+                                    <div
+                                        className="absolute w-3 h-3 border-2 border-red-500 rounded-full pointer-events-none"
+                                        style={{
+                                            left: `${(style.posX / 720) * 100}%`,
+                                            top: `${(style.posY / 1280) * 100}%`,
+                                            transform: 'translate(-50%, -50%)',
+                                        }}
                                     />
-                                    Bold
-                                </label>
+                                </div>
+                            </div>
+
+                            {/* Controls */}
+                            <div className="flex-1 space-y-4">
+                                <div>
+                                    <label className="text-xs text-neutral-500 block mb-1">Position X (horizontal)</label>
+                                    <input
+                                        type="range"
+                                        min="50" max="670" value={style.posX}
+                                        onChange={(e) => setStyle(s => ({ ...s, posX: parseInt(e.target.value) }))}
+                                        className="w-full"
+                                    />
+                                    <span className="text-xs text-neutral-500">{style.posX} px</span>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-neutral-500 block mb-1">Position Y (vertical — lower = further down)</label>
+                                    <input
+                                        type="range"
+                                        min="100" max="1200" value={style.posY}
+                                        onChange={(e) => setStyle(s => ({ ...s, posY: parseInt(e.target.value) }))}
+                                        className="w-full"
+                                    />
+                                    <span className="text-xs text-neutral-500">{style.posY} px</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="text-xs text-neutral-500 block mb-1">Font Size</label>
+                                        <input
+                                            type="number"
+                                            value={style.fontSize}
+                                            onChange={(e) => setStyle(s => ({ ...s, fontSize: parseInt(e.target.value) || 48 }))}
+                                            className="w-full bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-neutral-500 block mb-1">Outline</label>
+                                        <input
+                                            type="number"
+                                            value={style.outline}
+                                            onChange={(e) => setStyle(s => ({ ...s, outline: parseInt(e.target.value) || 3 }))}
+                                            className="w-full bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm"
+                                        />
+                                    </div>
+                                    <div className="flex items-end">
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                checked={style.bold}
+                                                onChange={(e) => setStyle(s => ({ ...s, bold: e.target.checked }))}
+                                                className="rounded"
+                                            />
+                                            Bold
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
