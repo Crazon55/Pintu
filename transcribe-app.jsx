@@ -31,7 +31,9 @@ export default function TranscribeApp() {
         posY: 900,  // lower third area of 1280px height
     });
     const videoRef = useRef(null);
+    const previewVideoRef = useRef(null);
     const pollRef = useRef(null);
+    const [currentTime, setCurrentTime] = useState(0);
 
     // Handle video upload
     const handleFileChange = useCallback((e) => {
@@ -395,44 +397,56 @@ export default function TranscribeApp() {
                 )}
 
                 {/* Style options with live preview */}
-                {(step === 'edit') && segments.length > 0 && (
+                {(step === 'edit') && (segments.length > 0 || words.length > 0) && (
                     <div className="mb-8">
-                        <h2 className="text-lg font-semibold mb-4">3. Subtitle Style & Position</h2>
+                        <h2 className="text-lg font-semibold mb-4">{captionStyle === 'clean' ? '4' : '4'}. Subtitle Style & Position</h2>
                         <div className="flex gap-6 flex-col lg:flex-row">
-                            {/* Live preview */}
+                            {/* Live preview with audio and time-synced subtitles */}
                             <div className="shrink-0">
-                                <p className="text-xs text-neutral-500 mb-2">Live Preview (drag sliders to position)</p>
+                                <p className="text-xs text-neutral-500 mb-2">Live Preview (play to see synced subtitles)</p>
                                 <div className="relative bg-black rounded-lg overflow-hidden" style={{ width: '320px', aspectRatio: '9/16' }}>
                                     {videoSrc && (
-                                        <video src={videoSrc} className="w-full h-full object-cover" muted autoPlay loop playsInline />
+                                        <video
+                                            ref={previewVideoRef}
+                                            src={videoSrc}
+                                            className="w-full h-full object-cover"
+                                            controls
+                                            playsInline
+                                            onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
+                                        />
                                     )}
-                                    {/* Subtitle overlay */}
-                                    <div
-                                        className="absolute pointer-events-none"
-                                        style={{
-                                            left: `${(style.posX / 720) * 100}%`,
-                                            top: `${(style.posY / 1280) * 100}%`,
-                                            transform: 'translate(-50%, -50%)',
-                                            fontSize: `${(style.fontSize / 720) * 320}px`,
-                                            fontWeight: style.bold ? 'bold' : '500',
-                                            color: 'white',
-                                            textShadow: `0 0 ${style.outline}px black, 0 0 ${style.outline * 2}px black, 1px 1px ${style.outline}px black, -1px -1px ${style.outline}px black`,
-                                            textAlign: 'center',
-                                            maxWidth: '90%',
-                                            lineHeight: 1.2,
-                                        }}
-                                    >
-                                        {segments[0]?.text || 'Sample subtitle text'}
-                                    </div>
-                                    {/* Crosshair at position */}
-                                    <div
-                                        className="absolute w-3 h-3 border-2 border-red-500 rounded-full pointer-events-none"
-                                        style={{
-                                            left: `${(style.posX / 720) * 100}%`,
-                                            top: `${(style.posY / 1280) * 100}%`,
-                                            transform: 'translate(-50%, -50%)',
-                                        }}
-                                    />
+                                    {/* Time-synced subtitle overlay */}
+                                    {(() => {
+                                        const activeSegs = captionStyle === 'indian-founder'
+                                            ? words.filter(w => currentTime >= w.start && currentTime <= w.end)
+                                            : segments.filter(s => currentTime >= s.start && currentTime <= s.end);
+                                        const displayText = activeSegs.length > 0
+                                            ? (captionStyle === 'indian-founder'
+                                                ? activeSegs.map(w => w.text.toUpperCase()).join(' ')
+                                                : activeSegs[0]?.text)
+                                            : '';
+                                        if (!displayText) return null;
+                                        return (
+                                            <div
+                                                className="absolute pointer-events-none"
+                                                style={{
+                                                    left: `${(style.posX / 720) * 100}%`,
+                                                    top: `${(style.posY / 1280) * 100}%`,
+                                                    transform: 'translate(-50%, -50%)',
+                                                    fontSize: `${(style.fontSize / 720) * 320}px`,
+                                                    fontWeight: style.bold ? '800' : '500',
+                                                    fontFamily: captionStyle === 'indian-founder' ? "'Montserrat', sans-serif" : 'inherit',
+                                                    color: 'white',
+                                                    textShadow: `0 0 ${style.outline}px black, 0 0 ${style.outline * 2}px black, 2px 2px ${style.outline}px black, -2px -2px ${style.outline}px black`,
+                                                    textAlign: 'center',
+                                                    maxWidth: '90%',
+                                                    lineHeight: 1.2,
+                                                }}
+                                            >
+                                                {displayText}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
 
@@ -495,7 +509,7 @@ export default function TranscribeApp() {
                 )}
 
                 {/* Burn button */}
-                {step === 'edit' && segments.length > 0 && (
+                {step === 'edit' && (segments.length > 0 || words.length > 0) && (
                     <button
                         onClick={burnSubs}
                         className="mb-8 px-8 py-3 bg-green-600 hover:bg-green-500 rounded-lg font-medium transition-colors"
