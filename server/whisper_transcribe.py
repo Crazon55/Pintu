@@ -68,10 +68,9 @@ def transcribe(audio_path, model_size="base", language=None):
     model = WhisperModel(model_size, device="cpu", compute_type="int8", download_root="/home/ubuntu/.cache/whisper")
 
     hinglish = language == "hinglish" or language == "hi"
-    # Hinglish: don't force a language, let Whisper auto-detect
-    # It outputs English words as English, Hindi words as Devanagari
-    # Transliteration then converts Devanagari → Roman
-    whisper_lang = None if hinglish else language
+    # Hinglish: force Hindi so Whisper accurately detects Hindi words
+    # Then transliterate Devanagari → Roman, English words pass through
+    whisper_lang = "hi" if hinglish else language
 
     segments, info = model.transcribe(
         audio_path,
