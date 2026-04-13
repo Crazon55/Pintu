@@ -9,7 +9,7 @@ import { createWriteStream, existsSync } from 'fs';
 import archiver from 'archiver';
 import { createVideoProcessor } from './videoProcessor.js';
 import { createJobQueue } from './simpleQueue.js'; // Use your simpleQueue or Bull
-import { transcribeVideo } from './transcriber.js';
+import { transcribeWithGroq } from './groqTranscriber.js';
 import { generateASS, generateIndianFounderASS } from './subtitleGenerator.js';
 import { uploadToCloudinary } from './cloudinaryUploader.js';
 import { burnSubtitles } from './subtitleBurner.js';
@@ -263,9 +263,8 @@ app.post('/api/transcribe', upload.single('video'), async (req, res) => {
 jobQueue.process('transcribe', 1, async (job) => {
   const tempDir = join(__dirname, 'temp', `transcribe-${Date.now()}`);
   await fs.mkdir(tempDir, { recursive: true });
-  job.progress({ step: 'extracting', percent: 10 });
-  const result = await transcribeVideo(job.data.videoPath, tempDir, {
-    modelSize: job.data.modelSize,
+  job.progress({ step: 'transcribing', percent: 20 });
+  const result = await transcribeWithGroq(job.data.videoPath, tempDir, {
     language: job.data.language,
   });
   job.progress({ step: 'done', percent: 100 });
