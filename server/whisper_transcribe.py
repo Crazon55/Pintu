@@ -67,13 +67,17 @@ def romanize_word(word):
 def transcribe(audio_path, model_size="base", language=None):
     model = WhisperModel(model_size, device="cpu", compute_type="int8", download_root="/home/ubuntu/.cache/whisper")
 
-    hinglish = language == "hi"
+    hinglish = language == "hinglish" or language == "hi"
+    # Hinglish: don't force a language, let Whisper auto-detect
+    # It outputs English words as English, Hindi words as Devanagari
+    # Transliteration then converts Devanagari → Roman
+    whisper_lang = None if hinglish else language
 
     segments, info = model.transcribe(
         audio_path,
         beam_size=5,
         word_timestamps=True,
-        language="hi" if hinglish else language,
+        language=whisper_lang,
         vad_filter=True,
         vad_parameters=dict(min_silence_duration_ms=500),
     )
