@@ -3,7 +3,15 @@ import { createReadStream } from 'fs';
 import { join } from 'path';
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs/promises';
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+let groq = null;
+function getGroq() {
+  if (!groq) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) throw new Error('GROQ_API_KEY environment variable is missing. Add it to server/.env');
+    groq = new Groq({ apiKey });
+  }
+  return groq;
+}
 
 /**
  * Extract audio from video as MP3.
@@ -88,7 +96,7 @@ export async function transcribeWithGroq(videoPath, tempDir, options = {}) {
 
   console.log(`[groq] Transcribing (${hinglish ? 'Hinglish' : 'English'})...`);
 
-  const transcription = await groq.audio.transcriptions.create({
+  const transcription = await getGroq().audio.transcriptions.create({
     file: createReadStream(audioPath),
     model: 'whisper-large-v3',
     response_format: 'verbose_json',
