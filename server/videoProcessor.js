@@ -722,9 +722,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
                 ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
                 ctx.clip();
               }
-              // Entrepreneursindia.co: logo icon is top-biased in source, shift down to center
-              const imgYOffset = (name === 'Entrepreneursindia.co') ? 8 : 0;
-              ctx.drawImage(img, actualLogoX - offset, finalLogoY - offset + imgYOffset, scaledSize, scaledSize);
+              ctx.drawImage(img, actualLogoX - offset, finalLogoY - offset, scaledSize, scaledSize);
               ctx.restore();
               // Finding Good AI / Finding Good Tech / startupsinthelast24hrs: white thin border around logo
               if (name === 'Finding Good AI' || name === 'Finding Good Tech' || name === 'wealth lessons india' || nameLower === 'startupsinthelast24hrs' || nameLower === 'indian ai future' || nameLower === 'techinthelast24hrs' || nameLower === 'indianaipage' || nameLower === 'indiantechdaily' || nameLower === '101xtechnology' || nameLower === 'startupbydog' || nameLower === 'foundersoncrack' || nameLower === 'entrepreneursindia.co' || nameLower === 'pure code ai' || nameLower === 'nobel ai page' || nameLower === 'therisingai' || nameLower === 'revolution in ai' || nameLower === 'founders.india' || nameLower === 'technology in india' || nameLower === 'daily tech india' || nameLower === 'the prime ai page' || nameLower === 'dhandha india' || nameLower === 'the ai gauntlet' || nameLower === '101xfounders-tweet' || nameLower === 'bizzindia-tweet' || nameLower === 'founders-in-india-tweet' || nameLower === 'indian-founders-co-tweet') {
