@@ -222,6 +222,108 @@ const cleanHTML = (html) => {
   return cleaned.trim();
 };
 
+/**
+ * Generate overlay for hook_video layout: black bg, hook text at top,
+ * transparent video hole in the middle, black at bottom.
+ * Logo is NOT drawn on canvas — it's overlaid in FFmpeg with opacity.
+ */
+async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacingMultiplier, savePath) {
+  const canvas = createCanvas(720, 1280);
+  const ctx = canvas.getContext('2d', { alpha: true });
+
+  // Full black background
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, 720, 1280);
+
+  // --- Parse hook text (bold words get brand color, regular words white) ---
+  let cleanedHtml = cleanHTML(headline || '');
+  cleanedHtml = cleanedHtml.replace(/<\/?strong>/gi, (m) => m.toLowerCase().replace('strong', 'b'));
+  cleanedHtml = cleanedHtml.replace(/<\/?b>/gi, (m) => m.toLowerCase());
+
+  const hookColor = preset.color || '#7F53FF';
+  const fontSize = Math.round(38 * (fontScale || 1));
+  const lineHeight = fontSize * 1.35;
+  const maxTextW = 620;
+  const textTopY = 60;
+
+  // Tokenize into bold/regular words
+  const tokens = [];
+  cleanedHtml.split(/(<b>.*?<\/b>)/i).forEach(p => {
+    if (!p) return;
+    const isB = /^<b>/i.test(p);
+    p.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
+  });
+
+  // Word-wrap into lines
+  const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
+  const lines = [];
+  let curLine = { tokens: [], width: 0 };
+  for (const t of tokens) {
+    ctx.font = `${t.bold ? 'bold' : 'normal'} ${fontSize}px Inter`;
+    const w = ctx.measureText(t.text).width;
+    const advance = w + spacing;
+    if (curLine.width + advance > maxTextW && curLine.tokens.length > 0) {
+      lines.push(curLine);
+      curLine = { tokens: [], width: 0 };
+    }
+    curLine.tokens.push({ ...t, measuredWidth: w });
+    curLine.width += advance;
+  }
+  if (curLine.tokens.length > 0) lines.push(curLine);
+
+  // Draw hook text centered
+  const totalTextH = lines.length * lineHeight;
+  let drawY = textTopY + fontSize;
+  for (const line of lines) {
+    let drawX = (720 - line.width + spacing) / 2;
+    for (const t of line.tokens) {
+      ctx.font = `${t.bold ? 'bold' : 'normal'} ${fontSize}px Inter`;
+      ctx.fillStyle = t.bold ? hookColor : '#FFFFFF';
+      ctx.fillText(t.text, drawX, drawY);
+      drawX += t.measuredWidth + spacing;
+    }
+    drawY += lineHeight;
+  }
+
+  // --- Video position: below hook text, centered vertically in remaining space ---
+  const hookBottomY = textTopY + totalTextH + 40;
+  const aspectRatio = preset.ratio || '4:3';
+  const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
+  let videoH = Math.round(720 * (hRatio / wRatio));
+  if (videoH % 2 !== 0) videoH += 1;
+
+  // Center the video between hook text bottom and canvas bottom
+  const availableSpace = 1280 - hookBottomY;
+  const videoTopY = Math.round(hookBottomY + (availableSpace - videoH) / 2);
+
+  // Clear transparent hole where video goes
+  ctx.clearRect(0, videoTopY, 720, videoH);
+
+  await fs.writeFile(savePath, canvas.toBuffer('image/png'));
+
+  // Resolve logo path for FFmpeg overlay
+  let logoPath = null;
+  if (preset.logo && preset.showLogo !== false) {
+    const logoFile = join(__dirname, 'assets', 'logos', preset.logo);
+    if (existsSync(logoFile)) logoPath = logoFile;
+  }
+
+  return {
+    overlayPath: savePath,
+    videoY: videoTopY,
+    videoX: 0,
+    videoW: 720,
+    videoH: videoH,
+    watermark: null,
+    logoOverlay: logoPath ? {
+      path: logoPath,
+      position: preset.rules?.logoPosition || 'top-right',
+      size: 80,
+      opacity: preset.rules?.logoOpacity || 0.5,
+    } : null,
+  };
+}
+
 export function createVideoProcessor() {
   return {
     async processVideo({ videoPath, presets, headline, fontScale, wordSpacing, videoScale, fitMode, showCredit = true, ideaName = '', onProgress }) {
@@ -296,6 +398,12 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   if (!preset || !preset.name) {
     throw new Error('Preset is missing required name property');
   }
+
+  // Hook+Video layout: delegate to dedicated handler
+  if (preset.layout === 'hook_video') {
+    return generateHookVideoOverlay(preset, headline, fontScale, wordSpacingMultiplier, savePath);
+  }
+
   const canvas = createCanvas(720, 1280);
   const ctx = canvas.getContext('2d', { alpha: true });
   const name = preset.name;
@@ -1278,16 +1386,15 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         const logoSize = layout.logoOverlay.size || 160;
         let logoX, logoY;
         if (layout.logoOverlay.position === 'top-right') {
-          // Top-right: 8px from right edge, 8px from top
           logoX = sx + sw - logoSize - 8;
           logoY = sy + 8;
         } else {
-          // Top-left: 8px from left edge, 8px from top
           logoX = sx + 8;
           logoY = sy + 8;
         }
-        // Scale logo and overlay it (logo is input index 2)
-        filterChain.push(`[2:v]scale=${logoSize}:${logoSize}[logoscaled]`);
+        const logoOpacity = layout.logoOverlay.opacity;
+        const opacityFilter = logoOpacity ? `,format=rgba,colorchannelmixer=aa=${logoOpacity}` : '';
+        filterChain.push(`[2:v]scale=${logoSize}:${logoSize}${opacityFilter}[logoscaled]`);
         const logoOverlayFilter = `[${currentOutput}][logoscaled]overlay=${logoX}:${logoY}[logoed]`;
         filterChain.push(logoOverlayFilter);
         currentOutput = 'logoed';
@@ -1339,16 +1446,15 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         const logoSize = layout.logoOverlay.size || 160;
         let logoX, logoY;
         if (layout.logoOverlay.position === 'top-right') {
-          // Top-right: 8px from right edge, 8px from top
           logoX = sx + sw - logoSize - 8;
           logoY = sy + 8;
         } else {
-          // Top-left: 8px from left edge, 8px from top
           logoX = sx + 8;
           logoY = sy + 8;
         }
-        // Scale logo and overlay it (logo is input index 2)
-        filterChain.push(`[2:v]scale=${logoSize}:${logoSize}[logoscaled]`);
+        const logoOpacity = layout.logoOverlay.opacity;
+        const opacityFilter = logoOpacity ? `,format=rgba,colorchannelmixer=aa=${logoOpacity}` : '';
+        filterChain.push(`[2:v]scale=${logoSize}:${logoSize}${opacityFilter}[logoscaled]`);
         const logoOverlayFilter = `[${currentOutput}][logoscaled]overlay=${logoX}:${logoY}[logoed]`;
         filterChain.push(logoOverlayFilter);
         currentOutput = 'logoed';

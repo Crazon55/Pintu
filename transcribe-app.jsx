@@ -217,6 +217,9 @@ export default function TranscribeApp() {
                             Clear & Reset
                         </button>
                     )}
+                    <a href="/silence-remover.html" className="text-sm text-neutral-400 hover:text-neutral-300 transition-colors">
+                        Silence Remover
+                    </a>
                     <a href="/" className="text-sm text-orange-500 hover:text-orange-400 transition-colors">
                         Back to Batcher
                     </a>

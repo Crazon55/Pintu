@@ -13,6 +13,7 @@ import { transcribeWithGroq } from './groqTranscriber.js';
 import { generateASS, generateIndianFounderASS } from './subtitleGenerator.js';
 import { uploadToCloudinary } from './cloudinaryUploader.js';
 import { burnSubtitles } from './subtitleBurner.js';
+import { removeSilence } from './silenceRemover.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -311,6 +312,51 @@ app.get('/api/download-subtitled', async (req, res) => {
     return res.status(404).json({ error: 'File not found.' });
   }
   res.download(filePath);
+});
+
+// --- SILENCE REMOVAL ---
+
+app.post('/api/remove-silence', upload.single('video'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No video file received.' });
+
+    const {
+      silenceThreshold = '-30',
+      minSilenceDuration = '0.5',
+      padding = '0.1',
+    } = req.body;
+
+    const job = await jobQueue.add('remove-silence', {
+      videoPath: req.file.path,
+      silenceThreshold: parseFloat(silenceThreshold),
+      minSilenceDuration: parseFloat(minSilenceDuration),
+      padding: parseFloat(padding),
+    });
+
+    res.json({ jobId: job.id });
+  } catch (err) {
+    console.error('[remove-silence] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+jobQueue.process('remove-silence', 1, async (job) => {
+  const outputDir = join(__dirname, 'outputs', `silence-removed-${Date.now()}`);
+  const result = await removeSilence(job.data.videoPath, outputDir, {
+    silenceThreshold: job.data.silenceThreshold,
+    minSilenceDuration: job.data.minSilenceDuration,
+    padding: job.data.padding,
+    onProgress: (p) => job.progress(p),
+  });
+  return result;
+});
+
+app.get('/api/download-silence-removed', async (req, res) => {
+  const filePath = req.query.path;
+  if (!filePath || !existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found.' });
+  }
+  res.download(filePath, 'no-silence.mp4');
 });
 
 // --- GOOGLE DRIVE UPLOAD ---
