@@ -285,16 +285,16 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     drawY += lineHeight;
   }
 
-  // --- Video position: below hook text, centered vertically in remaining space ---
-  const hookBottomY = textTopY + totalTextH + 40;
+  // --- Video position: right below hook text with a small gap ---
+  const hookBottomY = textTopY + totalTextH + 20;
   const aspectRatio = preset.ratio || '4:3';
   const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
   let videoH = Math.round(720 * (hRatio / wRatio));
   if (videoH % 2 !== 0) videoH += 1;
 
-  // Center the video between hook text bottom and canvas bottom
-  const availableSpace = 1280 - hookBottomY;
-  const videoTopY = Math.round(hookBottomY + (availableSpace - videoH) / 2);
+  // Place video right after hook text (remaining black space goes to bottom)
+  let videoTopY = Math.round(hookBottomY);
+  if (videoTopY % 2 !== 0) videoTopY += 1;
 
   // Clear transparent hole where video goes
   ctx.clearRect(0, videoTopY, 720, videoH);
@@ -320,6 +320,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
       position: preset.rules?.logoPosition || 'top-right',
       size: 80,
       opacity: preset.rules?.logoOpacity || 0.5,
+      circular: true,
     } : null,
   };
 }
@@ -1393,8 +1394,10 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
           logoY = sy + 8;
         }
         const logoOpacity = layout.logoOverlay.opacity;
-        const opacityFilter = logoOpacity ? `,format=rgba,colorchannelmixer=aa=${logoOpacity}` : '';
-        filterChain.push(`[2:v]scale=${logoSize}:${logoSize}${opacityFilter}[logoscaled]`);
+        const opacityFilter = logoOpacity ? `,colorchannelmixer=aa=${logoOpacity}` : '';
+        const r = logoSize / 2;
+        const circularMask = layout.logoOverlay.circular ? `,geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='if(lte(sqrt(pow(X-${r},2)+pow(Y-${r},2)),${r}),alpha(X,Y),0)'` : '';
+        filterChain.push(`[2:v]scale=${logoSize}:${logoSize},format=rgba${circularMask}${opacityFilter}[logoscaled]`);
         const logoOverlayFilter = `[${currentOutput}][logoscaled]overlay=${logoX}:${logoY}[logoed]`;
         filterChain.push(logoOverlayFilter);
         currentOutput = 'logoed';
@@ -1453,8 +1456,10 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
           logoY = sy + 8;
         }
         const logoOpacity = layout.logoOverlay.opacity;
-        const opacityFilter = logoOpacity ? `,format=rgba,colorchannelmixer=aa=${logoOpacity}` : '';
-        filterChain.push(`[2:v]scale=${logoSize}:${logoSize}${opacityFilter}[logoscaled]`);
+        const opacityFilter = logoOpacity ? `,colorchannelmixer=aa=${logoOpacity}` : '';
+        const r = logoSize / 2;
+        const circularMask = layout.logoOverlay.circular ? `,geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='if(lte(sqrt(pow(X-${r},2)+pow(Y-${r},2)),${r}),alpha(X,Y),0)'` : '';
+        filterChain.push(`[2:v]scale=${logoSize}:${logoSize},format=rgba${circularMask}${opacityFilter}[logoscaled]`);
         const logoOverlayFilter = `[${currentOutput}][logoscaled]overlay=${logoX}:${logoY}[logoed]`;
         filterChain.push(logoOverlayFilter);
         currentOutput = 'logoed';
