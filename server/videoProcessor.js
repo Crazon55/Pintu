@@ -244,7 +244,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   const fontSize = Math.round(38 * (fontScale || 1));
   const lineHeight = fontSize * 1.35;
   const maxTextW = 620;
-  const textTopY = 60;
+  const textToVideoGap = 25;
 
   // Tokenize into bold/regular words
   const tokens = [];
@@ -271,9 +271,19 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   }
   if (curLine.tokens.length > 0) lines.push(curLine);
 
-  // Draw hook text centered
+  // --- Calculate video dimensions ---
+  const aspectRatio = preset.ratio || '4:3';
+  const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
+  let videoH = Math.round(720 * (hRatio / wRatio));
+  if (videoH % 2 !== 0) videoH += 1;
+
+  // --- Center entire stack (text + gap + video) vertically in frame ---
   const totalTextH = lines.length * lineHeight;
-  let drawY = textTopY + fontSize;
+  const totalStackH = totalTextH + textToVideoGap + videoH;
+  const startY = Math.round((1280 - totalStackH) / 2);
+
+  // Draw hook text centered
+  let drawY = startY + fontSize;
   for (const line of lines) {
     let drawX = (720 - line.width + spacing) / 2;
     for (const t of line.tokens) {
@@ -285,15 +295,8 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     drawY += lineHeight;
   }
 
-  // --- Video position: right below hook text with a small gap ---
-  const hookBottomY = textTopY + totalTextH + 20;
-  const aspectRatio = preset.ratio || '4:3';
-  const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
-  let videoH = Math.round(720 * (hRatio / wRatio));
-  if (videoH % 2 !== 0) videoH += 1;
-
-  // Place video right after hook text (remaining black space goes to bottom)
-  let videoTopY = Math.round(hookBottomY);
+  // Video position: right after text + gap
+  let videoTopY = startY + Math.round(totalTextH) + textToVideoGap;
   if (videoTopY % 2 !== 0) videoTopY += 1;
 
   // Clear transparent hole where video goes
