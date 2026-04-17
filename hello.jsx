@@ -62,8 +62,10 @@ const INITIAL_PRESETS_RAW = [
     { id: 26, name: 'startupcoded', handle: '@startupcoded', ratio: '1:1', color: '#ffffff', active: true, layout: 'social', logo: 'startupcoded.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 27, name: 'founders cracked', handle: '@founderscracked', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'founders-cracked.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25 },
     { id: 28, name: 'indian business com', handle: '@indianbusinesscom', ratio: '1:1', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
-    { id: 29, name: 'indian-founders-co', handle: '@indianfoundersco', ratio: '4:3', color: '#f7EA6A', active: true, layout: 'social', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
-    { id: 30, name: 'founders-in-india', handle: '@foundersinindia', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'founders-in-india.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
+    { id: 29, name: 'indian-founders-co-old', handle: '@indianfoundersco', ratio: '4:3', color: '#f7EA6A', active: false, layout: 'social', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
+    { id: 30, name: 'founders-in-india-old', handle: '@foundersinindia', ratio: '4:3', color: '#ffffff', active: false, layout: 'social', logo: 'founders-in-india.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
+    { id: 90, name: 'founders-in-india', handle: '@foundersinindia', ratio: '4:3', color: '#7F53FF', active: true, layout: 'hook_video', logo: 'founders-in-india.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 0.5, logoPosition: 'top-right' } },
+    { id: 91, name: 'indian-founders-co', handle: '@indianfoundersco', ratio: '4:3', color: '#E53935', active: true, layout: 'hook_video', logo: 'indian-founders-co.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 0.5, logoPosition: 'top-right' } },
     { id: 31, name: 'Ads by marketer', handle: '@adsbymarketer', ratio: '4:3', color: '#ffc002', active: true, layout: 'logo_centered', logo: 'ads-by-marketer.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25 },
     { id: 32, name: 'best business clips', handle: '@bestbusinessclips', ratio: '4:3', color: '#ffc002', active: true, layout: 'logo_centered', logo: 'best-business-clips.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25 },
     { id: 33, name: 'Founders wtf', handle: '@founderswtf', ratio: '16:9', color: '#ffffff', active: true, layout: 'social', logo: LOGO_FOUNDERS_WTF, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
@@ -599,7 +601,7 @@ const PreviewCard = memo(({
         if (!preset.active) return 20; // Default size for inactive presets
         const textLength = preset.headline ? stripHTML(preset.headline).length : 0;
         const baseSize = calculateFontSize(textLength, effectiveFontScale);
-        const layoutScale = preset.layout === 'logo_centered' ? 0.35 : 0.45;
+        const layoutScale = preset.layout === 'hook_video' ? 0.5 : preset.layout === 'logo_centered' ? 0.35 : 0.45;
         return Math.max(10, baseSize * layoutScale);
     }, [preset.headline, preset.layout, effectiveFontScale, preset.active]);
 
@@ -684,8 +686,37 @@ const PreviewCard = memo(({
             {/* This allows us to stack everything (Header -> Text -> Video -> Footer) properly in one flow */}
             <div className={`flex-1 w-full flex flex-col ${justifyClass} relative ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : 'bg-neutral-900'}`}>
 
-                {/* 1. HEADER SECTION (Stacked inside content flow) */}
-                {preset.layout !== 'watermark' && (
+                {/* 1a. HOOK_VIDEO HEADER: just hook text centered on black */}
+                {preset.layout === 'hook_video' && (
+                    <div className="w-full px-4 pt-4 pb-2 z-10 shrink-0">
+                        <div
+                            className="w-full text-center"
+                            style={{
+                                fontSize: `${previewFontSize}px`,
+                                lineHeight: 1.35,
+                                fontFamily: "'Inter', sans-serif",
+                            }}
+                        >
+                            {(() => {
+                                const segments = parseHeadline(preset.headline);
+                                return segments.map((segment, idx) => (
+                                    <span
+                                        key={idx}
+                                        style={{
+                                            color: segment.highlight ? preset.color : '#FFFFFF',
+                                            fontWeight: segment.highlight ? 700 : 400,
+                                        }}
+                                    >
+                                        {segment.text}
+                                    </span>
+                                ));
+                            })()}
+                        </div>
+                    </div>
+                )}
+
+                {/* 1b. HEADER SECTION (Stacked inside content flow) */}
+                {preset.layout !== 'watermark' && preset.layout !== 'hook_video' && (
                     <div className={`w-full ${preset.name === 'wealth lessons india' ? 'px-4' : 'px-6'} z-10 shrink-0 mb-1`}>
                         {/* SOCIAL HEADER */}
                         {preset.layout === 'social' && preset.name !== 'founderdaily' && preset.name !== 'founderbusinesstips' && preset.name !== 'kwazyfounders' && (
@@ -737,7 +768,7 @@ const PreviewCard = memo(({
                 )}
 
                 {/* 2. HOOK TEXT */}
-                {preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer' && (
+                {preset.layout !== 'hook_video' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer' && (
                     <div
                         ref={headlineRef}
                         className={`w-full z-10 leading-tight drop-shadow-lg tracking-tighter relative ${isRepositioningHeadline ? 'cursor-move ring-2 ring-yellow-500' : ''} ${isCenterAligned ? 'flex flex-col items-center' : 'flex flex-col items-start'} ${isCenteredLeftAlign ? 'px-14' : (preset.name === 'wealth lessons india' ? 'px-4' : '')}`}
@@ -922,7 +953,7 @@ const PreviewCard = memo(({
                                     videoElementRef.current = el;
                                 }}
                                 src={videoSrc}
-                                className={`w-full h-full ${preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co' ? 'rounded-2xl' : ''}`}
+                                className={`w-full h-full ${preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co-old' ? 'rounded-2xl' : ''}`}
                                 style={{
                                     objectFit: fitMode === 'fill' ? 'fill' : fitMode === 'contain' ? 'contain' : 'cover',
                                     objectPosition: fitMode === 'fill' ? 'center' : `${localPos.x}% ${localPos.y}%`,
@@ -933,7 +964,7 @@ const PreviewCard = memo(({
                                     left: '50%',
                                     top: '50%',
                                     position: 'absolute',
-                                    borderRadius: (preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co') ? '16px' : '0',
+                                    borderRadius: (preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co-old') ? '16px' : '0',
                                     border: preset.name === 'ceo hustle advice' ? '1px solid #d1d5db' : 'none'
                                 }}
                                 playsInline
@@ -943,7 +974,7 @@ const PreviewCard = memo(({
                                 data-preset-id={preset.id}
                             />
                         ) : (
-                            <div className={`w-full h-full flex items-center justify-center ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-neutral-200' : 'bg-neutral-800'} ${preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co' ? 'rounded-2xl' : ''}`}>
+                            <div className={`w-full h-full flex items-center justify-center ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-neutral-200' : 'bg-neutral-800'} ${preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co-old' ? 'rounded-2xl' : ''}`}>
                                 <span className="text-sm text-neutral-500 font-mono">{preset.ratio}</span>
                             </div>
                         )}
@@ -959,6 +990,13 @@ const PreviewCard = memo(({
                         {preset.name === 'The Real Founder' && getLogoUrl(preset.logo) && (
                             <div className="absolute top-0 right-0 z-50 p-2">
                                 <img src={getLogoUrl(preset.logo)} className="w-40 h-40" style={{ objectFit: 'contain' }} />
+                            </div>
+                        )}
+
+                        {/* Logo overlay for hook_video layout - TOP RIGHT with 50% opacity */}
+                        {preset.layout === 'hook_video' && getLogoUrl(preset.logo) && (
+                            <div className="absolute top-2 right-2 z-50">
+                                <img src={getLogoUrl(preset.logo)} className="w-16 h-16 rounded-full" style={{ objectFit: 'cover', opacity: preset.rules?.logoOpacity || 0.5 }} />
                             </div>
                         )}
 
@@ -1015,7 +1053,7 @@ const PreviewCard = memo(({
                 </div>
 
                 {/* 4. CREDIT TEXT (Footer) - Left Aligned below video, matching export layout */}
-                {showCredit && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && !isAicrackedOrEvolvingPreset && (
+                {showCredit && preset.layout !== 'hook_video' && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && !isAicrackedOrEvolvingPreset && (
                     <div
                         ref={creditRef}
                         className={`w-full z-10 text-left px-6 relative ${isRepositioningCredit ? 'cursor-move ring-2 ring-yellow-500' : ''}`}
@@ -1594,9 +1632,14 @@ export default function App() {
                         >
                             PINTU
                         </h1>
-                        <a href="/transcribe.html" className="text-xs text-orange-500 hover:text-orange-400 transition-colors w-24 text-right">
-                            Transcribe Tool
-                        </a>
+                        <div className="flex items-center gap-3">
+                            <a href="/silence-remover.html" className="text-xs text-orange-500 hover:text-orange-400 transition-colors">
+                                Silence Remover
+                            </a>
+                            <a href="/transcribe.html" className="text-xs text-orange-500 hover:text-orange-400 transition-colors">
+                                Transcribe
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
