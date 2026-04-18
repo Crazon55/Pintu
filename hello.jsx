@@ -850,7 +850,7 @@ const PreviewCard = memo(({
                                             if (preset.name === 'The Ai Gauntlet') return segment.highlight ? '#FFCD1D' : 'white';
                                             if (presetNameLower === 'bestindianpodcast') return segment.highlight ? '#fde601' : 'white';
                                             if (preset.name === 'founders-in-india') return segment.highlight ? '#7F53FF' : 'white';
-                                            if (preset.name === 'Entrepreneursindia.co') return segment.highlight ? '#6500D1' : 'white';
+                                            if (preset.name === 'Entrepreneursindia.co') return 'white';
                                             if (preset.name === 'peakofai' || isAicrackedOrEvolvingPreset) return 'white';
                                             if (['founderdaily', 'founderbusinesstips', 'kwazyfounders', 'startup madness'].includes(preset.name)) return 'black';
                                             if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return 'white';
