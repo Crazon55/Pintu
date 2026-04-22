@@ -710,6 +710,15 @@ const PreviewCard = memo(({
             {/* This allows us to stack everything (Header -> Text -> Video -> Footer) properly in one flow */}
             <div className={`flex-1 w-full flex flex-col ${justifyClass} relative ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : 'bg-neutral-900'}`}>
 
+                {/* IFC Font Debug (always on for IFC) */}
+                {preset.name === 'indian-founders-co' && fontDebug && (
+                    <div className="absolute top-2 right-2 z-[999] max-w-[280px] bg-black/70 text-white text-[10px] px-2 py-1 rounded backdrop-blur">
+                        <div>family: {fontDebug.family}</div>
+                        <div>weight: {fontDebug.weight}</div>
+                        <div>InterIFC 400: {String(fontDebug.check400)} | 700: {String(fontDebug.check700)}</div>
+                    </div>
+                )}
+
                 {/* 1a. HOOK_VIDEO HEADER: just hook text centered on black */}
                 {preset.layout === 'hook_video' && (
                     <div className="w-full px-4 pt-4 pb-2 z-10 shrink-0">
@@ -916,13 +925,6 @@ const PreviewCard = memo(({
                             ));
                             })()}
                         </div>
-                    </div>
-                )}
-
-                {/* IFC Font Debug (enable with ?fontdebug=1) */}
-                {preset.name === 'indian-founders-co' && fontDebug && (
-                    <div className="px-6 pb-2 text-[10px] text-neutral-300">
-                        font-family: {fontDebug.family} | weight: {fontDebug.weight} | InterIFC 400: {String(fontDebug.check400)} | 700: {String(fontDebug.check700)}
                     </div>
                 )}
 
