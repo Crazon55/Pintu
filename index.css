@@ -1,24 +1,7 @@
+@import './interIFC-inline.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Dedicated Inter ONLY for indian-founders-co (WOFF2 from @fontsource/inter).
-   Do not touch the global 'Inter' family — other presets keep whatever
-   Inter (or other font) they were already using. */
-@font-face {
-  font-family: 'InterIFCRegular';
-  font-style: normal;
-  font-weight: 400;
-  font-display: block;
-  src: url('/fonts/Inter-Regular-IFC.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'InterIFCBold';
-  font-style: normal;
-  font-weight: 400;
-  font-display: block;
-  src: url('/fonts/Inter-Bold-IFC.woff2') format('woff2');
-}
 
 * {
   margin: 0;
