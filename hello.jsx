@@ -339,12 +339,31 @@ const PreviewCard = memo(({
     const [localWatermarkPos, setLocalWatermarkPos] = useState(preset.watermarkPosition || { x: 50, y: 16 });
     const [localHeadlinePos, setLocalHeadlinePos] = useState(preset.headlinePosition || { x: 0, y: 0 });
     const [localVideoScale, setLocalVideoScale] = useState(videoScale || 100);
-    // (font debug removed)
+    const [ifcFontInfo, setIfcFontInfo] = useState(null);
     const containerRef = useRef(null);
     const creditRef = useRef(null);
     const watermarkRef = useRef(null);
     const headlineRef = useRef(null);
     const videoElementRef = useRef(null);
+
+    useEffect(() => {
+        if (preset.name !== 'indian-founders-co') return;
+
+        let cancelled = false;
+        const tick = () => {
+            const el = headlineRef.current?.querySelector?.('span');
+            const cs = el ? window.getComputedStyle(el) : null;
+            const family = cs?.fontFamily ?? '(no-span)';
+            const weight = cs?.fontWeight ?? '(n/a)';
+            const interAny = !!document.fonts?.check?.('16px "Inter"');
+            const inter400 = !!document.fonts?.check?.('normal 400 16px "Inter"');
+            const inter700 = !!document.fonts?.check?.('normal 700 16px "Inter"');
+            if (!cancelled) setIfcFontInfo({ family, weight, interAny, inter400, inter700 });
+        };
+        tick();
+        const id = setInterval(tick, 500);
+        return () => { cancelled = true; clearInterval(id); };
+    }, [preset.name, preset.headline]);
 
     // CRITICAL: Control video playback based on preset.active and isPlaying
     // Only active presets should play video to reduce resource usage and prevent lag
@@ -1149,7 +1168,13 @@ const PreviewCard = memo(({
                 </button>
             </div>
 
-            {/* (IFC debug removed) */}
+            {preset.name === 'indian-founders-co' && ifcFontInfo && (
+                <div className="absolute bottom-2 left-2 right-2 z-30 bg-black/80 text-white text-[10px] px-2 py-1 rounded">
+                    <div>computed family: {ifcFontInfo.family}</div>
+                    <div>computed weight: {ifcFontInfo.weight}</div>
+                    <div>Inter loaded: any {String(ifcFontInfo.interAny)} | 400 {String(ifcFontInfo.inter400)} | 700 {String(ifcFontInfo.inter700)}</div>
+                </div>
+            )}
 
             {isRepositioning && (
                 <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsRepositioning(false)} />
