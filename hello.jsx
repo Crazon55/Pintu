@@ -1597,6 +1597,31 @@ export default function App() {
 
             <style>
                 {`
+                /* Local Inter — served from public/fonts/. Declared before Poppins so the
+                   browser uses these files (not the Google Fonts CDN) for IFC rendering. */
+                @font-face {
+                    font-family: 'Inter';
+                    font-style: normal;
+                    font-weight: 400;
+                    font-display: block;
+                    src: url('/fonts/Inter-Regular.woff2') format('woff2'),
+                         url('/fonts/Inter-Regular.ttf') format('truetype');
+                }
+                @font-face {
+                    font-family: 'Inter';
+                    font-style: normal;
+                    font-weight: 700;
+                    font-display: block;
+                    src: url('/fonts/Inter-Bold.woff2') format('woff2'),
+                         url('/fonts/Inter-Bold.ttf') format('truetype');
+                }
+                @font-face {
+                    font-family: 'Inter';
+                    font-style: normal;
+                    font-weight: 100;
+                    font-display: block;
+                    src: url('/fonts/Inter-Thin.ttf') format('truetype');
+                }
                 /* Poppins for theprimefounder, aicracked, theevolvinggpt (served from public/fonts/) */
                 @font-face {
                     font-family: 'Poppins';
