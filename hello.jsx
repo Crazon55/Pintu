@@ -1580,20 +1580,20 @@ export default function App() {
                     font-display: swap;
                     src: url('/fonts/Inter-Thin.ttf') format('truetype');
                 }
-                /* Dedicated Inter for indian-founders-co (downloaded from rsms/inter) */
+                /* Dedicated Inter for indian-founders-co (WOFF2 from @fontsource/inter) */
                 @font-face {
                     font-family: 'InterIFC';
                     font-style: normal;
                     font-weight: 400;
                     font-display: swap;
-                    src: url('/fonts/Inter-Regular-IFC.ttf') format('truetype');
+                    src: url('/fonts/Inter-Regular-IFC.woff2') format('woff2');
                 }
                 @font-face {
                     font-family: 'InterIFC';
                     font-style: normal;
                     font-weight: 700;
                     font-display: swap;
-                    src: url('/fonts/Inter-Bold-IFC.ttf') format('truetype');
+                    src: url('/fonts/Inter-Bold-IFC.woff2') format('woff2');
                 }
                 /* Poppins for theprimefounder, aicracked, theevolvinggpt (place .ttf files in public/fonts/) */
                 @font-face {
