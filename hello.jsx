@@ -385,27 +385,61 @@ const PreviewCard = memo(({
         if (!isIFC) return;
 
         let cancelled = false;
-        const readOnce = () => {
+
+        const snapshot = (extra = {}) => {
             const el = headlineRef.current?.querySelector?.('span');
-            if (!el) return false;
-            const cs = window.getComputedStyle(el);
-            const family = cs.fontFamily;
-            const weight = cs.fontWeight;
+            const cs = el ? window.getComputedStyle(el) : null;
+            const family = cs?.fontFamily ?? '(no-span-found)';
+            const weight = cs?.fontWeight ?? '(n/a)';
             const check400 = !!document.fonts?.check?.('400 32px InterIFC');
             const check700 = !!document.fonts?.check?.('700 32px InterIFC');
-            const status = document.fonts?.status;
-            if (!cancelled) setFontDebug({ family, weight, check400, check700, status });
-            return true;
+            const status = document.fonts?.status ?? '(no-fonts-api)';
+            if (!cancelled) setFontDebug({ family, weight, check400, check700, status, ...extra });
         };
 
-        // Retry a few times; fonts + spans can land after initial paint.
+        // Force-load fonts via FontFace API (bypasses any CSS parsing/ordering issues).
+        const loadFonts = async () => {
+            try {
+                snapshot({ phase: 'loading' });
+                if (!('FontFace' in window) || !document.fonts) {
+                    snapshot({ phase: 'no-fontface-api' });
+                    return;
+                }
+
+                const reg = new FontFace(
+                    'InterIFC',
+                    `url(data:font/woff2;base64,${INTER_IFC_REGULAR_B64})`,
+                    { weight: '400', style: 'normal', display: 'swap' }
+                );
+                const bold = new FontFace(
+                    'InterIFC',
+                    `url(data:font/woff2;base64,${INTER_IFC_BOLD_B64})`,
+                    { weight: '700', style: 'normal', display: 'swap' }
+                );
+
+                const [regLoaded, boldLoaded] = await Promise.all([reg.load(), bold.load()]);
+                document.fonts.add(regLoaded);
+                document.fonts.add(boldLoaded);
+
+                // Wait for the font set to settle, then snapshot computed styles.
+                await document.fonts.ready;
+                snapshot({ phase: 'loaded' });
+            } catch (e) {
+                snapshot({ phase: 'error', error: String(e?.message || e) });
+            }
+        };
+
+        loadFonts();
+
+        // Also retry snapshots to catch late-rendered spans.
         let tries = 0;
         const tick = () => {
             tries += 1;
-            const ok = readOnce();
-            if (!ok && tries < 20 && !cancelled) setTimeout(tick, 100);
+            snapshot();
+            if (tries < 30 && !cancelled) setTimeout(tick, 200);
         };
         tick();
+
         return () => { cancelled = true; };
     }, [preset.name, preset.headline]);
 
