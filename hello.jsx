@@ -384,23 +384,30 @@ const PreviewCard = memo(({
         const isIFC = preset.name === 'indian-founders-co';
         if (!isIFC) return;
 
-        const el = headlineRef.current?.querySelector?.('span');
-        if (!el) return;
-
-        const run = () => {
+        let cancelled = false;
+        const readOnce = () => {
+            const el = headlineRef.current?.querySelector?.('span');
+            if (!el) return false;
             const cs = window.getComputedStyle(el);
             const family = cs.fontFamily;
             const weight = cs.fontWeight;
             const check400 = !!document.fonts?.check?.('400 32px InterIFC');
             const check700 = !!document.fonts?.check?.('700 32px InterIFC');
-            setFontDebug({ family, weight, check400, check700 });
+            const status = document.fonts?.status;
+            if (!cancelled) setFontDebug({ family, weight, check400, check700, status });
+            return true;
         };
 
-        // Give the browser a moment to apply injected @font-face from hello.jsx <style>
-        const t1 = setTimeout(run, 50);
-        const t2 = setTimeout(run, 500);
-        return () => { clearTimeout(t1); clearTimeout(t2); };
-    }, [preset.name]);
+        // Retry a few times; fonts + spans can land after initial paint.
+        let tries = 0;
+        const tick = () => {
+            tries += 1;
+            const ok = readOnce();
+            if (!ok && tries < 20 && !cancelled) setTimeout(tick, 100);
+        };
+        tick();
+        return () => { cancelled = true; };
+    }, [preset.name, preset.headline]);
 
     const getAspectRatioStyle = (r) => {
         switch (r) {
@@ -1177,6 +1184,21 @@ const PreviewCard = memo(({
                     <Type size={12} />
                 </button>
             </div>
+
+            {/* IFC Font Debug (always visible, not clipped) */}
+            {preset.name === 'indian-founders-co' && (
+                <div className="absolute bottom-2 left-2 right-2 z-30 bg-black/80 text-white text-[10px] px-2 py-1 rounded">
+                    {fontDebug
+                        ? (
+                            <>
+                                <div>family: {fontDebug.family}</div>
+                                <div>weight: {fontDebug.weight} | fonts: {String(fontDebug.status)}</div>
+                                <div>InterIFC 400: {String(fontDebug.check400)} | 700: {String(fontDebug.check700)}</div>
+                            </>
+                        )
+                        : <div>IFC font debug: pending…</div>}
+                </div>
+            )}
 
             {isRepositioning && (
                 <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsRepositioning(false)} />
