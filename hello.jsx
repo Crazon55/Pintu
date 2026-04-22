@@ -1564,14 +1564,14 @@ export default function App() {
                     font-family: 'InterIFCRegular';
                     font-style: normal;
                     font-weight: 400;
-                    font-display: block;
+                    font-display: swap;
                     src: url(data:font/woff2;base64,${INTER_IFC_REGULAR_B64}) format('woff2');
                 }
                 @font-face {
                     font-family: 'InterIFCBold';
                     font-style: normal;
-                    font-weight: 400;
-                    font-display: block;
+                    font-weight: 700;
+                    font-display: swap;
                     src: url(data:font/woff2;base64,${INTER_IFC_BOLD_B64}) format('woff2');
                 }
                 /* Local Inter font (served from public/fonts/) — for all non-IFC presets */
