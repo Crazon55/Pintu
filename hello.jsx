@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
 import { Upload, Monitor, Layout, Download, Play, Pause, RotateCcw, Loader, Grid, Maximize, CheckSquare, Square, Edit2, Save, BadgeCheck, Image as ImageIcon, Type, Sliders, Users, Globe, Move, Volume2, VolumeX, Bold, X, Video } from 'lucide-react';
-import { INTER_IFC_REGULAR_B64, INTER_IFC_BOLD_B64 } from './interIFC-fonts.js';
+// Inter is loaded globally via public/fonts/*.woff2 (see index.css)
 
 // --- HARDCODED LOGOS (SVG Data URIs) ---
 
@@ -339,7 +339,7 @@ const PreviewCard = memo(({
     const [localWatermarkPos, setLocalWatermarkPos] = useState(preset.watermarkPosition || { x: 50, y: 16 });
     const [localHeadlinePos, setLocalHeadlinePos] = useState(preset.headlinePosition || { x: 0, y: 0 });
     const [localVideoScale, setLocalVideoScale] = useState(videoScale || 100);
-    const [fontDebug, setFontDebug] = useState(null);
+    // (font debug removed)
     const containerRef = useRef(null);
     const creditRef = useRef(null);
     const watermarkRef = useRef(null);
@@ -380,82 +380,7 @@ const PreviewCard = memo(({
         setLocalHeadlinePos(pos);
     }, [preset.headlinePosition]);
 
-    useEffect(() => {
-        const isIFC = preset.name === 'indian-founders-co';
-        if (!isIFC) return;
-
-        let cancelled = false;
-
-        const findHeadlineSpan = () => {
-            // Only sample the actual IFC headline words (never "any span" on the card).
-            const root = document.querySelector(`[data-preset-name="${preset.name}"]`);
-            const word = root?.querySelector?.('[data-ifc-headline-word="true"]');
-            if (word) return word;
-            const fallback = root?.querySelector?.('[data-headline="true"] span');
-            if (fallback) return fallback;
-            return headlineRef.current?.querySelector?.('span') ?? null;
-        };
-
-        const snapshot = (extra = {}) => {
-            const el = findHeadlineSpan();
-            const cs = el ? window.getComputedStyle(el) : null;
-            const family = cs?.fontFamily ?? '(no-span-found)';
-            const weight = cs?.fontWeight ?? '(n/a)';
-            // Use full font shorthand; this is the most reliable form for FontFaceSet.check.
-            const check400 = !!document.fonts?.check?.('normal 400 16px "InterIFC"');
-            const check700 = !!document.fonts?.check?.('normal 700 16px "InterIFC"');
-            const checkAny = !!document.fonts?.check?.('16px "InterIFC"');
-            const status = document.fonts?.status ?? '(no-fonts-api)';
-            if (!cancelled) {
-                setFontDebug((prev) => ({ ...(prev || {}), family, weight, check400, check700, checkAny, status, ...extra }));
-            }
-        };
-
-        const b64ToArrayBuffer = (b64) => {
-            const binary = atob(b64);
-            const len = binary.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-            return bytes.buffer;
-        };
-
-        // Force-load fonts via FontFace API (bypasses any CSS parsing/ordering issues).
-        const loadFonts = async () => {
-            try {
-                snapshot({ loadPhase: 'loading' });
-                if (!('FontFace' in window) || !document.fonts) {
-                    snapshot({ loadPhase: 'no-fontface-api' });
-                    return;
-                }
-
-                const reg = new FontFace('InterIFC', b64ToArrayBuffer(INTER_IFC_REGULAR_B64), { weight: '400', style: 'normal', display: 'swap' });
-                const bold = new FontFace('InterIFC', b64ToArrayBuffer(INTER_IFC_BOLD_B64), { weight: '700', style: 'normal', display: 'swap' });
-
-                const [regLoaded, boldLoaded] = await Promise.all([reg.load(), bold.load()]);
-                document.fonts.add(regLoaded);
-                document.fonts.add(boldLoaded);
-
-                // Wait for the font set to settle, then snapshot computed styles.
-                await document.fonts.ready;
-                snapshot({ loadPhase: 'loaded' });
-            } catch (e) {
-                snapshot({ loadPhase: 'error', error: String(e?.message || e) });
-            }
-        };
-
-        loadFonts();
-
-        // Also retry snapshots to catch late-rendered spans.
-        let tries = 0;
-        const tick = () => {
-            tries += 1;
-            snapshot({ poll: tries });
-            if (tries < 30 && !cancelled) setTimeout(tick, 200);
-        };
-        tick();
-
-        return () => { cancelled = true; };
-    }, [preset.name, preset.headline]);
+    // Font debug removed (using clean global Inter now)
 
     const getAspectRatioStyle = (r) => {
         switch (r) {
@@ -912,10 +837,8 @@ const PreviewCard = memo(({
                             ) : (
                                 <span
                                     key={idx}
-                                    data-ifc-word={preset.name === 'indian-founders-co' ? 'true' : undefined}
-                                    data-ifc-headline-word={preset.name === 'indian-founders-co' ? 'true' : undefined}
                                     style={{
-                                        fontSynthesis: (preset.name === 'indian-founders-co') ? 'none' : undefined,
+                                        fontSynthesis: 'none',
                                         color: (() => {
                                             const highlightGroup = groupMap[idx];
                                             if (preset.name === 'Real India Business') return highlightGroup === 1 ? '#FF8323' : highlightGroup >= 2 ? '#0DC100' : 'white';
@@ -961,9 +884,7 @@ const PreviewCard = memo(({
                                             if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return segment.highlight ? 800 : 400;
                                             return segment.highlight ? 800 : 400;
                                         })(),
-                                        fontFamily: (preset.name === 'indian-founders-co'
-                                            ? "'InterIFC', sans-serif"
-                                            : (preset.name === '101xfounders' || preset.name === 'bizzindia' || presetNameLower === 'bestindianpodcast')
+                                        fontFamily: ((preset.name === '101xfounders' || preset.name === 'bizzindia' || preset.name === 'indian-founders-co' || presetNameLower === 'bestindianpodcast')
                                                 ? "'Inter', sans-serif"
                                                 : isPoppinsFont
                                                     ? "'Poppins', sans-serif"
@@ -1228,21 +1149,7 @@ const PreviewCard = memo(({
                 </button>
             </div>
 
-            {/* IFC Font Debug (always visible, not clipped) */}
-            {preset.name === 'indian-founders-co' && (
-                <div className="absolute bottom-2 left-2 right-2 z-30 bg-black/80 text-white text-[10px] px-2 py-1 rounded">
-                    {fontDebug
-                        ? (
-                            <>
-                                <div>loadPhase: {String(fontDebug.loadPhase || '(none)')}{fontDebug.error ? ` | error: ${fontDebug.error}` : ''} | poll: {String(fontDebug.poll || 0)}</div>
-                                <div>family: {fontDebug.family}</div>
-                                <div>weight: {fontDebug.weight} | fonts: {String(fontDebug.status)}</div>
-                                <div>InterIFC any: {String(fontDebug.checkAny)} | 400: {String(fontDebug.check400)} | 700: {String(fontDebug.check700)}</div>
-                            </>
-                        )
-                        : <div>IFC font debug: pending…</div>}
-                </div>
-            )}
+            {/* (IFC debug removed) */}
 
             {isRepositioning && (
                 <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsRepositioning(false)} />
@@ -1658,44 +1565,7 @@ export default function App() {
 
             <style>
                 {`
-                /* Inter for indian-founders-co — base64-inlined WOFF2, no network fetch */
-                @font-face {
-                    font-family: 'InterIFC';
-                    font-style: normal;
-                    font-weight: 400;
-                    font-display: swap;
-                    src: url("data:font/woff2;base64,${INTER_IFC_REGULAR_B64}") format('woff2');
-                }
-                @font-face {
-                    font-family: 'InterIFC';
-                    font-style: normal;
-                    font-weight: 700;
-                    font-display: swap;
-                    src: url("data:font/woff2;base64,${INTER_IFC_BOLD_B64}") format('woff2');
-                }
-                /* Local Inter font (served from public/fonts/) — for all non-IFC presets */
-                @font-face {
-                    font-family: 'Inter';
-                    font-style: normal;
-                    font-weight: 400;
-                    font-display: swap;
-                    src: url('/fonts/Inter-Regular.ttf') format('truetype');
-                }
-                @font-face {
-                    font-family: 'Inter';
-                    font-style: normal;
-                    font-weight: 700;
-                    font-display: swap;
-                    src: url('/fonts/Inter-Bold.ttf') format('truetype');
-                }
-                @font-face {
-                    font-family: 'Inter';
-                    font-style: normal;
-                    font-weight: 100;
-                    font-display: swap;
-                    src: url('/fonts/Inter-Thin.ttf') format('truetype');
-                }
-                /* Poppins for theprimefounder, aicracked, theevolvinggpt (place .ttf files in public/fonts/) */
+                /* Poppins for theprimefounder, aicracked, theevolvinggpt (served from public/fonts/) */
                 @font-face {
                     font-family: 'Poppins';
                     font-style: normal;
