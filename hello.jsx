@@ -877,7 +877,7 @@ const PreviewCard = memo(({
                                             if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return segment.highlight ? 800 : 400;
                                             return segment.highlight ? 800 : 400;
                                         })(),
-                                        fontFamily: (preset.name === 'indian-founders-co' || presetNameLower === 'bestindianpodcast'
+                                        fontFamily: (preset.name === '101xfounders' || preset.name === 'bizzindia' || preset.name === 'indian-founders-co' || presetNameLower === 'bestindianpodcast'
                                             ? "'Inter', sans-serif"
                                             : isPoppinsFont
                                                 ? "'Poppins', sans-serif"
