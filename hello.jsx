@@ -339,31 +339,11 @@ const PreviewCard = memo(({
     const [localWatermarkPos, setLocalWatermarkPos] = useState(preset.watermarkPosition || { x: 50, y: 16 });
     const [localHeadlinePos, setLocalHeadlinePos] = useState(preset.headlinePosition || { x: 0, y: 0 });
     const [localVideoScale, setLocalVideoScale] = useState(videoScale || 100);
-    const [ifcFontInfo, setIfcFontInfo] = useState(null);
     const containerRef = useRef(null);
     const creditRef = useRef(null);
     const watermarkRef = useRef(null);
     const headlineRef = useRef(null);
     const videoElementRef = useRef(null);
-
-    useEffect(() => {
-        if (preset.name !== 'indian-founders-co') return;
-
-        let cancelled = false;
-        const tick = () => {
-            const el = headlineRef.current?.querySelector?.('span');
-            const cs = el ? window.getComputedStyle(el) : null;
-            const family = cs?.fontFamily ?? '(no-span)';
-            const weight = cs?.fontWeight ?? '(n/a)';
-            const interAny = !!document.fonts?.check?.('16px "Inter"');
-            const inter400 = !!document.fonts?.check?.('normal 400 16px "Inter"');
-            const inter700 = !!document.fonts?.check?.('normal 700 16px "Inter"');
-            if (!cancelled) setIfcFontInfo({ family, weight, interAny, inter400, inter700 });
-        };
-        tick();
-        const id = setInterval(tick, 500);
-        return () => { cancelled = true; clearInterval(id); };
-    }, [preset.name, preset.headline]);
 
     // CRITICAL: Control video playback based on preset.active and isPlaying
     // Only active presets should play video to reduce resource usage and prevent lag
@@ -885,7 +865,7 @@ const PreviewCard = memo(({
                                         })(),
                                         fontWeight: (() => {
                                             // IFC: ensure a very clear Inter weight contrast in preview
-                                            if (preset.name === 'indian-founders-co') return segment.highlight ? 700 : 400;
+                                            if (preset.name === 'indian-founders-co') return segment.highlight ? 800 : 400;
                                             if (preset.name === 'bizzindia' || preset.name === '101xfounders') return segment.highlight ? 900 : 400;
                                             if (preset.name === 'theprimefounder' || preset.name === 'peakofai' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indiastartupstory' || preset.name === 'neworderai') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'startup madness') return 800;
@@ -897,7 +877,7 @@ const PreviewCard = memo(({
                                             if (preset.name === 'founders cracked') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'ceo hustle advice') return segment.highlight ? 700 : 400;
                                             if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return segment.highlight ? 800 : 400;
-                                            if (preset.name === 'founders-in-india' || preset.name === 'Entrepreneursindia.co' || preset.name === 'indian-founders-co') return segment.highlight ? 700 : 400;
+                                            if (preset.name === 'founders-in-india' || preset.name === 'Entrepreneursindia.co') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'Real India Business') return segment.highlight ? 600 : 300;
                                             if (['Founders God', 'CEO Mindset India', 'startupcoded', 'foundersoncrack'].includes(preset.name)) return 800;
                                             if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return segment.highlight ? 800 : 400;
@@ -1167,14 +1147,6 @@ const PreviewCard = memo(({
                     <Type size={12} />
                 </button>
             </div>
-
-            {preset.name === 'indian-founders-co' && ifcFontInfo && (
-                <div className="absolute bottom-2 left-2 right-2 z-30 bg-black/80 text-white text-[10px] px-2 py-1 rounded">
-                    <div>computed family: {ifcFontInfo.family}</div>
-                    <div>computed weight: {ifcFontInfo.weight}</div>
-                    <div>Inter loaded: any {String(ifcFontInfo.interAny)} | 400 {String(ifcFontInfo.inter400)} | 700 {String(ifcFontInfo.inter700)}</div>
-                </div>
-            )}
 
             {isRepositioning && (
                 <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsRepositioning(false)} />
