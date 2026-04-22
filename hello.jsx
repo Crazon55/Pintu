@@ -879,7 +879,7 @@ const PreviewCard = memo(({
                                             return segment.highlight ? 800 : 400;
                                         })(),
                                         fontFamily: (preset.name === 'indian-founders-co'
-                                            ? (segment.highlight ? "'InterIFCBold', sans-serif" : "'InterIFCRegular', sans-serif")
+                                            ? "'InterIFC', sans-serif"
                                             : (preset.name === '101xfounders' || preset.name === 'bizzindia' || presetNameLower === 'bestindianpodcast')
                                                 ? "'Inter', sans-serif"
                                                 : isPoppinsFont
@@ -1561,18 +1561,18 @@ export default function App() {
                 {`
                 /* Inter for indian-founders-co — base64-inlined WOFF2, no network fetch */
                 @font-face {
-                    font-family: 'InterIFCRegular';
+                    font-family: 'InterIFC';
                     font-style: normal;
                     font-weight: 400;
                     font-display: swap;
-                    src: url(data:font/woff2;base64,${INTER_IFC_REGULAR_B64}) format('woff2');
+                    src: url("data:font/woff2;base64,${INTER_IFC_REGULAR_B64}") format('woff2');
                 }
                 @font-face {
-                    font-family: 'InterIFCBold';
+                    font-family: 'InterIFC';
                     font-style: normal;
                     font-weight: 700;
                     font-display: swap;
-                    src: url(data:font/woff2;base64,${INTER_IFC_BOLD_B64}) format('woff2');
+                    src: url("data:font/woff2;base64,${INTER_IFC_BOLD_B64}") format('woff2');
                 }
                 /* Local Inter font (served from public/fonts/) — for all non-IFC presets */
                 @font-face {
