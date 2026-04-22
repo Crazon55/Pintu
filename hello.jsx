@@ -386,15 +386,31 @@ const PreviewCard = memo(({
 
         let cancelled = false;
 
+        const findHeadlineSpan = () => {
+            // Prefer data attribute (more reliable than refs across layout branches)
+            const root = document.querySelector(`[data-preset-name="${preset.name}"]`);
+            const span = root?.querySelector?.('[data-headline="true"] span');
+            if (span) return span;
+            return headlineRef.current?.querySelector?.('span') ?? null;
+        };
+
         const snapshot = (extra = {}) => {
-            const el = headlineRef.current?.querySelector?.('span');
+            const el = findHeadlineSpan();
             const cs = el ? window.getComputedStyle(el) : null;
             const family = cs?.fontFamily ?? '(no-span-found)';
             const weight = cs?.fontWeight ?? '(n/a)';
-            const check400 = !!document.fonts?.check?.('400 32px InterIFC');
-            const check700 = !!document.fonts?.check?.('700 32px InterIFC');
+            const check400 = !!document.fonts?.check?.('400 16px InterIFC');
+            const check700 = !!document.fonts?.check?.('700 16px InterIFC');
             const status = document.fonts?.status ?? '(no-fonts-api)';
             if (!cancelled) setFontDebug({ family, weight, check400, check700, status, ...extra });
+        };
+
+        const b64ToArrayBuffer = (b64) => {
+            const binary = atob(b64);
+            const len = binary.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes.buffer;
         };
 
         // Force-load fonts via FontFace API (bypasses any CSS parsing/ordering issues).
@@ -406,16 +422,8 @@ const PreviewCard = memo(({
                     return;
                 }
 
-                const reg = new FontFace(
-                    'InterIFC',
-                    `url(data:font/woff2;base64,${INTER_IFC_REGULAR_B64})`,
-                    { weight: '400', style: 'normal', display: 'swap' }
-                );
-                const bold = new FontFace(
-                    'InterIFC',
-                    `url(data:font/woff2;base64,${INTER_IFC_BOLD_B64})`,
-                    { weight: '700', style: 'normal', display: 'swap' }
-                );
+                const reg = new FontFace('InterIFC', b64ToArrayBuffer(INTER_IFC_REGULAR_B64), { weight: '400', style: 'normal', display: 'swap' });
+                const bold = new FontFace('InterIFC', b64ToArrayBuffer(INTER_IFC_BOLD_B64), { weight: '700', style: 'normal', display: 'swap' });
 
                 const [regLoaded, boldLoaded] = await Promise.all([reg.load(), bold.load()]);
                 document.fonts.add(regLoaded);
@@ -737,6 +745,7 @@ const PreviewCard = memo(({
     return (
         <div
             className={`group relative ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : 'bg-black'} flex flex-col items-center select-none border-2 ${preset.active ? 'border-orange-500 ring-2 ring-orange-500/60 shadow-lg shadow-orange-500/20' : 'border-orange-500/50 opacity-70 hover:opacity-90 hover:border-orange-500/80'}`}
+            data-preset-name={preset.name}
             style={{
                 width: '100%',
                 maxWidth: '320px',
@@ -845,6 +854,7 @@ const PreviewCard = memo(({
                 {preset.layout !== 'hook_video' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer' && (
                     <div
                         ref={headlineRef}
+                        data-headline="true"
                         className={`w-full z-10 leading-tight drop-shadow-lg tracking-tighter relative ${isRepositioningHeadline ? 'cursor-move ring-2 ring-yellow-500' : ''} ${isCenterAligned ? 'flex flex-col items-center' : 'flex flex-col items-start'} ${isCenteredLeftAlign ? 'px-14' : (preset.name === 'wealth lessons india' ? 'px-4' : '')}`}
                         style={{
                             fontSize: `${previewFontSize}px`,
