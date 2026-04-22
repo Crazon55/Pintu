@@ -878,7 +878,7 @@ const PreviewCard = memo(({
                                             return segment.highlight ? 800 : 400;
                                         })(),
                                         fontFamily: (preset.name === 'indian-founders-co'
-                                            ? (segment.highlight ? "'InterIFCBold', sans-serif" : "'InterIFCRegular', sans-serif")
+                                            ? "'Inter', sans-serif"
                                             : (preset.name === '101xfounders' || preset.name === 'bizzindia' || presetNameLower === 'bestindianpodcast')
                                                 ? "'Inter', sans-serif"
                                                 : isPoppinsFont
