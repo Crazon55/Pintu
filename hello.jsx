@@ -345,7 +345,6 @@ const PreviewCard = memo(({
     const watermarkRef = useRef(null);
     const headlineRef = useRef(null);
     const videoElementRef = useRef(null);
-    const ifcSampleRef = useRef(null);
 
     // CRITICAL: Control video playback based on preset.active and isPlaying
     // Only active presets should play video to reduce resource usage and prevent lag
@@ -386,7 +385,7 @@ const PreviewCard = memo(({
         const enabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('fontdebug');
         if (!isIFC || !enabled) return;
 
-        const el = ifcSampleRef.current;
+        const el = headlineRef.current?.querySelector?.('span');
         if (!el) return;
 
         const run = () => {
@@ -857,7 +856,6 @@ const PreviewCard = memo(({
                             ) : (
                                 <span
                                     key={idx}
-                                    ref={(preset.name === 'indian-founders-co' && idx === 0) ? ifcSampleRef : undefined}
                                     style={{
                                         color: (() => {
                                             const highlightGroup = groupMap[idx];
