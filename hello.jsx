@@ -364,7 +364,8 @@ const PreviewCard = memo(({
             const interAny = !!document.fonts?.check?.('16px "Inter"');
             const inter400 = !!document.fonts?.check?.('normal 400 16px "Inter"');
             const inter700 = !!document.fonts?.check?.('normal 700 16px "Inter"');
-            if (!cancelled) setIfcFontInfo({ family, weight, interAny, inter400, inter700 });
+            const inter800 = !!document.fonts?.check?.('normal 800 16px "Inter"');
+            if (!cancelled) setIfcFontInfo({ family, weight, interAny, inter400, inter700, inter800 });
         };
 
         tick();
@@ -892,7 +893,7 @@ const PreviewCard = memo(({
                                         })(),
                                         fontWeight: (() => {
                                             // IFC uses local Inter 400 + 700; don't request weights we don't ship.
-                                            if (preset.name === 'indian-founders-co') return segment.highlight ? 700 : 400;
+                                            if (preset.name === 'indian-founders-co') return segment.highlight ? 800 : 400;
                                             if (preset.name === 'bizzindia' || preset.name === '101xfounders') return segment.highlight ? 900 : 400;
                                             if (preset.name === 'theprimefounder' || preset.name === 'peakofai' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indiastartupstory' || preset.name === 'neworderai') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'startup madness') return 800;
@@ -1179,7 +1180,7 @@ const PreviewCard = memo(({
                 <div className="absolute bottom-2 left-2 right-2 z-30 bg-black/80 text-white text-[10px] px-2 py-1 rounded pointer-events-none">
                     <div>computed family: {ifcFontInfo.family}</div>
                     <div>computed weight: {ifcFontInfo.weight}</div>
-                    <div>Inter loaded: any {String(ifcFontInfo.interAny)} | 400 {String(ifcFontInfo.inter400)} | 700 {String(ifcFontInfo.inter700)}</div>
+                    <div>Inter loaded: any {String(ifcFontInfo.interAny)} | 400 {String(ifcFontInfo.inter400)} | 700 {String(ifcFontInfo.inter700)} | 800 {String(ifcFontInfo.inter800)}</div>
                 </div>
             )}
 
