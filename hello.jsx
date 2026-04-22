@@ -868,7 +868,7 @@ const PreviewCard = memo(({
                                             if (preset.name === 'founders cracked') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'ceo hustle advice') return segment.highlight ? 700 : 400;
                                             if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return segment.highlight ? 800 : 400;
-                                            if (preset.name === 'founders-in-india' || preset.name === 'Entrepreneursindia.co') return segment.highlight ? 700 : 400;
+                                            if (preset.name === 'founders-in-india' || preset.name === 'Entrepreneursindia.co' || preset.name === 'indian-founders-co') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'Real India Business') return segment.highlight ? 600 : 300;
                                             if (['Founders God', 'CEO Mindset India', 'startupcoded', 'bizzindia', 'foundersoncrack'].includes(preset.name)) return 800;
                                             if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return segment.highlight ? 800 : 400;
@@ -878,7 +878,7 @@ const PreviewCard = memo(({
                                             ? "'Inter', sans-serif"
                                             : isPoppinsFont
                                                 ? "'Poppins', sans-serif"
-                                                : (preset.name === 'Smart Business.in' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf') ? "'Inter', sans-serif" : 'inherit')
+                                                : (preset.name === 'Smart Business.in' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf' || preset.name === 'indian-founders-co') ? "'Inter', sans-serif" : 'inherit')
                                     }}
                                 >
                                     {segment.text}
