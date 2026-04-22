@@ -403,8 +403,9 @@ const PreviewCard = memo(({
             const cs = el ? window.getComputedStyle(el) : null;
             const family = cs?.fontFamily ?? '(no-span-found)';
             const weight = cs?.fontWeight ?? '(n/a)';
-            const check400 = !!document.fonts?.check?.('400 16px InterIFC');
-            const check700 = !!document.fonts?.check?.('700 16px InterIFC');
+            // Use quoted family name; browser FontFaceSet.check is picky.
+            const check400 = !!document.fonts?.check?.('400 16px "InterIFC"');
+            const check700 = !!document.fonts?.check?.('700 16px "InterIFC"');
             const status = document.fonts?.status ?? '(no-fonts-api)';
             if (!cancelled) {
                 setFontDebug((prev) => ({ ...(prev || {}), family, weight, check400, check700, status, ...extra }));
@@ -422,9 +423,9 @@ const PreviewCard = memo(({
         // Force-load fonts via FontFace API (bypasses any CSS parsing/ordering issues).
         const loadFonts = async () => {
             try {
-                snapshot({ phase: 'loading' });
+                snapshot({ loadPhase: 'loading' });
                 if (!('FontFace' in window) || !document.fonts) {
-                    snapshot({ phase: 'no-fontface-api' });
+                    snapshot({ loadPhase: 'no-fontface-api' });
                     return;
                 }
 
@@ -437,9 +438,9 @@ const PreviewCard = memo(({
 
                 // Wait for the font set to settle, then snapshot computed styles.
                 await document.fonts.ready;
-                snapshot({ phase: 'loaded' });
+                snapshot({ loadPhase: 'loaded' });
             } catch (e) {
-                snapshot({ phase: 'error', error: String(e?.message || e) });
+                snapshot({ loadPhase: 'error', error: String(e?.message || e) });
             }
         };
 
@@ -449,7 +450,7 @@ const PreviewCard = memo(({
         let tries = 0;
         const tick = () => {
             tries += 1;
-            snapshot({ phase: 'poll' });
+            snapshot({ poll: tries });
             if (tries < 30 && !cancelled) setTimeout(tick, 200);
         };
         tick();
@@ -1233,7 +1234,7 @@ const PreviewCard = memo(({
                     {fontDebug
                         ? (
                             <>
-                                <div>phase: {String(fontDebug.phase || '(none)')}{fontDebug.error ? ` | error: ${fontDebug.error}` : ''}</div>
+                                <div>loadPhase: {String(fontDebug.loadPhase || '(none)')}{fontDebug.error ? ` | error: ${fontDebug.error}` : ''} | poll: {String(fontDebug.poll || 0)}</div>
                                 <div>family: {fontDebug.family}</div>
                                 <div>weight: {fontDebug.weight} | fonts: {String(fontDebug.status)}</div>
                                 <div>InterIFC 400: {String(fontDebug.check400)} | 700: {String(fontDebug.check700)}</div>
