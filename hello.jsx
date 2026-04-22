@@ -1555,8 +1555,28 @@ export default function App() {
 
             <style>
                 {`
-                /* Inter is loaded from Google Fonts in index.html (all weights). Do not @font-face Inter here
-                   with missing public/fonts/* files — it overrides the real font and breaks 400 vs 700. */
+                /* Local Inter font (served from public/fonts/) */
+                @font-face {
+                    font-family: 'Inter';
+                    font-style: normal;
+                    font-weight: 400;
+                    font-display: swap;
+                    src: url('/fonts/Inter-Regular.ttf') format('truetype');
+                }
+                @font-face {
+                    font-family: 'Inter';
+                    font-style: normal;
+                    font-weight: 700;
+                    font-display: swap;
+                    src: url('/fonts/Inter-Bold.ttf') format('truetype');
+                }
+                @font-face {
+                    font-family: 'Inter';
+                    font-style: normal;
+                    font-weight: 100;
+                    font-display: swap;
+                    src: url('/fonts/Inter-Thin.ttf') format('truetype');
+                }
                 /* Poppins for theprimefounder, aicracked, theevolvinggpt (place .ttf files in public/fonts/) */
                 @font-face {
                     font-family: 'Poppins';
