@@ -1558,45 +1558,7 @@ export default function App() {
 
             <style>
                 {`
-                /* Local Inter font (served from public/fonts/) */
-                @font-face {
-                    font-family: 'Inter';
-                    font-style: normal;
-                    font-weight: 400;
-                    font-display: swap;
-                    src: url('/fonts/Inter-Regular.ttf') format('truetype');
-                }
-                @font-face {
-                    font-family: 'Inter';
-                    font-style: normal;
-                    font-weight: 700;
-                    font-display: swap;
-                    src: url('/fonts/Inter-Bold.ttf') format('truetype');
-                }
-                @font-face {
-                    font-family: 'Inter';
-                    font-style: normal;
-                    font-weight: 100;
-                    font-display: swap;
-                    src: url('/fonts/Inter-Thin.ttf') format('truetype');
-                }
-                /* Dedicated Inter for indian-founders-co (WOFF2 from @fontsource/inter) */
-                /* Split into separate families so bold/regular selection bypasses
-                   any font-weight resolution conflicts with the global 'Inter' face. */
-                @font-face {
-                    font-family: 'InterIFCRegular';
-                    font-style: normal;
-                    font-weight: 400;
-                    font-display: block;
-                    src: url('/fonts/Inter-Regular-IFC.woff2') format('woff2');
-                }
-                @font-face {
-                    font-family: 'InterIFCBold';
-                    font-style: normal;
-                    font-weight: 400;
-                    font-display: block;
-                    src: url('/fonts/Inter-Bold-IFC.woff2') format('woff2');
-                }
+                /* Inter is defined globally in index.css — do not redefine here. */
                 /* Poppins for theprimefounder, aicracked, theevolvinggpt (place .ttf files in public/fonts/) */
                 @font-face {
                     font-family: 'Poppins';
