@@ -2,18 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Dedicated Inter for indian-founders-co (WOFF2 from @fontsource/inter) */
-/* Split into separate families so bold/regular selection bypasses
-   any font-weight resolution conflicts with the global 'Inter' face. */
+/* Global Inter from local WOFF2 (no Google Fonts, no fallbacks). */
 @font-face {
-  font-family: 'InterIFCRegular';
+  font-family: 'Inter';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
   src: url('/fonts/Inter-Regular-IFC.woff2') format('woff2');
 }
 @font-face {
-  font-family: 'InterIFCBold';
+  font-family: 'Inter';
   font-style: normal;
   font-weight: 700;
   font-display: swap;
@@ -28,9 +26,7 @@
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
