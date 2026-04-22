@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
 import { Upload, Monitor, Layout, Download, Play, Pause, RotateCcw, Loader, Grid, Maximize, CheckSquare, Square, Edit2, Save, BadgeCheck, Image as ImageIcon, Type, Sliders, Users, Globe, Move, Volume2, VolumeX, Bold, X, Video } from 'lucide-react';
+import { INTER_IFC_REGULAR_B64, INTER_IFC_BOLD_B64 } from './interIFC-fonts.js';
 
 // --- HARDCODED LOGOS (SVG Data URIs) ---
 
@@ -1558,7 +1559,22 @@ export default function App() {
 
             <style>
                 {`
-                /* Local Inter font (served from public/fonts/) — restored for all non-IFC presets */
+                /* Inter for indian-founders-co — base64-inlined WOFF2, no network fetch */
+                @font-face {
+                    font-family: 'InterIFCRegular';
+                    font-style: normal;
+                    font-weight: 400;
+                    font-display: block;
+                    src: url(data:font/woff2;base64,${INTER_IFC_REGULAR_B64}) format('woff2');
+                }
+                @font-face {
+                    font-family: 'InterIFCBold';
+                    font-style: normal;
+                    font-weight: 400;
+                    font-display: block;
+                    src: url(data:font/woff2;base64,${INTER_IFC_BOLD_B64}) format('woff2');
+                }
+                /* Local Inter font (served from public/fonts/) — for all non-IFC presets */
                 @font-face {
                     font-family: 'Inter';
                     font-style: normal;
