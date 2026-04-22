@@ -803,7 +803,7 @@ const PreviewCard = memo(({
                     <div
                         ref={headlineRef}
                         data-headline="true"
-                        className={`w-full z-10 leading-tight drop-shadow-lg tracking-tighter relative ${isRepositioningHeadline ? 'cursor-move ring-2 ring-yellow-500' : ''} ${isCenterAligned ? 'flex flex-col items-center' : 'flex flex-col items-start'} ${isCenteredLeftAlign ? 'px-14' : (preset.name === 'wealth lessons india' ? 'px-4' : '')}`}
+                        className={`w-full z-10 leading-tight drop-shadow-lg ${preset.name === 'indian-founders-co' ? 'tracking-normal' : 'tracking-tighter'} relative ${isRepositioningHeadline ? 'cursor-move ring-2 ring-yellow-500' : ''} ${isCenterAligned ? 'flex flex-col items-center' : 'flex flex-col items-start'} ${isCenteredLeftAlign ? 'px-14' : (preset.name === 'wealth lessons india' ? 'px-4' : '')}`}
                         style={{
                             fontSize: `${previewFontSize}px`,
                             lineHeight: preset.lineSpacing || 1.25,
@@ -840,8 +840,8 @@ const PreviewCard = memo(({
                             style={{
                                 pointerEvents: isRepositioningHeadline ? 'none' : 'auto',
                                 justifyContent: isCenterAligned ? 'center' : 'flex-start',
-                                gap: `${adjustedWordSpacing}em`,
-                                letterSpacing: isPoppinsFont ? '0px' : undefined
+                                gap: `${preset.name === 'indian-founders-co' ? 0.33 : adjustedWordSpacing}em`,
+                                letterSpacing: preset.name === 'indian-founders-co' ? '0px' : (isPoppinsFont ? '0px' : undefined)
                             }}
                         >
                             {/* Pre-compute highlight group index for Real India Business dual-color logic */}
