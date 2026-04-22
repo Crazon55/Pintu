@@ -339,11 +339,38 @@ const PreviewCard = memo(({
     const [localWatermarkPos, setLocalWatermarkPos] = useState(preset.watermarkPosition || { x: 50, y: 16 });
     const [localHeadlinePos, setLocalHeadlinePos] = useState(preset.headlinePosition || { x: 0, y: 0 });
     const [localVideoScale, setLocalVideoScale] = useState(videoScale || 100);
+    const [ifcFontInfo, setIfcFontInfo] = useState(null);
     const containerRef = useRef(null);
     const creditRef = useRef(null);
     const watermarkRef = useRef(null);
     const headlineRef = useRef(null);
     const videoElementRef = useRef(null);
+
+    useEffect(() => {
+        if (preset.name !== 'indian-founders-co') return;
+
+        let cancelled = false;
+        const tick = () => {
+            const root = headlineRef.current;
+            const spans = root ? Array.from(root.querySelectorAll('span')) : [];
+            const highlighted = spans.find(s => {
+                const color = window.getComputedStyle(s).color;
+                return color === 'rgb(44, 177, 98)'; // #2cb162
+            });
+            const target = highlighted ?? spans[0] ?? null;
+            const cs = target ? window.getComputedStyle(target) : null;
+            const family = cs?.fontFamily ?? '(no-span)';
+            const weight = cs?.fontWeight ?? '(n/a)';
+            const interAny = !!document.fonts?.check?.('16px "Inter"');
+            const inter400 = !!document.fonts?.check?.('normal 400 16px "Inter"');
+            const inter700 = !!document.fonts?.check?.('normal 700 16px "Inter"');
+            if (!cancelled) setIfcFontInfo({ family, weight, interAny, inter400, inter700 });
+        };
+
+        tick();
+        const id = window.setInterval(tick, 750);
+        return () => { cancelled = true; window.clearInterval(id); };
+    }, [preset.name, preset.headline]);
 
     // CRITICAL: Control video playback based on preset.active and isPlaying
     // Only active presets should play video to reduce resource usage and prevent lag
@@ -864,8 +891,8 @@ const PreviewCard = memo(({
                                             return segment.highlight ? preset.color : 'white';
                                         })(),
                                         fontWeight: (() => {
-                                            // IFC: ensure a very clear Inter weight contrast in preview
-                                            if (preset.name === 'indian-founders-co') return segment.highlight ? 800 : 400;
+                                            // IFC uses local Inter 400 + 700; don't request weights we don't ship.
+                                            if (preset.name === 'indian-founders-co') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'bizzindia' || preset.name === '101xfounders') return segment.highlight ? 900 : 400;
                                             if (preset.name === 'theprimefounder' || preset.name === 'peakofai' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indiastartupstory' || preset.name === 'neworderai') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'startup madness') return 800;
@@ -1147,6 +1174,14 @@ const PreviewCard = memo(({
                     <Type size={12} />
                 </button>
             </div>
+
+            {preset.name === 'indian-founders-co' && ifcFontInfo && (
+                <div className="absolute bottom-2 left-2 right-2 z-30 bg-black/80 text-white text-[10px] px-2 py-1 rounded pointer-events-none">
+                    <div>computed family: {ifcFontInfo.family}</div>
+                    <div>computed weight: {ifcFontInfo.weight}</div>
+                    <div>Inter loaded: any {String(ifcFontInfo.interAny)} | 400 {String(ifcFontInfo.inter400)} | 700 {String(ifcFontInfo.inter700)}</div>
+                </div>
+            )}
 
             {isRepositioning && (
                 <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsRepositioning(false)} />
