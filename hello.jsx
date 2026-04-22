@@ -382,8 +382,7 @@ const PreviewCard = memo(({
 
     useEffect(() => {
         const isIFC = preset.name === 'indian-founders-co';
-        const enabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('fontdebug');
-        if (!isIFC || !enabled) return;
+        if (!isIFC) return;
 
         const el = headlineRef.current?.querySelector?.('span');
         if (!el) return;
@@ -857,6 +856,7 @@ const PreviewCard = memo(({
                                 <span
                                     key={idx}
                                     style={{
+                                        fontSynthesis: (preset.name === 'indian-founders-co') ? 'none' : undefined,
                                         color: (() => {
                                             const highlightGroup = groupMap[idx];
                                             if (preset.name === 'Real India Business') return highlightGroup === 1 ? '#FF8323' : highlightGroup >= 2 ? '#0DC100' : 'white';
