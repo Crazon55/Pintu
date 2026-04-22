@@ -339,11 +339,13 @@ const PreviewCard = memo(({
     const [localWatermarkPos, setLocalWatermarkPos] = useState(preset.watermarkPosition || { x: 50, y: 16 });
     const [localHeadlinePos, setLocalHeadlinePos] = useState(preset.headlinePosition || { x: 0, y: 0 });
     const [localVideoScale, setLocalVideoScale] = useState(videoScale || 100);
+    const [fontDebug, setFontDebug] = useState(null);
     const containerRef = useRef(null);
     const creditRef = useRef(null);
     const watermarkRef = useRef(null);
     const headlineRef = useRef(null);
     const videoElementRef = useRef(null);
+    const ifcSampleRef = useRef(null);
 
     // CRITICAL: Control video playback based on preset.active and isPlaying
     // Only active presets should play video to reduce resource usage and prevent lag
@@ -378,6 +380,29 @@ const PreviewCard = memo(({
         const pos = preset.headlinePosition || { x: 0, y: 0 };
         setLocalHeadlinePos(pos);
     }, [preset.headlinePosition]);
+
+    useEffect(() => {
+        const isIFC = preset.name === 'indian-founders-co';
+        const enabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('fontdebug');
+        if (!isIFC || !enabled) return;
+
+        const el = ifcSampleRef.current;
+        if (!el) return;
+
+        const run = () => {
+            const cs = window.getComputedStyle(el);
+            const family = cs.fontFamily;
+            const weight = cs.fontWeight;
+            const check400 = !!document.fonts?.check?.('400 32px InterIFC');
+            const check700 = !!document.fonts?.check?.('700 32px InterIFC');
+            setFontDebug({ family, weight, check400, check700 });
+        };
+
+        // Give the browser a moment to apply injected @font-face from hello.jsx <style>
+        const t1 = setTimeout(run, 50);
+        const t2 = setTimeout(run, 500);
+        return () => { clearTimeout(t1); clearTimeout(t2); };
+    }, [preset.name]);
 
     const getAspectRatioStyle = (r) => {
         switch (r) {
@@ -832,6 +857,7 @@ const PreviewCard = memo(({
                             ) : (
                                 <span
                                     key={idx}
+                                    ref={(preset.name === 'indian-founders-co' && idx === 0) ? ifcSampleRef : undefined}
                                     style={{
                                         color: (() => {
                                             const highlightGroup = groupMap[idx];
@@ -892,6 +918,13 @@ const PreviewCard = memo(({
                             ));
                             })()}
                         </div>
+                    </div>
+                )}
+
+                {/* IFC Font Debug (enable with ?fontdebug=1) */}
+                {preset.name === 'indian-founders-co' && fontDebug && (
+                    <div className="px-6 pb-2 text-[10px] text-neutral-300">
+                        font-family: {fontDebug.family} | weight: {fontDebug.weight} | InterIFC 400: {String(fontDebug.check400)} | 700: {String(fontDebug.check700)}
                     </div>
                 )}
 
