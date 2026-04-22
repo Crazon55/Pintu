@@ -387,7 +387,11 @@ const PreviewCard = memo(({
         let cancelled = false;
 
         const findHeadlineSpan = () => {
-            // Prefer data attribute (more reliable than refs across layout branches)
+            // Most reliable: a span we tag only for IFC headline words.
+            const ifc = document.querySelector('[data-ifc-word="true"]');
+            if (ifc) return ifc;
+
+            // Fallbacks
             const root = document.querySelector(`[data-preset-name="${preset.name}"]`);
             const span = root?.querySelector?.('[data-headline="true"] span');
             if (span) return span;
@@ -915,6 +919,7 @@ const PreviewCard = memo(({
                             ) : (
                                 <span
                                     key={idx}
+                                    data-ifc-word={preset.name === 'indian-founders-co' ? 'true' : undefined}
                                     style={{
                                         fontSynthesis: (preset.name === 'indian-founders-co') ? 'none' : undefined,
                                         color: (() => {
@@ -1235,6 +1240,7 @@ const PreviewCard = memo(({
                     {fontDebug
                         ? (
                             <>
+                                <div>phase: {String(fontDebug.phase || '(none)')}{fontDebug.error ? ` | error: ${fontDebug.error}` : ''}</div>
                                 <div>family: {fontDebug.family}</div>
                                 <div>weight: {fontDebug.weight} | fonts: {String(fontDebug.status)}</div>
                                 <div>InterIFC 400: {String(fontDebug.check400)} | 700: {String(fontDebug.check700)}</div>
