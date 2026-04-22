@@ -416,7 +416,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   // --- 1. ASPECT RATIO MECHANIC ---
   // Use preset's individual ratio if available, otherwise fall back to default. Video uses full width (no frame padding).
   const aspectRatio = preset.ratio || '4:3'; // Default to 4:3 if not specified
-  const hasNarrowVideo = ['ceo hustle advice', 'wealth lessons india', 'indian business com', 'indian-founders-co', 'entrepreneurial india', 'finding good ai', 'finding good tech'].includes(nameLower) || name === 'Entrepreneurial India' || name === 'Finding Good AI' || name === 'Finding Good Tech';
+  const hasNarrowVideo = ['ceo hustle advice', 'wealth lessons india', 'indian business com', 'entrepreneurial india', 'finding good ai', 'finding good tech'].includes(nameLower) || name === 'Entrepreneurial India' || name === 'Finding Good AI' || name === 'Finding Good Tech';
   const targetW = 720; // Full width for all presets (no left/right video frame padding)
   const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
   let targetH = Math.round(targetW * (hRatio / wRatio));
@@ -482,7 +482,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const adjSpacing = isAllBoldWhite ? 0.2 : wordSpacingMultiplier;
 
   // For presets with narrower video (600px), limit text width to stay within video frame
-  const presetsWithNarrowVideo = ['wealth lessons india', 'ceo hustle advice', 'indian business com', 'indian-founders-co', 'entrepreneurial india', 'finding good ai', 'finding good tech'];
+  const presetsWithNarrowVideo = ['wealth lessons india', 'ceo hustle advice', 'indian business com', 'entrepreneurial india', 'finding good ai', 'finding good tech'];
   const videoPadding = 0; // No video frame padding (video is full width)
   // For indian business com, use more conservative width to ensure text stays within video frame
   // Utilize side space: hook-only headline pages use 620 so text sits across frame; logo-group pages keep 580.
@@ -1371,7 +1371,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       const escapedText = layout.watermark.text.replace(/\\/g, "\\\\").replace(/'/g, '\u2019');
       let fontFileParam = '';
       // Choose bold fontfile only for these two watermark presets
-      const isBoldWatermarkPreset = presetName === 'bizzindia' || presetName === '101xfounders';
+      const isBoldWatermarkPreset = presetName === 'bizzindia' || presetName === '101xfounders' || presetName === 'indian-founders-co';
       if (isBoldWatermarkPreset && existsSync(interBold)) {
         const relativeFontPath = 'assets/fonts/Inter_18pt-Bold.ttf';
         fontFileParam = `:fontfile=${relativeFontPath}`;
