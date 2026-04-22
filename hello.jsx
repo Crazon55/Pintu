@@ -878,7 +878,7 @@ const PreviewCard = memo(({
                                             return segment.highlight ? 800 : 400;
                                         })(),
                                         fontFamily: (preset.name === 'indian-founders-co'
-                                            ? "'Inter', sans-serif"
+                                            ? (segment.highlight ? "'InterIFCBold', sans-serif" : "'InterIFCRegular', sans-serif")
                                             : (preset.name === '101xfounders' || preset.name === 'bizzindia' || presetNameLower === 'bestindianpodcast')
                                                 ? "'Inter', sans-serif"
                                                 : isPoppinsFont
@@ -1558,7 +1558,28 @@ export default function App() {
 
             <style>
                 {`
-                /* Inter is defined globally in index.css — do not redefine here. */
+                /* Local Inter font (served from public/fonts/) — restored for all non-IFC presets */
+                @font-face {
+                    font-family: 'Inter';
+                    font-style: normal;
+                    font-weight: 400;
+                    font-display: swap;
+                    src: url('/fonts/Inter-Regular.ttf') format('truetype');
+                }
+                @font-face {
+                    font-family: 'Inter';
+                    font-style: normal;
+                    font-weight: 700;
+                    font-display: swap;
+                    src: url('/fonts/Inter-Bold.ttf') format('truetype');
+                }
+                @font-face {
+                    font-family: 'Inter';
+                    font-style: normal;
+                    font-weight: 100;
+                    font-display: swap;
+                    src: url('/fonts/Inter-Thin.ttf') format('truetype');
+                }
                 /* Poppins for theprimefounder, aicracked, theevolvinggpt (place .ttf files in public/fonts/) */
                 @font-face {
                     font-family: 'Poppins';
