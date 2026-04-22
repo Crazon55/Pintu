@@ -858,6 +858,8 @@ const PreviewCard = memo(({
                                             return segment.highlight ? preset.color : 'white';
                                         })(),
                                         fontWeight: (() => {
+                                            // IFC: ensure a very clear Inter weight contrast in preview
+                                            if (preset.name === 'indian-founders-co') return segment.highlight ? 800 : 400;
                                             if (preset.name === 'theprimefounder' || preset.name === 'peakofai' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indiastartupstory' || preset.name === 'neworderai') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'startup madness') return 800;
                                             if (preset.name === 'indian business com') return segment.highlight ? 700 : 400;
@@ -874,7 +876,7 @@ const PreviewCard = memo(({
                                             if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return segment.highlight ? 800 : 400;
                                             return segment.highlight ? 800 : 400;
                                         })(),
-                                        fontFamily: (presetNameLower === 'bestindianpodcast'
+                                        fontFamily: (preset.name === 'indian-founders-co' || presetNameLower === 'bestindianpodcast'
                                             ? "'Inter', sans-serif"
                                             : isPoppinsFont
                                                 ? "'Poppins', sans-serif"
