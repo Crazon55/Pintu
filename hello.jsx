@@ -365,7 +365,8 @@ const PreviewCard = memo(({
             const inter400 = !!document.fonts?.check?.('normal 400 16px "Inter"');
             const inter700 = !!document.fonts?.check?.('normal 700 16px "Inter"');
             const inter800 = !!document.fonts?.check?.('normal 800 16px "Inter"');
-            if (!cancelled) setIfcFontInfo({ family, weight, interAny, inter400, inter700, inter800 });
+            const inter900 = !!document.fonts?.check?.('normal 900 16px "Inter"');
+            if (!cancelled) setIfcFontInfo({ family, weight, interAny, inter400, inter700, inter800, inter900 });
         };
 
         tick();
@@ -722,6 +723,7 @@ const PreviewCard = memo(({
                 {preset.layout === 'hook_video' && (
                     <div className="w-full px-4 pt-4 pb-2 z-10 shrink-0">
                         <div
+                            ref={preset.name === 'indian-founders-co' ? headlineRef : undefined}
                             className="w-full text-center"
                             style={{
                                 fontSize: `${previewFontSize}px`,
@@ -735,8 +737,11 @@ const PreviewCard = memo(({
                                     <span
                                         key={idx}
                                         style={{
+                                            fontSynthesis: 'none',
                                             color: segment.highlight ? preset.color : '#FFFFFF',
-                                            fontWeight: segment.highlight ? 700 : 400,
+                                            fontWeight: preset.name === 'indian-founders-co'
+                                                ? (segment.highlight ? 900 : 400)
+                                                : (segment.highlight ? 700 : 400),
                                         }}
                                     >
                                         {segment.text}{' '}
@@ -1180,7 +1185,7 @@ const PreviewCard = memo(({
                 <div className="absolute bottom-2 left-2 right-2 z-30 bg-black/80 text-white text-[10px] px-2 py-1 rounded pointer-events-none">
                     <div>computed family: {ifcFontInfo.family}</div>
                     <div>computed weight: {ifcFontInfo.weight}</div>
-                    <div>Inter loaded: any {String(ifcFontInfo.interAny)} | 400 {String(ifcFontInfo.inter400)} | 700 {String(ifcFontInfo.inter700)} | 800 {String(ifcFontInfo.inter800)}</div>
+                    <div>Inter loaded: any {String(ifcFontInfo.interAny)} | 400 {String(ifcFontInfo.inter400)} | 700 {String(ifcFontInfo.inter700)} | 800 {String(ifcFontInfo.inter800)} | 900 {String(ifcFontInfo.inter900)}</div>
                 </div>
             )}
 
