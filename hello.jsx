@@ -859,7 +859,7 @@ const PreviewCard = memo(({
                                         })(),
                                         fontWeight: (() => {
                                             // IFC: ensure a very clear Inter weight contrast in preview
-                                            if (preset.name === 'indian-founders-co') return segment.highlight ? 800 : 400;
+                                            if (preset.name === 'indian-founders-co') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'theprimefounder' || preset.name === 'peakofai' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indiastartupstory' || preset.name === 'neworderai') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'startup madness') return 800;
                                             if (preset.name === 'indian business com') return segment.highlight ? 700 : 400;
@@ -872,7 +872,8 @@ const PreviewCard = memo(({
                                             if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return segment.highlight ? 800 : 400;
                                             if (preset.name === 'founders-in-india' || preset.name === 'Entrepreneursindia.co' || preset.name === 'indian-founders-co') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'Real India Business') return segment.highlight ? 600 : 300;
-                                            if (['Founders God', 'CEO Mindset India', 'startupcoded', 'bizzindia', 'foundersoncrack'].includes(preset.name)) return 800;
+                                            if (preset.name === 'bizzindia') return segment.highlight ? 700 : 400;
+                                            if (['Founders God', 'CEO Mindset India', 'startupcoded', 'foundersoncrack'].includes(preset.name)) return 800;
                                             if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return segment.highlight ? 800 : 400;
                                             return segment.highlight ? 800 : 400;
                                         })(),
