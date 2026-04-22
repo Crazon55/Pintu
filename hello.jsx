@@ -387,14 +387,12 @@ const PreviewCard = memo(({
         let cancelled = false;
 
         const findHeadlineSpan = () => {
-            // Look inside THIS card first.
+            // Only sample the actual IFC headline words (never "any span" on the card).
             const root = document.querySelector(`[data-preset-name="${preset.name}"]`);
-            const tagged = root?.querySelector?.('[data-ifc-word="true"]');
-            if (tagged) return tagged;
-            const inHeadline = root?.querySelector?.('[data-headline="true"] span');
-            if (inHeadline) return inHeadline;
-            const anySpan = root?.querySelector?.('span');
-            if (anySpan) return anySpan;
+            const word = root?.querySelector?.('[data-ifc-headline-word="true"]');
+            if (word) return word;
+            const fallback = root?.querySelector?.('[data-headline="true"] span');
+            if (fallback) return fallback;
             return headlineRef.current?.querySelector?.('span') ?? null;
         };
 
@@ -403,12 +401,13 @@ const PreviewCard = memo(({
             const cs = el ? window.getComputedStyle(el) : null;
             const family = cs?.fontFamily ?? '(no-span-found)';
             const weight = cs?.fontWeight ?? '(n/a)';
-            // Use quoted family name; browser FontFaceSet.check is picky.
-            const check400 = !!document.fonts?.check?.('400 16px "InterIFC"');
-            const check700 = !!document.fonts?.check?.('700 16px "InterIFC"');
+            // Use full font shorthand; this is the most reliable form for FontFaceSet.check.
+            const check400 = !!document.fonts?.check?.('normal 400 16px "InterIFC"');
+            const check700 = !!document.fonts?.check?.('normal 700 16px "InterIFC"');
+            const checkAny = !!document.fonts?.check?.('16px "InterIFC"');
             const status = document.fonts?.status ?? '(no-fonts-api)';
             if (!cancelled) {
-                setFontDebug((prev) => ({ ...(prev || {}), family, weight, check400, check700, status, ...extra }));
+                setFontDebug((prev) => ({ ...(prev || {}), family, weight, check400, check700, checkAny, status, ...extra }));
             }
         };
 
@@ -914,6 +913,7 @@ const PreviewCard = memo(({
                                 <span
                                     key={idx}
                                     data-ifc-word={preset.name === 'indian-founders-co' ? 'true' : undefined}
+                                    data-ifc-headline-word={preset.name === 'indian-founders-co' ? 'true' : undefined}
                                     style={{
                                         fontSynthesis: (preset.name === 'indian-founders-co') ? 'none' : undefined,
                                         color: (() => {
@@ -1237,7 +1237,7 @@ const PreviewCard = memo(({
                                 <div>loadPhase: {String(fontDebug.loadPhase || '(none)')}{fontDebug.error ? ` | error: ${fontDebug.error}` : ''} | poll: {String(fontDebug.poll || 0)}</div>
                                 <div>family: {fontDebug.family}</div>
                                 <div>weight: {fontDebug.weight} | fonts: {String(fontDebug.status)}</div>
-                                <div>InterIFC 400: {String(fontDebug.check400)} | 700: {String(fontDebug.check700)}</div>
+                                <div>InterIFC any: {String(fontDebug.checkAny)} | 400: {String(fontDebug.check400)} | 700: {String(fontDebug.check700)}</div>
                             </>
                         )
                         : <div>IFC font debug: pending…</div>}
