@@ -26,7 +26,10 @@
 
 body {
   margin: 0;
-  font-family: 'Inter', sans-serif;
+  /* DIAGNOSTIC FALLBACK: if Inter WOFF2 fails to load you'll see serif
+     (Times New Roman / Georgia). If everything looks sans-serif the
+     font is loading correctly. */
+  font-family: 'Inter', serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
