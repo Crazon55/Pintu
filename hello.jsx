@@ -878,7 +878,7 @@ const PreviewCard = memo(({
                                             return segment.highlight ? 800 : 400;
                                         })(),
                                         fontFamily: (preset.name === 'indian-founders-co'
-                                            ? "'InterIFC', sans-serif"
+                                            ? (segment.highlight ? "'InterIFCBold', sans-serif" : "'InterIFCRegular', sans-serif")
                                             : (preset.name === '101xfounders' || preset.name === 'bizzindia' || presetNameLower === 'bestindianpodcast')
                                                 ? "'Inter', sans-serif"
                                                 : isPoppinsFont
@@ -1581,18 +1581,20 @@ export default function App() {
                     src: url('/fonts/Inter-Thin.ttf') format('truetype');
                 }
                 /* Dedicated Inter for indian-founders-co (WOFF2 from @fontsource/inter) */
+                /* Split into separate families so bold/regular selection bypasses
+                   any font-weight resolution conflicts with the global 'Inter' face. */
                 @font-face {
-                    font-family: 'InterIFC';
+                    font-family: 'InterIFCRegular';
                     font-style: normal;
                     font-weight: 400;
-                    font-display: swap;
+                    font-display: block;
                     src: url('/fonts/Inter-Regular-IFC.woff2') format('woff2');
                 }
                 @font-face {
-                    font-family: 'InterIFC';
+                    font-family: 'InterIFCBold';
                     font-style: normal;
-                    font-weight: 700;
-                    font-display: swap;
+                    font-weight: 400;
+                    font-display: block;
                     src: url('/fonts/Inter-Bold-IFC.woff2') format('woff2');
                 }
                 /* Poppins for theprimefounder, aicracked, theevolvinggpt (place .ttf files in public/fonts/) */
