@@ -859,7 +859,8 @@ const PreviewCard = memo(({
                                         })(),
                                         fontWeight: (() => {
                                             // IFC: ensure a very clear Inter weight contrast in preview
-                                            if (preset.name === 'indian-founders-co' || preset.name === 'bizzindia' || preset.name === '101xfounders') return segment.highlight ? 900 : 400;
+                                            if (preset.name === 'indian-founders-co') return segment.highlight ? 700 : 400;
+                                            if (preset.name === 'bizzindia' || preset.name === '101xfounders') return segment.highlight ? 900 : 400;
                                             if (preset.name === 'theprimefounder' || preset.name === 'peakofai' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indiastartupstory' || preset.name === 'neworderai') return segment.highlight ? 700 : 400;
                                             if (preset.name === 'startup madness') return 800;
                                             if (preset.name === 'indian business com') return segment.highlight ? 700 : 400;
@@ -876,11 +877,13 @@ const PreviewCard = memo(({
                                             if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return segment.highlight ? 800 : 400;
                                             return segment.highlight ? 800 : 400;
                                         })(),
-                                        fontFamily: (preset.name === '101xfounders' || preset.name === 'bizzindia' || preset.name === 'indian-founders-co' || presetNameLower === 'bestindianpodcast'
-                                            ? "'Inter', sans-serif"
-                                            : isPoppinsFont
-                                                ? "'Poppins', sans-serif"
-                                                : (preset.name === 'Smart Business.in' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf' || preset.name === 'indian-founders-co') ? "'Inter', sans-serif" : 'inherit')
+                                        fontFamily: (preset.name === 'indian-founders-co'
+                                            ? "'InterIFC', sans-serif"
+                                            : (preset.name === '101xfounders' || preset.name === 'bizzindia' || presetNameLower === 'bestindianpodcast')
+                                                ? "'Inter', sans-serif"
+                                                : isPoppinsFont
+                                                    ? "'Poppins', sans-serif"
+                                                    : (preset.name === 'Smart Business.in' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf') ? "'Inter', sans-serif" : 'inherit')
                                     }}
                                 >
                                     {segment.text}
@@ -1576,6 +1579,21 @@ export default function App() {
                     font-weight: 100;
                     font-display: swap;
                     src: url('/fonts/Inter-Thin.ttf') format('truetype');
+                }
+                /* Dedicated Inter for indian-founders-co (downloaded from rsms/inter) */
+                @font-face {
+                    font-family: 'InterIFC';
+                    font-style: normal;
+                    font-weight: 400;
+                    font-display: swap;
+                    src: url('/fonts/Inter-Regular-IFC.ttf') format('truetype');
+                }
+                @font-face {
+                    font-family: 'InterIFC';
+                    font-style: normal;
+                    font-weight: 700;
+                    font-display: swap;
+                    src: url('/fonts/Inter-Bold-IFC.ttf') format('truetype');
                 }
                 /* Poppins for theprimefounder, aicracked, theevolvinggpt (place .ttf files in public/fonts/) */
                 @font-face {
