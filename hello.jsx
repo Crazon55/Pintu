@@ -1524,20 +1524,51 @@ export default function App() {
                         setExportProgress(100);
 
                         try {
-                            // Download locally first
+                            // Download zip (retry a few times since zip creation can lag behind job completion)
                             const zipUrl = `${SERVER_URL}/api/download/${jobId}`;
-                            const dlResponse = await fetch(zipUrl, { signal });
-                            if (dlResponse.ok) {
-                                const blob = await dlResponse.blob();
-                                const blobUrl = window.URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = blobUrl;
-                                a.download = `export-${jobId}.zip`;
-                                document.body.appendChild(a);
-                                a.click();
-                                a.remove();
-                                window.URL.revokeObjectURL(blobUrl);
+                            const maxAttempts = 6;
+                            let lastErr = null;
+
+                            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                                if (signal.aborted) return;
+                                setExportStatus(`Export complete! Downloading... (attempt ${attempt}/${maxAttempts})`);
+
+                                const dlResponse = await fetch(zipUrl, { signal });
+                                if (dlResponse.ok) {
+                                    const blob = await dlResponse.blob();
+                                    const blobUrl = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = blobUrl;
+                                    a.download = `export-${jobId}.zip`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                    window.URL.revokeObjectURL(blobUrl);
+                                    lastErr = null;
+                                    break;
+                                }
+
+                                // Try to surface a meaningful server error to the user
+                                let serverMsg = `HTTP ${dlResponse.status}`;
+                                try {
+                                    const j = await dlResponse.json();
+                                    serverMsg = j?.error || JSON.stringify(j);
+                                } catch {
+                                    try { serverMsg = (await dlResponse.text()) || serverMsg; } catch { }
+                                }
+                                lastErr = new Error(serverMsg);
+
+                                // Not ready yet (common): wait and retry
+                                if (dlResponse.status === 404 || dlResponse.status === 409 || dlResponse.status === 425) {
+                                    await new Promise(r => setTimeout(r, 1000));
+                                    continue;
+                                }
+
+                                // Anything else: stop retrying
+                                break;
                             }
+
+                            if (lastErr) throw lastErr;
 
                             setIsExporting(false);
                             setExportStatus('');
