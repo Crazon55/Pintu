@@ -156,9 +156,10 @@ const normalizeBoldHTML = (html) => {
     let out = html.replace(/<\/?strong>/gi, (m) => m.toLowerCase().replace('strong', 'b'));
     // Normalize <b style="..."> or <b class="..."> to plain <b>
     out = out.replace(/<b\s[^>]*>/gi, '<b>');
-    // Support WhatsApp-style *word* syntax as bold
-    // e.g. "The *trick* to making" -> "The <b>trick</b> to making"
-    out = out.replace(/\*(\S(?:.*?\S)?)\*/g, '<b>$1</b>');
+    // Support WhatsApp-style *word* / **word** syntax as bold.
+    // Order matters: handle **...** first so it doesn't get partially consumed by the single-* pass.
+    out = out.replace(/\*\*(\S(?:[\s\S]*?\S)?)\*\*/g, '<b>$1</b>');
+    out = out.replace(/\*(\S(?:[\s\S]*?\S)?)\*/g, '<b>$1</b>');
     return out;
 };
 // Replace <br> with newline so line breaks render (and literal "<br>" never appears)
@@ -733,7 +734,9 @@ const PreviewCard = memo(({
                         >
                             {(() => {
                                 const segments = parseHeadline(preset.headline);
-                                return segments.map((segment, idx) => (
+                                return segments.map((segment, idx) => {
+                                    if (segment.lineBreak) return <br key={`br-${idx}`} />;
+                                    return (
                                     <span
                                         key={idx}
                                         style={{
@@ -746,7 +749,8 @@ const PreviewCard = memo(({
                                     >
                                         {segment.text}{' '}
                                     </span>
-                                ));
+                                    );
+                                });
                             })()}
                         </div>
                     </div>
