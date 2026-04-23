@@ -204,8 +204,10 @@ const cleanHTML = (html) => {
   cleaned = cleaned.replace(/&gt;/g, '>');
   cleaned = cleaned.replace(/&quot;/g, '"');
   cleaned = cleaned.replace(/&#39;/g, "'");
-  // Support WhatsApp-style *word* syntax as bold: convert to <b>word</b>
-  cleaned = cleaned.replace(/\*(\S(?:.*?\S)?)\*/g, '<b>$1</b>');
+  // Support WhatsApp-style *word* / **word** syntax as bold: convert to <b>word</b>
+  // Order matters: handle **...** first so it doesn't get partially consumed by the single-* pass.
+  cleaned = cleaned.replace(/\*\*(\S(?:[\s\S]*?\S)?)\*\*/g, '<b>$1</b>');
+  cleaned = cleaned.replace(/\*(\S(?:[\s\S]*?\S)?)\*/g, '<b>$1</b>');
   // Replace <br> / <br/> / <br /> with newline so line breaks show in export (and literal "<br>" never appears)
   cleaned = cleaned.replace(/<br\s*\/?>/gi, '\n');
   // Block elements (DIV, P) from editor Enter key -> newline so multi-line hook matches preview
@@ -246,30 +248,32 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   const maxTextW = 620;
   const textToVideoGap = 25;
 
-  // Tokenize into bold/regular words
-  const tokens = [];
-  cleanedHtml.split(/(<b>.*?<\/b>)/i).forEach(p => {
-    if (!p) return;
-    const isB = /^<b>/i.test(p);
-    p.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
-  });
-
-  // Word-wrap into lines
+  // Tokenize + wrap, preserving explicit newlines (<br> / Shift+Enter) as hard line breaks.
   const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
   const lines = [];
-  let curLine = { tokens: [], width: 0 };
-  for (const t of tokens) {
-    ctx.font = `${t.bold ? 'bold' : 'normal'} ${fontSize}px Inter`;
-    const w = ctx.measureText(t.text).width;
-    const advance = w + spacing;
-    if (curLine.width + advance > maxTextW && curLine.tokens.length > 0) {
-      lines.push(curLine);
-      curLine = { tokens: [], width: 0 };
+  const logicalLines = cleanedHtml.split('\n').map(s => s.trim()).filter(Boolean);
+  for (const lineHtml of logicalLines) {
+    const tokens = [];
+    lineHtml.split(/(<b>.*?<\/b>)/i).forEach(p => {
+      if (!p) return;
+      const isB = /^<b>/i.test(p);
+      p.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
+    });
+
+    let curLine = { tokens: [], width: 0 };
+    for (const t of tokens) {
+      ctx.font = `${t.bold ? 'bold' : 'normal'} ${fontSize}px Inter`;
+      const w = ctx.measureText(t.text).width;
+      const advance = w + spacing;
+      if (curLine.width + advance > maxTextW && curLine.tokens.length > 0) {
+        lines.push(curLine);
+        curLine = { tokens: [], width: 0 };
+      }
+      curLine.tokens.push({ ...t, measuredWidth: w });
+      curLine.width += advance;
     }
-    curLine.tokens.push({ ...t, measuredWidth: w });
-    curLine.width += advance;
+    if (curLine.tokens.length > 0) lines.push(curLine);
   }
-  if (curLine.tokens.length > 0) lines.push(curLine);
 
   // --- Calculate video dimensions ---
   const aspectRatio = preset.ratio || '4:3';
