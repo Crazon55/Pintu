@@ -275,6 +275,32 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     if (curLine.tokens.length > 0) lines.push(curLine);
   }
 
+  const showHookEyebrow = preset.showHookEyebrow === true;
+  const hookEyebrowPlain = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
+  const eyebrowFontSize = Math.max(12, Math.round(24 * (fontScale || 1)));
+  const eyebrowLineHeight = eyebrowFontSize * 1.35;
+  const eyebrowGapBeforeHook = 12;
+  let eyebrowLines = [];
+  if (showHookEyebrow && hookEyebrowPlain) {
+    ctx.font = `500 ${eyebrowFontSize}px Inter`;
+    const words = hookEyebrowPlain.split(/\s+/).filter(Boolean);
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? `${cur} ${w}` : w;
+      if (ctx.measureText(test).width > maxTextW && cur) {
+        eyebrowLines.push(cur);
+        cur = w;
+      } else {
+        cur = test;
+      }
+    }
+    if (cur) eyebrowLines.push(cur);
+  }
+  const nEyebrow = eyebrowLines.length;
+  const eyebrowH = nEyebrow
+    ? (eyebrowFontSize + (nEyebrow - 1) * eyebrowLineHeight + eyebrowGapBeforeHook)
+    : 0;
+
   // --- Calculate video dimensions ---
   const aspectRatio = preset.ratio || '4:3';
   const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
@@ -282,12 +308,25 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   if (videoH % 2 !== 0) videoH += 1;
 
   // --- Center entire stack (text + gap + video) vertically in frame ---
-  const totalTextH = lines.length * lineHeight;
+  const totalTextH = eyebrowH + lines.length * lineHeight;
   const totalStackH = totalTextH + textToVideoGap + videoH;
   const startY = Math.round((1280 - totalStackH) / 2);
 
+  ctx.textBaseline = 'top';
+  if (nEyebrow) {
+    for (let ei = 0; ei < eyebrowLines.length; ei++) {
+      const el = eyebrowLines[ei];
+      ctx.font = `500 ${eyebrowFontSize}px Inter`;
+      ctx.fillStyle = '#FFFFFF';
+      const tw = ctx.measureText(el).width;
+      const ex = (720 - tw) / 2;
+      const ey = startY + eyebrowFontSize + ei * eyebrowLineHeight;
+      ctx.fillText(el, ex, ey);
+    }
+  }
+
   // Draw hook text centered
-  let drawY = startY + fontSize;
+  let drawY = startY + eyebrowH + fontSize;
   for (const line of lines) {
     let drawX = (720 - line.width + spacing) / 2;
     for (const t of line.tokens) {
@@ -509,6 +548,32 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const richLines = hasHeadline ? calculateRichLines(ctx, rawHeadline, maxTextWidth, fontSize, adjSpacing, isAllBoldWhite, headlineFontFamily) : [];
   const textH = hasHeadline ? (richLines.length * lineHeight) : 0;
 
+  // Optional plain line above hook (series / day counter) — same width rules as headline
+  const showHookEyebrow = preset.showHookEyebrow === true;
+  const hookEyebrowText = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
+  const eyebrowFontSize = Math.max(12, Math.round(20 * (fontScale || 1)));
+  const eyebrowLineHeight = eyebrowFontSize * 1.35;
+  const eyebrowGapBeforeHeadline = 10;
+  let eyebrowLines = [];
+  if (showHookEyebrow && hookEyebrowText && hasHeadline) {
+    ctx.font = `500 ${eyebrowFontSize}px Inter`;
+    const words = hookEyebrowText.split(/\s+/).filter(Boolean);
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? `${cur} ${w}` : w;
+      if (ctx.measureText(test).width > maxTextWidth && cur) {
+        eyebrowLines.push(cur);
+        cur = w;
+      } else {
+        cur = test;
+      }
+    }
+    if (cur) eyebrowLines.push(cur);
+  }
+  const eyebrowBlockH = eyebrowLines.length
+    ? (eyebrowFontSize + (eyebrowLines.length - 1) * eyebrowLineHeight + eyebrowGapBeforeHeadline)
+    : 0;
+
   const isHookCentered = ['The Rising Founder', 'The Real Founder', 'Inspiring Founder', 'Business Cracked', 'The Founders Show', 'founders cracked'].includes(name);
   // Exclude CEO Mindset India, Founders God, The Founders Show, and Entrepreneurial India from zero gap to match Life Wealth Lessons spacing
   const shouldUseGap = name === 'CEO Mindset India' || name === 'Founders God' || name === 'The Founders Show' || name === 'Entrepreneurial India';
@@ -521,7 +586,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const logoToTextGap = (name === 'Business Cracked') ? GAP : (shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : (isFoundersIndia ? (GAP + 20) : GAP))));
   const logoToVideoGap_NoHook = (isBestFounderClips || isBestBusinessClips || isAdsByMarketer) ? (GAP * 2) : (isStartupMadness ? (GAP * 3) : GAP);
 
-  const totalStackH = (LOGO_BOX_H) + (hasHeadline ? (logoToTextGap + textH + textToVideoGap) : logoToVideoGap_NoHook) + targetH + GAP + 30;
+  const totalStackH = (LOGO_BOX_H) + (hasHeadline ? (logoToTextGap + eyebrowBlockH + textH + textToVideoGap) : logoToVideoGap_NoHook) + targetH + GAP + 30;
   const startY = (1280 - totalStackH) / 2;
 
   // Background
@@ -546,7 +611,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
 
   // For peakofai / theprimefounder / aicracked / theevolvinggpt / foundrsonig / indianfoundr / indiastartupstory / neworderai / indiasbestfounders / elitefoundrs / startupsoncrack / bestindianpodcast / realindianbusiness / risewithcontent (hook-only, no logo): set video position explicitly so it is always defined
   if (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isStartupsoncrack || isBestIndianPodcast || isRealIndiaBusiness || isRiseWithContent) {
-    videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + textH + textToVideoGap;
+    videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + eyebrowBlockH + textH + textToVideoGap;
   }
 
   // Check if logo should be drawn inside video (not on canvas)
@@ -879,7 +944,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
             const handleY = headerTextY + 25;
             ctx.fillText(preset.handle, actualHeaderTextX, handleY);
 
-            videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + textH + textToVideoGap;
+            videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + eyebrowBlockH + textH + textToVideoGap;
           } else {
             if (name === 'Real India Business') {
               // Real India Business: centered logo above hook text (circular)
@@ -887,8 +952,10 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
               const logoSize = 70;
               const scaledSize = logoSize * logoScale;
 
-              // Calculate headline position to place logo above it
-              const headlineY = (logoY + LOGO_BOX_H + logoToTextGap) + (1280 * (preset.headlinePosition?.y / 100 || 0));
+              // Calculate headline position to place logo above it (including optional eyebrow line)
+              const riBlockOff = (1280 * (preset.headlinePosition?.y / 100 || 0));
+              const riStackStart = (logoY + LOGO_BOX_H + logoToTextGap) + riBlockOff;
+              const headlineY = riStackStart + eyebrowBlockH;
               // Position logo above headline with some gap
               const logoYPos = headlineY - scaledSize - 10; // 10px gap above headline
 
@@ -909,14 +976,14 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
               ctx.drawImage(img, logoXPos, logoYPos, scaledSize, scaledSize);
               ctx.restore();
 
-              videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + textH + textToVideoGap;
+              videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + eyebrowBlockH + textH + textToVideoGap;
             } else {
               let lx = 50, ly = logoY + 20;
               ctx.save();
               if (name !== 'Founders God') { ctx.beginPath(); ctx.arc(lx + 35, ly + 35, 35, 0, Math.PI * 2); ctx.clip(); }
               ctx.drawImage(img, lx, ly, 70, 70);
               ctx.restore();
-              videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + textH + textToVideoGap;
+              videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + eyebrowBlockH + textH + textToVideoGap;
             }
           }
         }
@@ -979,17 +1046,41 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
         ctx.fillStyle = isWhiteBg ? '#4a4a4a' : '#9ca3af';
         const handleY = name === 'Business Cracked' ? headerTextY + 15 : headerTextY + 25;
         ctx.fillText(preset.handle, actualHeaderTextX, handleY);
-        videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + textH + textToVideoGap;
+        videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + eyebrowBlockH + textH + textToVideoGap;
       }
     } catch (e) { }
   }
-  if (!videoTopY) videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + textH + textToVideoGap;
+  if (!videoTopY) videoTopY = (logoY + LOGO_BOX_H + logoToTextGap) + eyebrowBlockH + textH + textToVideoGap;
 
   // --- 5. RENDER HEADLINE (REPOSITIONING MECHANIC) ---
   // theprimefounder, aicracked, theevolvinggpt: headline via FFmpeg with Poppins (fontfile=) so export uses Poppins; word gap from client applied without fail
   let headlineDrawtextSegments = null;
   if (hasHeadline) {
-    const headlineY = (logoY + LOGO_BOX_H + logoToTextGap) + (1280 * (preset.headlinePosition?.y / 100 || 0));
+    const blockOffsetY = (1280 * (preset.headlinePosition?.y / 100 || 0));
+    const stackStart = (logoY + LOGO_BOX_H + logoToTextGap) + blockOffsetY;
+    const headlineY = stackStart + eyebrowBlockH;
+
+    if (eyebrowLines.length) {
+      ctx.textBaseline = 'top';
+      ctx.font = `500 ${eyebrowFontSize}px Inter`;
+      ctx.fillStyle = isWhiteBg ? '#000000' : '#FFFFFF';
+      for (let ei = 0; ei < eyebrowLines.length; ei++) {
+        const lineStr = eyebrowLines[ei];
+        let ex;
+        if (preset.alignment === 'center') {
+          const tw = ctx.measureText(lineStr).width;
+          ex = 360 - tw / 2;
+        } else if (nameLower === 'startupsoncrack' || nameLower === 'millionaire.founders' || nameLower === 'startupscheming' || nameLower === 'indian business com') {
+          ex = 100 + videoPadding;
+        } else {
+          ex = 50 + videoPadding;
+        }
+        ex += (720 * (preset.headlinePosition?.x / 100 || 0));
+        const ey = stackStart + eyebrowFontSize + ei * eyebrowLineHeight;
+        ctx.fillText(lineStr, ex, ey);
+      }
+    }
+
     ctx.textBaseline = 'top';
     const isCenterBlockPreset =
       preset.alignment === 'center' &&
@@ -1178,7 +1269,10 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   }
   // Store headlineX/Y for tagline positioning (rich indian ceo)
   layout.headlineX = 50 + (720 * (preset.headlinePosition?.x / 100 || 0));
-  layout.headlineY = (logoY + LOGO_BOX_H + logoToTextGap) + (1280 * (preset.headlinePosition?.y / 100 || 0));
+  {
+    const blockOff = (1280 * (preset.headlinePosition?.y / 100 || 0));
+    layout.headlineY = (logoY + LOGO_BOX_H + logoToTextGap) + blockOff + eyebrowBlockH;
+  }
   if (logoPathForOverlay) {
     console.log(`[generateOverlay] Logo overlay configured for "${name}": ${logoPathForOverlay}, position: ${(isTheRisingFounder || isTheRealFounder || isFoundersCracked) ? 'top-right' : 'top-left'}`);
   } else if (preset.logo && logoInsideVideo) {

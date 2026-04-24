@@ -124,7 +124,12 @@ const INITIAL_PRESETS_RAW = [
 // All presets are shown in a single unified list (no active/inactive division).
 
 // Start with ALL presets unchecked by default; user must click to select them
-const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({ ...p, active: false }));
+const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
+    ...p,
+    active: false,
+    hookEyebrow: p.hookEyebrow ?? '',
+    showHookEyebrow: p.showHookEyebrow ?? false,
+}));
 
 // Helper to get logo URL (handles both data URIs and filenames)
 const getLogoUrl = (logo) => {
@@ -643,6 +648,10 @@ const PreviewCard = memo(({
     const isCenteredLeftAlign = preset.name === 'startupsoncrack' || preset.name === 'millionaire.founders' || preset.name === 'startupscheming' || preset.name === 'indian business com';
     const textAlignClass = isCenterAligned ? 'text-center items-center px-6' : (isCenteredLeftAlign ? 'text-left items-start px-14' : 'text-left items-start px-6');
     const justifyClass = 'justify-center gap-1';
+    const showMainHookBlock = preset.layout !== 'hook_video' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer';
+    const eyebrowPreviewSize = Math.max(10, Math.round(previewFontSize * 0.52));
+    const eyebrowTextTrimmed = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
+    const showEyebrowInPreview = preset.showHookEyebrow && eyebrowTextTrimmed.length > 0;
 
     // OPTIMIZATION: Skip expensive parsing for inactive presets
     const segments = useMemo(() => {
@@ -720,9 +729,22 @@ const PreviewCard = memo(({
             {/* This allows us to stack everything (Header -> Text -> Video -> Footer) properly in one flow */}
             <div className={`flex-1 w-full flex flex-col ${justifyClass} relative ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : 'bg-neutral-900'}`}>
 
-                {/* 1a. HOOK_VIDEO HEADER: just hook text centered on black */}
+                {/* 1a. HOOK_VIDEO HEADER: optional line above hook, then hook text centered on black */}
                 {preset.layout === 'hook_video' && (
                     <div className="w-full px-4 pt-4 pb-2 z-10 shrink-0">
+                        {showEyebrowInPreview && (
+                            <div
+                                className="w-full text-center mb-2 font-medium"
+                                style={{
+                                    fontSize: `${eyebrowPreviewSize}px`,
+                                    lineHeight: 1.35,
+                                    color: '#FFFFFF',
+                                    fontFamily: "'Inter', sans-serif",
+                                }}
+                            >
+                                {eyebrowTextTrimmed}
+                            </div>
+                        )}
                         <div
                             ref={preset.name === 'indian-founders-co' ? headlineRef : undefined}
                             className="w-full text-center"
@@ -805,6 +827,21 @@ const PreviewCard = memo(({
                             Premium side of Instagram for Founders
                         </span>
                         <span style={{ fontSize: '11px', color: 'white' }}>▶</span>
+                    </div>
+                )}
+
+                {/* Optional line above hook (e.g. series day counter) — same layouts as main hook */}
+                {showMainHookBlock && showEyebrowInPreview && (
+                    <div
+                        className={`w-full z-10 shrink-0 mb-1 font-medium ${textAlignClass}`}
+                        style={{
+                            fontSize: `${eyebrowPreviewSize}px`,
+                            lineHeight: 1.35,
+                            color: (preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? '#000000' : '#FFFFFF',
+                            fontFamily: isPoppinsFont ? "'Poppins', sans-serif" : "'Inter', sans-serif",
+                        }}
+                    >
+                        {eyebrowTextTrimmed}
                     </div>
                 )}
 
@@ -1225,6 +1262,8 @@ export default function App() {
     // Global Text State
     const [globalHeadline, setGlobalHeadline] = useState(DEFAULT_HEADLINE);
     const [globalFooter, setGlobalFooter] = useState(DEFAULT_FOOTER);
+    const [globalHookEyebrow, setGlobalHookEyebrow] = useState('');
+    const [globalShowHookEyebrow, setGlobalShowHookEyebrow] = useState(false);
     const [ideaName, setIdeaName] = useState('');
 
     // System
@@ -1319,6 +1358,16 @@ export default function App() {
         setPresets(prev => prev.map(p =>
             p.id === id ? { ...p, [field]: value } : p
         ));
+    };
+
+    const updateGlobalHookEyebrow = (text, show) => {
+        setGlobalHookEyebrow(text);
+        setGlobalShowHookEyebrow(show);
+        setPresets(prev => prev.map(p => ({
+            ...p,
+            hookEyebrow: text,
+            showHookEyebrow: show,
+        })));
     };
 
     const handlePositionChange = useCallback((id, pos) => {
@@ -1878,6 +1927,28 @@ export default function App() {
                                             className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-xs text-neutral-400 font-medium placeholder-neutral-600 focus:border-yellow-500 focus:outline-none"
                                             placeholder="Credit for ALL videos"
                                         />
+                                        <div className="space-y-2 pt-1 border-t border-neutral-700">
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id="show-hook-eyebrow-global"
+                                                    checked={globalShowHookEyebrow}
+                                                    onChange={(e) => updateGlobalHookEyebrow(globalHookEyebrow, e.target.checked)}
+                                                    className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-orange-500 focus:ring-orange-500 accent-orange-500"
+                                                />
+                                                <label htmlFor="show-hook-eyebrow-global" className="text-xs text-neutral-300 cursor-pointer">
+                                                    Line above hook (series / day line)
+                                                </label>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={globalHookEyebrow}
+                                                onChange={(e) => updateGlobalHookEyebrow(e.target.value, globalShowHookEyebrow)}
+                                                disabled={!globalShowHookEyebrow}
+                                                className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-xs text-white placeholder-neutral-600 focus:border-orange-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                                                placeholder="e.g. Day 23 of Founder series to help you grow in life"
+                                            />
+                                        </div>
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="checkbox"
@@ -1956,6 +2027,29 @@ export default function App() {
                                                         onChange={(html) => updateIndividualText(p.id, 'headline', html)}
                                                         placeholder="Hook....."
                                                         className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-4 text-sm text-white focus:border-orange-500 focus:outline-none min-h-[100px]"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            id={`show-hook-eyebrow-${p.id}`}
+                                                            checked={!!p.showHookEyebrow}
+                                                            onChange={(e) => updateIndividualText(p.id, 'showHookEyebrow', e.target.checked)}
+                                                            className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-orange-500 focus:ring-orange-500 accent-orange-500"
+                                                        />
+                                                        <label htmlFor={`show-hook-eyebrow-${p.id}`} className="text-xs text-neutral-300 cursor-pointer">
+                                                            Line above hook
+                                                        </label>
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={p.hookEyebrow ?? ''}
+                                                        onChange={(e) => updateIndividualText(p.id, 'hookEyebrow', e.target.value)}
+                                                        disabled={!p.showHookEyebrow}
+                                                        className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm text-white placeholder-neutral-600 focus:border-orange-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                                                        placeholder="e.g. Day 23 of Founder series…"
                                                     />
                                                 </div>
 
