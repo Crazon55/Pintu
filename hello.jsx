@@ -181,6 +181,23 @@ const parseHeadline = (html) => {
     const tmp = document.createElement('DIV');
     tmp.innerHTML = normalized;
 
+    const styleWeightIsBold = (el) => {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+        // Prefer the parsed style object when available.
+        const fw = el.style ? String(el.style.fontWeight || '') : '';
+        if (fw === 'bold') return true;
+        const fwNum = parseInt(fw, 10);
+        if (!Number.isNaN(fwNum) && fwNum >= 600) return true;
+        // Some browsers/contentEditable produce spans where font-weight only exists in the raw style attribute.
+        const rawStyle = el.getAttribute ? String(el.getAttribute('style') || '') : '';
+        const m = rawStyle.match(/font-weight\s*:\s*([^;]+)/i);
+        if (!m) return false;
+        const v = String(m[1]).trim().toLowerCase();
+        if (v === 'bold') return true;
+        const n = parseInt(v, 10);
+        return !Number.isNaN(n) && n >= 600;
+    };
+
     const walk = (node, isBoldParent = false) => {
         if (node.nodeType === Node.TEXT_NODE) {
             const text = node.textContent || '';
@@ -194,8 +211,10 @@ const parseHeadline = (html) => {
             // Block elements (DIV, P) from pressing Enter in editor = line break before their content
             const isBlock = node.tagName === 'DIV' || node.tagName === 'P';
             if (isBlock && segments.length > 0) segments.push({ lineBreak: true });
-            const isBold = node.tagName === 'B' || node.tagName === 'STRONG' ||
-                (node.style && (String(node.style.fontWeight) === 'bold' || parseInt(node.style.fontWeight) >= 600));
+            const isBold =
+                node.tagName === 'B' ||
+                node.tagName === 'STRONG' ||
+                styleWeightIsBold(node);
             Array.from(node.childNodes).forEach(child => walk(child, isBold || isBoldParent));
         }
     };
