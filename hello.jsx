@@ -205,8 +205,17 @@ const parseHeadline = (html) => {
     const walk = (node, isBoldParent = false) => {
         if (node.nodeType === Node.TEXT_NODE) {
             const text = node.textContent || '';
-            const words = text.trim().split(/\s+/).filter(w => w.length > 0);
-            words.forEach(word => segments.push({ text: word, highlight: isBoldParent }));
+            // Shift+Enter in contentEditable can produce literal newline characters in text nodes.
+            // Preserve them as explicit line breaks for preview/export parity.
+            const lines = text.replace(/\r\n/g, '\n').split('\n');
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i] || '';
+                const words = line.trim().split(/\s+/).filter(w => w.length > 0);
+                words.forEach(word => segments.push({ text: word, highlight: isBoldParent }));
+                if (i < lines.length - 1 && segments.length > 0) {
+                    segments.push({ lineBreak: true });
+                }
+            }
         } else if (node.nodeType === Node.ELEMENT_NODE) {
             if (node.tagName === 'BR') {
                 segments.push({ lineBreak: true });
