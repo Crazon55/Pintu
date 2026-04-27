@@ -183,6 +183,10 @@ const parseHeadline = (html) => {
 
     const styleWeightIsBold = (el) => {
         if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+        const cls = (el.getAttribute ? String(el.getAttribute('class') || '') : '');
+        // contentEditable sometimes uses class-based weights (e.g., pasted rich text or toolbars)
+        // Treat Tailwind-like weight classes as highlight.
+        if (/\bfont-(semibold|bold|extrabold|black)\b/i.test(cls)) return true;
         // Prefer the parsed style object when available.
         const fw = el.style ? String(el.style.fontWeight || '') : '';
         if (fw === 'bold') return true;
