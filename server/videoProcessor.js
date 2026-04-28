@@ -320,7 +320,8 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
       ctx.fillStyle = '#FFFFFF';
       const tw = ctx.measureText(el).width;
       const ex = (720 - tw) / 2;
-      const ey = startY + eyebrowFontSize + ei * eyebrowLineHeight;
+      // Start eyebrow block at startY; eyebrowH already accounts for font size + gap.
+      const ey = startY + ei * eyebrowLineHeight;
       ctx.fillText(el, ex, ey);
     }
   }
@@ -1076,7 +1077,8 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
           ex = 50 + videoPadding;
         }
         ex += (720 * (preset.headlinePosition?.x / 100 || 0));
-        const ey = stackStart + eyebrowFontSize + ei * eyebrowLineHeight;
+        // Start eyebrow block at stackStart; eyebrowBlockH already accounts for font size + gap.
+        const ey = stackStart + ei * eyebrowLineHeight;
         ctx.fillText(lineStr, ex, ey);
       }
     }
