@@ -2026,10 +2026,10 @@ export default function App() {
                                                     <input
                                                         type="number"
                                                         min="5"
-                                                        max="25"
+                                                        max="40"
                                                         value={Math.round(globalHookEyebrowGapScale * 10)}
                                                         onChange={(e) => {
-                                                            const val = Math.max(5, Math.min(25, parseInt(e.target.value, 10) || 14)) / 10;
+                                                            const val = Math.max(5, Math.min(40, parseInt(e.target.value, 10) || 14)) / 10;
                                                             updateGlobalHookEyebrowStyle('hookEyebrowGapScale', val);
                                                         }}
                                                         className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
@@ -2174,10 +2174,10 @@ export default function App() {
                                                             <input
                                                                 type="number"
                                                                 min="5"
-                                                                max="25"
+                                                                max="40"
                                                                 value={Math.round((p.hookEyebrowGapScale ?? 1.35) * 10)}
                                                                 onChange={(e) => {
-                                                                    const val = Math.max(5, Math.min(25, parseInt(e.target.value, 10) || 14)) / 10;
+                                                                    const val = Math.max(5, Math.min(40, parseInt(e.target.value, 10) || 14)) / 10;
                                                                     updateIndividualText(p.id, 'hookEyebrowGapScale', val);
                                                                 }}
                                                                 className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
