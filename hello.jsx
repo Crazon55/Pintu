@@ -685,13 +685,14 @@ const PreviewCard = memo(({
     const justifyClass = 'justify-center gap-1';
     const showMainHookBlock = preset.layout !== 'hook_video' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer';
     const eyebrowSizeScale = preset.hookEyebrowSizeScale ?? 1.1;
-    const eyebrowGapScale = preset.hookEyebrowGapScale ?? 2.5;
+    const eyebrowGapScale = preset.hookEyebrowGapScale ?? 1.2;
     const eyebrowAlignment = preset.hookEyebrowAlignment ?? 'left';
     const eyebrowAlignClass = eyebrowAlignment === 'center'
         ? 'text-center items-center px-6'
         : (isCenteredLeftAlign ? 'text-left items-start px-14' : 'text-left items-start px-6');
     const eyebrowPreviewSize = Math.max(10, Math.round(previewFontSize * 0.52 * eyebrowSizeScale));
-    const eyebrowGapPx = Math.round(6 * eyebrowGapScale);
+    // Gap proportional to eyebrow text size (matches 2nd reference image at ~1.2×)
+    const eyebrowGapPx = Math.round(eyebrowPreviewSize * eyebrowGapScale);
     const eyebrowTextTrimmed = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
     const showEyebrowInPreview = preset.showHookEyebrow && eyebrowTextTrimmed.length > 0;
 
