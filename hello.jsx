@@ -685,7 +685,7 @@ const PreviewCard = memo(({
     const justifyClass = 'justify-center gap-1';
     const showMainHookBlock = preset.layout !== 'hook_video' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer';
     const eyebrowSizeScale = preset.hookEyebrowSizeScale ?? 1.1;
-    const eyebrowGapScale = preset.hookEyebrowGapScale ?? 1.35;
+    const eyebrowGapScale = preset.hookEyebrowGapScale ?? 0.65;
     const eyebrowAlignment = preset.hookEyebrowAlignment ?? 'left';
     const eyebrowAlignClass = eyebrowAlignment === 'center'
         ? 'text-center items-center px-6'
