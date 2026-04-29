@@ -277,9 +277,12 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
 
   const showHookEyebrow = preset.showHookEyebrow === true;
   const hookEyebrowPlain = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
-  const eyebrowFontSize = Math.max(12, Math.round(24 * (fontScale || 1)));
+  const eyebrowSizeScale = Number.isFinite(Number(preset.hookEyebrowSizeScale)) ? Number(preset.hookEyebrowSizeScale) : 1.1;
+  const eyebrowGapScale = Number.isFinite(Number(preset.hookEyebrowGapScale)) ? Number(preset.hookEyebrowGapScale) : 1.35;
+  const eyebrowAlignment = (preset.hookEyebrowAlignment === 'center') ? 'center' : 'left';
+  const eyebrowFontSize = Math.max(12, Math.round(24 * (fontScale || 1) * eyebrowSizeScale));
   const eyebrowLineHeight = eyebrowFontSize * 1.35;
-  const eyebrowGapBeforeHook = 12;
+  const eyebrowGapBeforeHook = Math.round(12 * eyebrowGapScale);
   let eyebrowLines = [];
   if (showHookEyebrow && hookEyebrowPlain) {
     ctx.font = `500 ${eyebrowFontSize}px Inter`;
@@ -319,7 +322,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
       ctx.font = `500 ${eyebrowFontSize}px Inter`;
       ctx.fillStyle = '#FFFFFF';
       const tw = ctx.measureText(el).width;
-      const ex = (720 - tw) / 2;
+      const ex = eyebrowAlignment === 'center' ? ((720 - tw) / 2) : 50;
       // Start eyebrow block at startY; eyebrowH already accounts for font size + gap.
       const ey = startY + ei * eyebrowLineHeight;
       ctx.fillText(el, ex, ey);
@@ -552,9 +555,11 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   // Optional plain line above hook (series / day counter) — same width rules as headline
   const showHookEyebrow = preset.showHookEyebrow === true;
   const hookEyebrowText = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
-  const eyebrowFontSize = Math.max(12, Math.round(20 * (fontScale || 1)));
+  const eyebrowSizeScale = Number.isFinite(Number(preset.hookEyebrowSizeScale)) ? Number(preset.hookEyebrowSizeScale) : 1.1;
+  const eyebrowGapScale = Number.isFinite(Number(preset.hookEyebrowGapScale)) ? Number(preset.hookEyebrowGapScale) : 1.35;
+  const eyebrowFontSize = Math.max(12, Math.round(20 * (fontScale || 1) * eyebrowSizeScale));
   const eyebrowLineHeight = eyebrowFontSize * 1.35;
-  const eyebrowGapBeforeHeadline = 10;
+  const eyebrowGapBeforeHeadline = Math.round(10 * eyebrowGapScale);
   let eyebrowLines = [];
   if (showHookEyebrow && hookEyebrowText && hasHeadline) {
     ctx.font = `500 ${eyebrowFontSize}px Inter`;
@@ -1068,7 +1073,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
       for (let ei = 0; ei < eyebrowLines.length; ei++) {
         const lineStr = eyebrowLines[ei];
         let ex;
-        if (preset.alignment === 'center') {
+        if ((preset.hookEyebrowAlignment ?? preset.alignment) === 'center') {
           const tw = ctx.measureText(lineStr).width;
           ex = 360 - tw / 2;
         } else if (nameLower === 'startupsoncrack' || nameLower === 'millionaire.founders' || nameLower === 'startupscheming' || nameLower === 'indian business com') {
