@@ -282,7 +282,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   const eyebrowAlignment = (preset.hookEyebrowAlignment === 'center') ? 'center' : 'left';
   const eyebrowFontSize = Math.max(12, Math.round(24 * (fontScale || 1) * eyebrowSizeScale));
   const eyebrowLineHeight = eyebrowFontSize * 1.35;
-  const eyebrowGapBeforeHook = Math.round(12 * eyebrowGapScale);
+  const eyebrowGapBeforeHook = Math.round(16 * eyebrowGapScale);
   let eyebrowLines = [];
   if (showHookEyebrow && hookEyebrowPlain) {
     ctx.font = `500 ${eyebrowFontSize}px Inter`;
@@ -559,7 +559,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const eyebrowGapScale = Number.isFinite(Number(preset.hookEyebrowGapScale)) ? Number(preset.hookEyebrowGapScale) : 1.35;
   const eyebrowFontSize = Math.max(12, Math.round(20 * (fontScale || 1) * eyebrowSizeScale));
   const eyebrowLineHeight = eyebrowFontSize * 1.35;
-  const eyebrowGapBeforeHeadline = Math.round(10 * eyebrowGapScale);
+  const eyebrowGapBeforeHeadline = Math.round(16 * eyebrowGapScale);
   let eyebrowLines = [];
   if (showHookEyebrow && hookEyebrowText && hasHeadline) {
     ctx.font = `500 ${eyebrowFontSize}px Inter`;
