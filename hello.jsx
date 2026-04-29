@@ -131,7 +131,7 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
     showHookEyebrow: p.showHookEyebrow ?? false,
     hookEyebrowAlignment: p.hookEyebrowAlignment ?? 'left',
     hookEyebrowSizeScale: p.hookEyebrowSizeScale ?? 1.1,
-    hookEyebrowGapScale: p.hookEyebrowGapScale ?? 1.35,
+    hookEyebrowGapScale: p.hookEyebrowGapScale ?? 7.0,
 }));
 
 // Helper to get logo URL (handles both data URIs and filenames)
@@ -685,14 +685,14 @@ const PreviewCard = memo(({
     const justifyClass = 'justify-center gap-1';
     const showMainHookBlock = preset.layout !== 'hook_video' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer';
     const eyebrowSizeScale = preset.hookEyebrowSizeScale ?? 1.1;
-    const eyebrowGapScale = preset.hookEyebrowGapScale ?? 1.2;
+    const eyebrowGapScale = preset.hookEyebrowGapScale ?? 7.0;
     const eyebrowAlignment = preset.hookEyebrowAlignment ?? 'left';
     const eyebrowAlignClass = eyebrowAlignment === 'center'
         ? 'text-center items-center px-6'
         : (isCenteredLeftAlign ? 'text-left items-start px-14' : 'text-left items-start px-6');
     const eyebrowPreviewSize = Math.max(10, Math.round(previewFontSize * 0.52 * eyebrowSizeScale));
-    // Gap proportional to eyebrow text size (matches 2nd reference image at ~1.2×)
-    const eyebrowGapPx = Math.round(eyebrowPreviewSize * eyebrowGapScale);
+    // Keep preview spacing consistent with export (server uses ~16px * gapScale).
+    const eyebrowGapPx = Math.round(16 * eyebrowGapScale);
     const eyebrowTextTrimmed = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
     const showEyebrowInPreview = preset.showHookEyebrow && eyebrowTextTrimmed.length > 0;
 
@@ -1311,7 +1311,7 @@ export default function App() {
     const [globalShowHookEyebrow, setGlobalShowHookEyebrow] = useState(false);
     const [globalHookEyebrowAlignment, setGlobalHookEyebrowAlignment] = useState('left');
     const [globalHookEyebrowSizeScale, setGlobalHookEyebrowSizeScale] = useState(1.1);
-    const [globalHookEyebrowGapScale, setGlobalHookEyebrowGapScale] = useState(1.35);
+    const [globalHookEyebrowGapScale, setGlobalHookEyebrowGapScale] = useState(7.0);
     const [ideaName, setIdeaName] = useState('');
 
     // System
@@ -2025,11 +2025,11 @@ export default function App() {
                                                     <label className="text-[10px] text-neutral-400">Series Gap</label>
                                                     <input
                                                         type="number"
-                                                        min="5"
-                                                        max="40"
+                                                        min="0"
+                                                        max="70"
                                                         value={Math.round(globalHookEyebrowGapScale * 10)}
                                                         onChange={(e) => {
-                                                            const val = Math.max(5, Math.min(40, parseInt(e.target.value, 10) || 14)) / 10;
+                                                            const val = Math.max(0, Math.min(70, parseInt(e.target.value, 10) || 70)) / 10;
                                                             updateGlobalHookEyebrowStyle('hookEyebrowGapScale', val);
                                                         }}
                                                         className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
@@ -2173,11 +2173,11 @@ export default function App() {
                                                             <label className="text-[10px] text-neutral-400">Series Gap</label>
                                                             <input
                                                                 type="number"
-                                                                min="5"
-                                                                max="40"
-                                                                value={Math.round((p.hookEyebrowGapScale ?? 1.35) * 10)}
+                                                                min="0"
+                                                                max="70"
+                                                                value={Math.round((p.hookEyebrowGapScale ?? 7.0) * 10)}
                                                                 onChange={(e) => {
-                                                                    const val = Math.max(5, Math.min(40, parseInt(e.target.value, 10) || 14)) / 10;
+                                                                    const val = Math.max(0, Math.min(70, parseInt(e.target.value, 10) || 70)) / 10;
                                                                     updateIndividualText(p.id, 'hookEyebrowGapScale', val);
                                                                 }}
                                                                 className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"

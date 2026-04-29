@@ -278,7 +278,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   const showHookEyebrow = preset.showHookEyebrow === true;
   const hookEyebrowPlain = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
   const eyebrowSizeScale = Number.isFinite(Number(preset.hookEyebrowSizeScale)) ? Number(preset.hookEyebrowSizeScale) : 1.1;
-  const eyebrowGapScale = Number.isFinite(Number(preset.hookEyebrowGapScale)) ? Number(preset.hookEyebrowGapScale) : 1.35;
+  const eyebrowGapScale = Number.isFinite(Number(preset.hookEyebrowGapScale)) ? Number(preset.hookEyebrowGapScale) : 7.0;
   const eyebrowAlignment = (preset.hookEyebrowAlignment === 'center') ? 'center' : 'left';
   const eyebrowFontSize = Math.max(12, Math.round(24 * (fontScale || 1) * eyebrowSizeScale));
   const eyebrowLineHeight = eyebrowFontSize * 1.35;
@@ -556,7 +556,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const showHookEyebrow = preset.showHookEyebrow === true;
   const hookEyebrowText = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
   const eyebrowSizeScale = Number.isFinite(Number(preset.hookEyebrowSizeScale)) ? Number(preset.hookEyebrowSizeScale) : 1.1;
-  const eyebrowGapScale = Number.isFinite(Number(preset.hookEyebrowGapScale)) ? Number(preset.hookEyebrowGapScale) : 1.35;
+  const eyebrowGapScale = Number.isFinite(Number(preset.hookEyebrowGapScale)) ? Number(preset.hookEyebrowGapScale) : 7.0;
   const eyebrowFontSize = Math.max(12, Math.round(20 * (fontScale || 1) * eyebrowSizeScale));
   const eyebrowLineHeight = eyebrowFontSize * 1.35;
   const eyebrowGapBeforeHeadline = Math.round(16 * eyebrowGapScale);
