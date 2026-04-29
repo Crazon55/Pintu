@@ -129,6 +129,9 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
     active: false,
     hookEyebrow: p.hookEyebrow ?? '',
     showHookEyebrow: p.showHookEyebrow ?? false,
+    hookEyebrowAlignment: p.hookEyebrowAlignment ?? 'left',
+    hookEyebrowSizeScale: p.hookEyebrowSizeScale ?? 1.1,
+    hookEyebrowGapScale: p.hookEyebrowGapScale ?? 1.35,
 }));
 
 // Helper to get logo URL (handles both data URIs and filenames)
@@ -681,7 +684,14 @@ const PreviewCard = memo(({
     const textAlignClass = isCenterAligned ? 'text-center items-center px-6' : (isCenteredLeftAlign ? 'text-left items-start px-14' : 'text-left items-start px-6');
     const justifyClass = 'justify-center gap-1';
     const showMainHookBlock = preset.layout !== 'hook_video' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer';
-    const eyebrowPreviewSize = Math.max(10, Math.round(previewFontSize * 0.52));
+    const eyebrowSizeScale = preset.hookEyebrowSizeScale ?? 1.1;
+    const eyebrowGapScale = preset.hookEyebrowGapScale ?? 1.35;
+    const eyebrowAlignment = preset.hookEyebrowAlignment ?? 'left';
+    const eyebrowAlignClass = eyebrowAlignment === 'center'
+        ? 'text-center items-center px-6'
+        : (isCenteredLeftAlign ? 'text-left items-start px-14' : 'text-left items-start px-6');
+    const eyebrowPreviewSize = Math.max(10, Math.round(previewFontSize * 0.52 * eyebrowSizeScale));
+    const eyebrowGapPx = Math.round(6 * eyebrowGapScale);
     const eyebrowTextTrimmed = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
     const showEyebrowInPreview = preset.showHookEyebrow && eyebrowTextTrimmed.length > 0;
 
@@ -766,12 +776,13 @@ const PreviewCard = memo(({
                     <div className="w-full px-4 pt-4 pb-2 z-10 shrink-0">
                         {showEyebrowInPreview && (
                             <div
-                                className="w-full text-center mb-2 font-medium"
+                                className={`w-full font-medium ${eyebrowAlignClass}`}
                                 style={{
                                     fontSize: `${eyebrowPreviewSize}px`,
                                     lineHeight: 1.35,
                                     color: '#FFFFFF',
                                     fontFamily: "'Inter', sans-serif",
+                                    marginBottom: `${eyebrowGapPx}px`,
                                 }}
                             >
                                 {eyebrowTextTrimmed}
@@ -865,12 +876,13 @@ const PreviewCard = memo(({
                 {/* Optional line above hook (e.g. series day counter) — same layouts as main hook */}
                 {showMainHookBlock && showEyebrowInPreview && (
                     <div
-                        className={`w-full z-10 shrink-0 mb-1 font-medium ${textAlignClass}`}
+                        className={`w-full z-10 shrink-0 font-medium ${eyebrowAlignClass}`}
                         style={{
                             fontSize: `${eyebrowPreviewSize}px`,
                             lineHeight: 1.35,
                             color: (preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? '#000000' : '#FFFFFF',
                             fontFamily: isPoppinsFont ? "'Poppins', sans-serif" : "'Inter', sans-serif",
+                            marginBottom: `${eyebrowGapPx}px`,
                         }}
                     >
                         {eyebrowTextTrimmed}
@@ -1296,6 +1308,9 @@ export default function App() {
     const [globalFooter, setGlobalFooter] = useState(DEFAULT_FOOTER);
     const [globalHookEyebrow, setGlobalHookEyebrow] = useState('');
     const [globalShowHookEyebrow, setGlobalShowHookEyebrow] = useState(false);
+    const [globalHookEyebrowAlignment, setGlobalHookEyebrowAlignment] = useState('left');
+    const [globalHookEyebrowSizeScale, setGlobalHookEyebrowSizeScale] = useState(1.1);
+    const [globalHookEyebrowGapScale, setGlobalHookEyebrowGapScale] = useState(1.35);
     const [ideaName, setIdeaName] = useState('');
 
     // System
@@ -1399,6 +1414,16 @@ export default function App() {
             ...p,
             hookEyebrow: text,
             showHookEyebrow: show,
+        })));
+    };
+
+    const updateGlobalHookEyebrowStyle = (field, value) => {
+        if (field === 'hookEyebrowAlignment') setGlobalHookEyebrowAlignment(value);
+        if (field === 'hookEyebrowSizeScale') setGlobalHookEyebrowSizeScale(value);
+        if (field === 'hookEyebrowGapScale') setGlobalHookEyebrowGapScale(value);
+        setPresets(prev => prev.map(p => ({
+            ...p,
+            [field]: value,
         })));
     };
 
@@ -1980,6 +2005,51 @@ export default function App() {
                                                 className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-xs text-white placeholder-neutral-600 focus:border-orange-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                                                 placeholder="e.g. Day 23 of Founder series to help you grow in life"
                                             />
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] text-neutral-400">Series Size</label>
+                                                    <input
+                                                        type="number"
+                                                        min="8"
+                                                        max="20"
+                                                        value={Math.round(globalHookEyebrowSizeScale * 10)}
+                                                        onChange={(e) => {
+                                                            const val = Math.max(8, Math.min(20, parseInt(e.target.value, 10) || 11)) / 10;
+                                                            updateGlobalHookEyebrowStyle('hookEyebrowSizeScale', val);
+                                                        }}
+                                                        className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] text-neutral-400">Series Gap</label>
+                                                    <input
+                                                        type="number"
+                                                        min="5"
+                                                        max="25"
+                                                        value={Math.round(globalHookEyebrowGapScale * 10)}
+                                                        onChange={(e) => {
+                                                            const val = Math.max(5, Math.min(25, parseInt(e.target.value, 10) || 14)) / 10;
+                                                            updateGlobalHookEyebrowStyle('hookEyebrowGapScale', val);
+                                                        }}
+                                                        className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] text-neutral-400">Series Align</label>
+                                                    <div className="flex gap-1">
+                                                        {['left', 'center'].map((align) => (
+                                                            <button
+                                                                key={align}
+                                                                type="button"
+                                                                onClick={() => updateGlobalHookEyebrowStyle('hookEyebrowAlignment', align)}
+                                                                className={`flex-1 px-2 py-1 text-[10px] rounded border ${globalHookEyebrowAlignment === align ? 'bg-orange-500 text-black border-orange-500 font-semibold' : 'bg-transparent text-neutral-300 border-neutral-600 hover:border-neutral-400'}`}
+                                                            >
+                                                                {align === 'left' ? 'Left' : 'Center'}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <input
@@ -2083,6 +2153,51 @@ export default function App() {
                                                         className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm text-white placeholder-neutral-600 focus:border-orange-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                                                         placeholder="e.g. Day 23 of Founder series…"
                                                     />
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] text-neutral-400">Series Size</label>
+                                                            <input
+                                                                type="number"
+                                                                min="8"
+                                                                max="20"
+                                                                value={Math.round((p.hookEyebrowSizeScale ?? 1.1) * 10)}
+                                                                onChange={(e) => {
+                                                                    const val = Math.max(8, Math.min(20, parseInt(e.target.value, 10) || 11)) / 10;
+                                                                    updateIndividualText(p.id, 'hookEyebrowSizeScale', val);
+                                                                }}
+                                                                className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] text-neutral-400">Series Gap</label>
+                                                            <input
+                                                                type="number"
+                                                                min="5"
+                                                                max="25"
+                                                                value={Math.round((p.hookEyebrowGapScale ?? 1.35) * 10)}
+                                                                onChange={(e) => {
+                                                                    const val = Math.max(5, Math.min(25, parseInt(e.target.value, 10) || 14)) / 10;
+                                                                    updateIndividualText(p.id, 'hookEyebrowGapScale', val);
+                                                                }}
+                                                                className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] text-neutral-400">Series Align</label>
+                                                            <div className="flex gap-1">
+                                                                {['left', 'center'].map((align) => (
+                                                                    <button
+                                                                        key={align}
+                                                                        type="button"
+                                                                        onClick={() => updateIndividualText(p.id, 'hookEyebrowAlignment', align)}
+                                                                        className={`flex-1 px-2 py-1 text-[10px] rounded border ${(p.hookEyebrowAlignment ?? 'left') === align ? 'bg-orange-500 text-black border-orange-500 font-semibold' : 'bg-transparent text-neutral-300 border-neutral-600 hover:border-neutral-400'}`}
+                                                                    >
+                                                                        {align === 'left' ? 'Left' : 'Center'}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
 
                                                 {/* Credit Text Input */}
