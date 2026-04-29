@@ -518,7 +518,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   // --- 3. LAYOUT CONSTANTS ---
   const GAP = 20;
   const LOGO_BOX_H =
-    (isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isRiseWithContent)
+    (preset.layout === 'watermark' || isPeakOfAI || isThePrimeFounder || isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isRiseWithContent)
       ? 0
       : (isBestFounderClips ? 120 : (isBestBusinessClips ? 450 : (isAdsByMarketer ? 360 : (isStartupMadness ? 100 : 90))));
 
@@ -589,7 +589,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   const textToVideoGapBase = (shouldUseGap || !(isAllBoldWhite || isHookCentered)) ? GAP : 0;
   const textToVideoGap = isFoundersIndia ? 0 : (isTightGapPreset ? Math.round(textToVideoGapBase * 0.4) : textToVideoGapBase);
   // For these three presets, use standard GAP like Life Wealth Lessons
-  const logoToTextGap = (name === 'Business Cracked') ? GAP : (shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : (isFoundersIndia ? (GAP + 20) : GAP))));
+  const logoToTextGap = (preset.layout === 'watermark') ? 0 : ((name === 'Business Cracked') ? GAP : (shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : (isFoundersIndia ? (GAP + 20) : GAP)))));
   const logoToVideoGap_NoHook = (isBestFounderClips || isBestBusinessClips || isAdsByMarketer) ? (GAP * 2) : (isStartupMadness ? (GAP * 3) : GAP);
 
   const totalStackH = (LOGO_BOX_H) + (hasHeadline ? (logoToTextGap + eyebrowBlockH + textH + textToVideoGap) : logoToVideoGap_NoHook) + targetH + GAP + 30;
