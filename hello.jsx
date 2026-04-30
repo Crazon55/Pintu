@@ -864,16 +864,6 @@ const PreviewCard = memo(({
                 )}
 
 
-                {/* Tagline for rich indian ceo - just above hook text */}
-                {preset.name === 'rich indian ceo' && (
-                    <div className="w-full px-6 z-10 flex items-center gap-1" style={{ marginBottom: '35px' }}>
-                        <span style={{ fontSize: '11px', color: 'white', fontFamily: "'Inter', sans-serif", fontWeight: 600, letterSpacing: '0.02em' }}>
-                            Premium side of Instagram for Founders
-                        </span>
-                        <span style={{ fontSize: '11px', color: 'white' }}>▶</span>
-                    </div>
-                )}
-
                 {/* Optional line above hook (e.g. series day counter) — same layouts as main hook */}
                 {showMainHookBlock && showEyebrowInPreview && (
                     <div
