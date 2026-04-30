@@ -1610,17 +1610,6 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         }
         currentOutput = 'headlineOut';
       }
-      // Tagline for rich indian ceo - "Premium side of Instagram for Founders" above hook, left aligned
-      if (presetNameLower === 'rich indian ceo') {
-        const taglineText = 'Premium side of Instagram for Founders';
-        const tagEsc = taglineText.replace(/'/g, '\u2019');
-        const tagX = 24; // left padding matching px-6
-        const tagY = Math.max(10, Math.round(layout.headlineY - 70)); // above hook text with more gap
-        const tagInLabel = currentOutput;
-        const tagOutLabel = 'taglined';
-        filterChain.push(`[${tagInLabel}]drawtext=text='${tagEsc}':expansion=none:fontfile=assets/fonts/Inter_18pt-Bold.ttf:fontsize=20:fontcolor=white:x=${tagX}:y=${tagY}[${tagOutLabel}]`);
-        currentOutput = tagOutLabel;
-      }
       // Orange border removed for Business Cracked
       filterChain.push(`[${currentOutput}]copy[out]`);
     }
