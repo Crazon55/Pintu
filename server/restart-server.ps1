@@ -1,6 +1,6 @@
 # Restart server script
-Write-Host "Stopping existing Node.js processes on port 3001..."
-Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | ForEach-Object {
+Write-Host "Stopping existing Node.js processes on port 3002..."
+Get-NetTCPConnection -LocalPort 3002 -ErrorAction SilentlyContinue | ForEach-Object {
     $processId = $_.OwningProcess
     Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
     Write-Host "Stopped process $processId"
