@@ -780,7 +780,14 @@ const PreviewCard = memo(({
 
                 {/* 1a. HOOK_VIDEO HEADER: optional line above hook, then hook text centered on black */}
                 {preset.layout === 'hook_video' && (
-                    <div className="w-full px-4 pt-4 pb-2 z-10 shrink-0">
+                    <div
+                        className="w-full px-4 pt-4 pb-2 z-10 shrink-0"
+                        style={{
+                            marginBottom: ['indiabusinesscom', 'indianfoundercore', 'indian-founders-co'].includes(preset.name)
+                                ? '1rem'
+                                : undefined,
+                        }}
+                    >
                         {showEyebrowInPreview && (
                             <div
                                 className={`w-full font-medium ${eyebrowAlignClass}`}
