@@ -136,6 +136,9 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
     hookEyebrowGapScale: p.hookEyebrowGapScale ?? 7.0,
 }));
 
+// Presets configured during the "Experiment X" pass — surfaced in their own quick-pick section
+const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory'];
+
 // Helper to get logo URL (handles both data URIs and filenames)
 const getLogoUrl = (logo) => {
     if (!logo) return null;
@@ -2490,6 +2493,44 @@ export default function App() {
                     {/* --- GRID VIEW CONTENT --- */}
                     <div className="flex-1 overflow-y-auto p-4 md:p-8">
                         <div className="flex flex-col items-center min-h-full w-full max-w-7xl mx-auto space-y-10 pb-20">
+                            {/* Experiment X — quick-pick section for the presets configured in this pass */}
+                            {(() => {
+                                const experimentXPresets = presets.filter(p => EXPERIMENT_X_PRESET_NAMES.includes(p.name));
+                                if (experimentXPresets.length === 0) return null;
+                                return (
+                                    <div className="w-full border border-orange-500/40 rounded-xl p-4 md:p-6 bg-orange-500/5">
+                                        <h3 className="text-sm font-semibold text-orange-400 mb-1">Experiment X</h3>
+                                        <p className="text-xs text-neutral-400 mb-4">Newly configured / updated presets — pick from here for quick testing.</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full items-start">
+                                            {experimentXPresets.map((p) => (
+                                                <div key={`experiment-x-${p.id}`} className={`flex flex-col items-center gap-2 transition-opacity ${p.active ? 'opacity-100' : 'opacity-85'}`}>
+                                                    <div className="w-full aspect-[9/16]">
+                                                        <PreviewCard
+                                                            preset={p}
+                                                            videoSrc={videoSrc}
+                                                            isPlaying={isPlaying}
+                                                            videoRef={null}
+                                                            isMain={false}
+                                                            fitMode={fitMode}
+                                                            videoScale={videoScale}
+                                                            showCredit={showCredit}
+                                                            onToggle={togglePresetActive}
+                                                            fontScaleGlobal={fontScale}
+                                                            onPositionChange={handlePositionChange}
+                                                            onCreditPositionChange={handleCreditPositionChange}
+                                                            onWatermarkPositionChange={handleWatermarkPositionChange}
+                                                            onHeadlinePositionChange={handleHeadlinePositionChange}
+                                                            onVideoScaleChange={handleVideoScaleChange}
+                                                            isMuted={isMuted}
+                                                            wordSpacing={wordSpacing}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                             {/* Preset search */}
                             <div className="w-full flex justify-between items-center gap-4">
                                 <div className="flex-1">
