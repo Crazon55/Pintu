@@ -804,7 +804,7 @@ const PreviewCard = memo(({
                         )}
                         <div
                             ref={preset.name === 'indian-founders-co' ? headlineRef : undefined}
-                            className="w-full text-center"
+                            className={`w-full ${isCenterAligned ? 'text-center' : 'text-left'}`}
                             style={{
                                 fontSize: `${previewFontSize}px`,
                                 lineHeight: 1.35,
