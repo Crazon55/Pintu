@@ -330,7 +330,10 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   }
 
   // Draw hook text centered
-  let drawY = startY + eyebrowH + fontSize;
+  // textBaseline is 'top', so drawY should sit right at the top of the first
+  // glyph row — adding fontSize here pushed the whole block down by one line,
+  // eating into textToVideoGap and making the last line overlap the video hole.
+  let drawY = startY + eyebrowH;
   for (const line of lines) {
     let drawX = (720 - line.width + spacing) / 2;
     for (const t of line.tokens) {
