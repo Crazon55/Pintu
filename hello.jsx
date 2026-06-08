@@ -66,7 +66,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 29, name: 'indian-founders-co-old', handle: '@indianfoundersco', ratio: '4:3', color: '#f7EA6A', active: false, hidden: true, layout: 'social', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 30, name: 'founders-in-india-old', handle: '@foundersinindia', ratio: '4:3', color: '#ffffff', active: false, hidden: true, layout: 'social', logo: 'founders-in-india.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 90, name: 'founders-in-india', handle: '@foundersinindia', ratio: '4:3', color: '#7F53FF', active: true, layout: 'hook_video', logo: 'founders-in-india.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 0.5, logoPosition: 'top-right' } },
-    { id: 91, name: 'indian-founders-co', handle: '@indianfoundersco', ratio: '4:3', color: '#2cb162', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 91, name: 'indian-founders-co', handle: '@indianfoundersco', ratio: '4:3', color: '#32c26c', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
     { id: 31, name: 'Ads by marketer', handle: '@adsbymarketer', ratio: '4:3', color: '#ffc002', active: true, layout: 'logo_centered', logo: 'ads-by-marketer.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25 },
     { id: 32, name: 'best business clips', handle: '@bestbusinessclips', ratio: '4:3', color: '#ffc002', active: true, layout: 'logo_centered', logo: 'best-business-clips.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25 },
     { id: 33, name: 'Founders wtf', handle: '@founderswtf', ratio: '16:9', color: '#ffffff', active: true, layout: 'social', logo: LOGO_FOUNDERS_WTF, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
@@ -119,6 +119,8 @@ const INITIAL_PRESETS_RAW = [
     { id: 80, name: 'indian-founders-co-tweet', handle: '@indianfoundersco', ratio: '4:3', color: '#2cb162', active: false, hidden: true, layout: 'social', logo: 'indian-founders-co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 81, name: 'startupbydog', handle: '@startupbydog', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'startupbydog.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 82, name: 'Entrepreneursindia.co', handle: '@entrepreneursindia.co', ratio: '4:3', color: '#6500D1', active: true, layout: 'social', logo: 'Entrepreneursindia.co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
+    { id: 92, name: 'indiabusinesscom', handle: '@indiabusinesscom', ratio: '4:3', color: '#FF5F07', active: true, layout: 'hook_video', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left' } },
+    { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
 ];
 
 // All presets are shown in a single unified list (no active/inactive division).
@@ -396,7 +398,7 @@ const PreviewCard = memo(({
             const spans = root ? Array.from(root.querySelectorAll('span')) : [];
             const highlighted = spans.find(s => {
                 const color = window.getComputedStyle(s).color;
-                return color === 'rgb(44, 177, 98)'; // #2cb162
+                return color === 'rgb(50, 194, 108)'; // #32c26c
             });
             const target = highlighted ?? spans[0] ?? null;
             const cs = target ? window.getComputedStyle(target) : null;
@@ -733,6 +735,7 @@ const PreviewCard = memo(({
     const isPoppinsFont = (isAicrackedOrEvolvingPreset && presetNameLower !== 'bestindianpodcast') ||
         preset.name === 'theprimefounder' ||
         preset.name === 'peakofai' ||
+        preset.name === 'indiastartupstory' ||
         preset.name === 'Founders.India' ||
         preset.name === 'Technology In India' ||
         preset.name === 'Daily Tech India' ||
@@ -796,10 +799,27 @@ const PreviewCard = memo(({
                                 fontSize: `${previewFontSize}px`,
                                 lineHeight: 1.35,
                                 fontFamily: "'Inter', sans-serif",
+                                letterSpacing: preset.name === 'indiabusinesscom'
+                                    ? '-0.05em'
+                                    : preset.name === 'indianfoundercore'
+                                        ? '-0.053em'
+                                        : undefined,
                             }}
                         >
                             {(() => {
                                 const segments = parseHeadline(preset.headline);
+                                let highlightGroupIndex = 0;
+                                let prevWasHighlight = false;
+                                const groupMap = segments.map(seg => {
+                                    if (seg.lineBreak) { prevWasHighlight = false; return -1; }
+                                    if (seg.highlight) {
+                                        if (!prevWasHighlight) highlightGroupIndex++;
+                                        prevWasHighlight = true;
+                                        return highlightGroupIndex;
+                                    }
+                                    prevWasHighlight = false;
+                                    return 0;
+                                });
                                 return segments.map((segment, idx) => {
                                     if (segment.lineBreak) return <br key={`br-${idx}`} />;
                                     return (
@@ -807,10 +827,16 @@ const PreviewCard = memo(({
                                         key={idx}
                                         style={{
                                             fontSynthesis: 'none',
-                                            color: segment.highlight ? preset.color : '#FFFFFF',
+                                            color: preset.name === 'indiabusinesscom'
+                                                ? (groupMap[idx] === 1 ? '#FF5F07' : groupMap[idx] >= 2 ? '#46DB27' : '#FFFFFF')
+                                                : (segment.highlight ? preset.color : '#FFFFFF'),
                                             fontWeight: preset.name === 'indian-founders-co'
                                                 ? (segment.highlight ? 900 : 400)
-                                                : (segment.highlight ? 700 : 400),
+                                                : preset.name === 'indiabusinesscom'
+                                                    ? 800
+                                                    : preset.name === 'indianfoundercore'
+                                                        ? 900
+                                                        : (segment.highlight ? 700 : 400),
                                         }}
                                     >
                                         {segment.text}{' '}
@@ -1112,9 +1138,16 @@ const PreviewCard = memo(({
                         )}
 
                         {/* Logo overlay for hook_video layout - TOP RIGHT with 50% opacity */}
-                        {preset.layout === 'hook_video' && getLogoUrl(preset.logo) && (
+                        {preset.layout === 'hook_video' && preset.name !== 'indiabusinesscom' && getLogoUrl(preset.logo) && (
                             <div className="absolute top-2 right-2 z-50">
                                 <img src={getLogoUrl(preset.logo)} className="w-16 h-16 rounded-full" style={{ objectFit: 'cover', opacity: preset.rules?.logoOpacity || 0.5 }} />
+                            </div>
+                        )}
+
+                        {/* Logo overlay for indiabusinesscom - TOP LEFT, full opacity, uncropped */}
+                        {preset.name === 'indiabusinesscom' && getLogoUrl(preset.logo) && (
+                            <div className="absolute top-3 left-3 z-50">
+                                <img src={getLogoUrl(preset.logo)} className="w-14 h-14" style={{ objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
                             </div>
                         )}
 
