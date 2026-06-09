@@ -525,7 +525,8 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
 
   // Hook+Video layout: delegate to dedicated handler
   if (preset.layout === 'hook_video') {
-    return generateHookVideoOverlay(preset, headline, fontScale, wordSpacingMultiplier, savePath);
+    const resolvedHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
+    return generateHookVideoOverlay(preset, resolvedHeadline, fontScale, wordSpacingMultiplier, savePath);
   }
 
   const canvas = createCanvas(720, 1280);
