@@ -69,7 +69,7 @@ sudo apt-get install redis-server
 Create a `.env` file in the server directory (optional):
 
 ```env
-PORT=3001
+PORT=3002
 REDIS_HOST=localhost
 REDIS_PORT=6379
 ```
@@ -86,7 +86,7 @@ npm run dev
 npm start
 ```
 
-The server will start on `http://localhost:3001` (or the port specified in `.env`).
+The server will start on `http://localhost:3002` (or the port specified in `.env`).
 
 ## API Endpoints
 
