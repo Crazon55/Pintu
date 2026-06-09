@@ -843,7 +843,7 @@ const PreviewCard = memo(({
                                             fontWeight: preset.name === 'indian-founders-co'
                                                 ? (segment.highlight ? 900 : 400)
                                                 : preset.name === 'indiabusinesscom'
-                                                    ? 900
+                                                    ? 800
                                                     : preset.name === 'indianfoundercore'
                                                         ? 900
                                                         : (segment.highlight ? 700 : 400),

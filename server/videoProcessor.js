@@ -54,6 +54,7 @@ const fontsDir = join(__dirname, 'assets', 'fonts');
 const fontNames = {
   regular: ['Inter_18pt-Regular.ttf', 'Inter-Regular.ttf'],
   bold: ['Inter_18pt-Bold.ttf', 'Inter-Bold.ttf'],
+  extraBold: ['Inter_18pt-ExtraBold.ttf', 'Inter-ExtraBold.ttf'],
   black: ['Inter_18pt-Black.ttf', 'Inter-Black.ttf'],
   thin: ['Inter_18pt-Thin.ttf', 'Inter-Thin.ttf']
 };
@@ -66,6 +67,7 @@ function findFont(names) {
 }
 const interRegular = findFont(fontNames.regular);
 const interBold = findFont(fontNames.bold);
+const interExtraBold = findFont(fontNames.extraBold);
 const interBlack = findFont(fontNames.black);
 const interThin = findFont(fontNames.thin);
 
@@ -77,8 +79,16 @@ if (interBold) {
   registerFont(interBold, { family: 'Inter', weight: 'bold' });
   console.log('✓ Inter Bold font registered');
 }
+if (interExtraBold) {
+  // Register under a unique family name — Cairo ignores numeric weights (800) in font lookup,
+  // so referencing by family is the only reliable way to force the correct variant.
+  registerFont(interExtraBold, { family: 'InterExtraBold', weight: 'normal' });
+  console.log('✓ Inter ExtraBold font registered');
+} else {
+  console.warn('⚠ Inter ExtraBold not found. Tried:', fontNames.extraBold.join(', '));
+}
 if (interBlack) {
-  registerFont(interBlack, { family: 'Inter', weight: '900' });
+  registerFont(interBlack, { family: 'InterBlack', weight: 'normal' });
   console.log('✓ Inter Black font registered');
 } else {
   console.warn('⚠ Inter Black not found. Tried:', fontNames.black.join(', '));
@@ -366,9 +376,20 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     let drawX = hookIsCenterAligned ? (720 - line.width + spacing) / 2 : 50;
     for (const t of line.tokens) {
       const grp = groupMap[tokenIdx++];
-      // Weight: IBC/IFCore/IFC use Inter Black (900) for all tokens; others vary by bold tag
-      const fontWeight = (isIBC || isIFCore || isIFC) ? '900' : (t.bold ? 'bold' : 'normal');
-      ctx.font = `${fontWeight} ${fontSize}px Inter`;
+      // Use family-name-based font selection — Cairo doesn't reliably resolve numeric weights.
+      // IBC = Inter ExtraBold (800), IFCore/IFC = Inter Black (900), others = Inter Regular/Bold.
+      let fontFamily, fontWeight;
+      if (isIBC) {
+        fontFamily = interExtraBold ? 'InterExtraBold' : 'Inter';
+        fontWeight = 'normal';
+      } else if (isIFCore || isIFC) {
+        fontFamily = interBlack ? 'InterBlack' : 'Inter';
+        fontWeight = 'normal';
+      } else {
+        fontFamily = 'Inter';
+        fontWeight = t.bold ? 'bold' : 'normal';
+      }
+      ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
       // Color: IBC uses orange→green dual groups; others use hookColor for bold, white for normal
       let fillColor;
       if (isIBC) {
