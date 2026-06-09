@@ -372,9 +372,9 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     logoOverlay: logoPath ? {
       path: logoPath,
       position: preset.rules?.logoPosition || 'top-right',
-      size: 80,
+      size: preset.rules?.logoSize || 80,
       opacity: preset.rules?.logoOpacity || 0.5,
-      circular: true,
+      circular: preset.rules?.logoCircular !== undefined ? preset.rules.logoCircular : true,
     } : null,
   };
 }
