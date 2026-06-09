@@ -268,6 +268,12 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   const maxTextW = 620;
   const textToVideoGap = 25;
 
+  // Resolve preset type early so measurement uses the same font as drawing.
+  const _presetNameLower = (preset.name || '').toLowerCase();
+  const _isIBC = _presetNameLower === 'indiabusinesscom';
+  const _isIFCore = _presetNameLower === 'indianfoundercore';
+  const _isIFC = _presetNameLower === 'indian-founders-co';
+
   // Tokenize + wrap, preserving explicit newlines (<br> / Shift+Enter) as hard line breaks.
   const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
   const lines = [];
@@ -282,7 +288,12 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
 
     let curLine = { tokens: [], width: 0 };
     for (const t of tokens) {
-      ctx.font = `${t.bold ? 'bold' : 'normal'} ${fontSize}px Inter`;
+      // Measure with the same font used for drawing so line-wrap and drawX advance are accurate.
+      let mFamily, mWeight;
+      if (_isIFCore || _isIFC) { mFamily = interBlack ? 'InterBlack' : 'Inter'; mWeight = 'normal'; }
+      else if (_isIBC) { mFamily = interExtraBold ? 'InterExtraBold' : 'Inter'; mWeight = 'normal'; }
+      else { mFamily = 'Inter'; mWeight = t.bold ? 'bold' : 'normal'; }
+      ctx.font = `${mWeight} ${fontSize}px ${mFamily}`;
       const w = ctx.measureText(t.text).width;
       const advance = w + spacing;
       if (curLine.width + advance > maxTextW && curLine.tokens.length > 0) {
@@ -350,10 +361,10 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   }
 
   // Per-preset font-weight and dual-color group logic (mirrors hello.jsx preview)
-  const presetNameLower = (preset.name || '').toLowerCase();
-  const isIBC = presetNameLower === 'indiabusinesscom';
-  const isIFCore = presetNameLower === 'indianfoundercore';
-  const isIFC = presetNameLower === 'indian-founders-co';
+  const presetNameLower = _presetNameLower;
+  const isIBC = _isIBC;
+  const isIFCore = _isIFCore;
+  const isIFC = _isIFC;
 
   // Build groupMap for indiabusinesscom dual-color (1st bold run = orange, 2nd = green)
   let hlGroupIndex = 0;
