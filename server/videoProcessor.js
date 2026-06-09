@@ -76,7 +76,9 @@ if (interBold) {
   console.log('✓ Inter Bold font registered');
 }
 if (interThin) {
-  registerFont(interThin, { family: 'Inter', weight: 'normal' });
+  // Register under a separate family so it doesn't overwrite Inter Regular for weight:'normal'.
+  // Thin is only used via FFmpeg fontfile= path, not via canvas ctx.font 'Inter' lookup.
+  registerFont(interThin, { family: 'Inter Thin', weight: 'normal' });
   console.log('✓ Inter Thin font registered');
 } else {
   console.warn('⚠ Inter Thin not found. Tried:', fontNames.thin.join(', '));
@@ -329,17 +331,44 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     }
   }
 
+  // Per-preset font-weight and dual-color group logic (mirrors hello.jsx preview)
+  const presetNameLower = (preset.name || '').toLowerCase();
+  const isIBC = presetNameLower === 'indiabusinesscom';
+  const isIFCore = presetNameLower === 'indianfoundercore';
+  const isIFC = presetNameLower === 'indian-founders-co';
+
+  // Build groupMap for indiabusinesscom dual-color (1st bold run = orange, 2nd = green)
+  let hlGroupIndex = 0;
+  let prevWasBold = false;
+  const groupMap = lines.flatMap(line =>
+    line.tokens.map(t => {
+      if (t.bold) { if (!prevWasBold) hlGroupIndex++; prevWasBold = true; return hlGroupIndex; }
+      prevWasBold = false; return 0;
+    })
+  );
+
   // Draw hook text — centered or left-aligned based on preset.alignment
   // textBaseline is 'top', so drawY should sit right at the top of the first
   // glyph row — adding fontSize here pushed the whole block down by one line,
   // eating into textToVideoGap and making the last line overlap the video hole.
   const hookIsCenterAligned = preset.alignment === 'center';
   let drawY = startY + eyebrowH;
+  let tokenIdx = 0;
   for (const line of lines) {
     let drawX = hookIsCenterAligned ? (720 - line.width + spacing) / 2 : 50;
     for (const t of line.tokens) {
-      ctx.font = `${t.bold ? 'bold' : 'normal'} ${fontSize}px Inter`;
-      ctx.fillStyle = t.bold ? hookColor : '#FFFFFF';
+      const grp = groupMap[tokenIdx++];
+      // Weight: IBC/IFCore/IFC all use bold weight for all tokens
+      const fontWeight = (isIBC || isIFCore || isIFC) ? 'bold' : (t.bold ? 'bold' : 'normal');
+      ctx.font = `${fontWeight} ${fontSize}px Inter`;
+      // Color: IBC uses orange→green dual groups; others use hookColor for bold, white for normal
+      let fillColor;
+      if (isIBC) {
+        fillColor = grp === 1 ? '#FF5F07' : grp >= 2 ? '#46DB27' : '#FFFFFF';
+      } else {
+        fillColor = t.bold ? hookColor : '#FFFFFF';
+      }
+      ctx.fillStyle = fillColor;
       ctx.fillText(t.text, drawX, drawY);
       drawX += t.measuredWidth + spacing;
     }
