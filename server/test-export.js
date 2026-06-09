@@ -11,18 +11,18 @@ async function testExport() {
   
   // Check if server is running
   try {
-    const response = await fetch('http://localhost:3001/health');
+    const response = await fetch('http://localhost:3002/health');
     const data = await response.json();
     console.log('✓ Server is running:', data);
   } catch (error) {
-    console.error('✗ Server is not running on port 3001');
+    console.error('✗ Server is not running on port 3002');
     console.error('Please start the server: cd server && node server.js');
     return;
   }
   
   // Check presets endpoint
   try {
-    const response = await fetch('http://localhost:3001/api/presets');
+    const response = await fetch('http://localhost:3002/api/presets');
     const presets = await response.json();
     console.log(`✓ Presets loaded: ${presets.presets.length} presets available`);
     
@@ -48,13 +48,13 @@ async function testExport() {
     console.log('2. Upload a video file');
     console.log('3. Select "The Rising Founder" preset');
     console.log('4. Click Export');
-    console.log('\nOr use curl/Postman to POST to http://localhost:3001/api/export');
+    console.log('\nOr use curl/Postman to POST to http://localhost:3002/api/export');
   } catch {
     console.log('⚠ No test video file found at:', testVideoPath);
     console.log('\nTo test export:');
     console.log('1. Place a test video file at:', testVideoPath);
     console.log('2. Or use the frontend at http://localhost:3000');
-    console.log('3. Or use curl/Postman to POST to http://localhost:3001/api/export');
+    console.log('3. Or use curl/Postman to POST to http://localhost:3002/api/export');
   }
   
   // Check logo files

@@ -24,6 +24,7 @@
     "redis": "^4.6.10"
   },
   "devDependencies": {
+    "@fontsource/inter": "^5.2.8",
     "@types/fluent-ffmpeg": "^2.1.24"
   }
 }
