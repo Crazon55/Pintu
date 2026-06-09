@@ -1664,32 +1664,65 @@ export default function App() {
                             clearInterval(serverPollIntervalRef.current);
                             serverPollIntervalRef.current = null;
                         }
-                        setExportStatus('Export complete! Uploading to Google Drive...');
+                        setExportStatus('Export complete! Downloading...');
                         setExportProgress(100);
 
                         try {
-                            if (signal.aborted) return;
-                            const driveResponse = await fetch(`${SERVER_URL}/api/upload-to-drive`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ jobId }),
-                                signal,
-                            });
+                            // Download zip (retry a few times since zip creation can lag behind job completion)
+                            const zipUrl = `${SERVER_URL}/api/download/${jobId}`;
+                            const maxAttempts = 6;
+                            let lastErr = null;
 
-                            if (!driveResponse.ok) {
-                                const j = await driveResponse.json().catch(() => ({}));
-                                throw new Error(j.error || `Drive upload failed (${driveResponse.status})`);
+                            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                                if (signal.aborted) return;
+                                setExportStatus(`Export complete! Downloading... (attempt ${attempt}/${maxAttempts})`);
+
+                                const dlResponse = await fetch(zipUrl, { signal });
+                                if (dlResponse.ok) {
+                                    const blob = await dlResponse.blob();
+                                    const blobUrl = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = blobUrl;
+                                    a.download = `export-${jobId}.zip`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                    window.URL.revokeObjectURL(blobUrl);
+                                    lastErr = null;
+                                    break;
+                                }
+
+                                // Try to surface a meaningful server error to the user
+                                let serverMsg = `HTTP ${dlResponse.status}`;
+                                try {
+                                    const j = await dlResponse.json();
+                                    serverMsg = j?.error || JSON.stringify(j);
+                                } catch {
+                                    try { serverMsg = (await dlResponse.text()) || serverMsg; } catch { }
+                                }
+                                lastErr = new Error(serverMsg);
+
+                                // Not ready yet (common): wait and retry
+                                if (dlResponse.status === 404 || dlResponse.status === 409 || dlResponse.status === 425) {
+                                    await new Promise(r => setTimeout(r, 1000));
+                                    continue;
+                                }
+
+                                // Anything else: stop retrying
+                                break;
                             }
 
-                            const { driveUrl } = await driveResponse.json();
-                            setExportStatus('Uploaded to Google Drive!');
-                            setCloudLinks([{ url: driveUrl, label: 'View exported videos in Drive' }]);
+                            if (lastErr) throw lastErr;
+
+                            setIsExporting(false);
+                            setExportStatus('');
+                            setExportProgress(0);
                         } catch (err) {
                             if (err.name === 'AbortError') return;
-                            console.error('Drive upload error:', err);
-                            setExportStatus(`Drive upload failed: ${err.message}`);
+                            console.error('Download error:', err);
+                            setExportStatus(`Download failed: ${err.message}`);
                             setIsExporting(false);
-                            setTimeout(() => { setExportStatus(''); setExportProgress(0); }, 6000);
+                            setTimeout(() => { setExportStatus(''); setExportProgress(0); }, 5000);
                         }
                     } else if (jobStatus.state === 'failed') {
                         if (serverPollIntervalRef.current) {
@@ -2433,35 +2466,31 @@ export default function App() {
                             <p className="text-neutral-500 text-xs mt-4">Please keep this tab open.</p>
                             {cloudLinks.length > 0 && (
                                 <div className="mt-4 w-full max-w-md">
-                                    <p className="text-sm text-green-400 mb-2">Drive links (click to copy):</p>
-                                    {cloudLinks.map((item, i) => {
-                                        const url = typeof item === 'string' ? item : item.url;
-                                        const label = typeof item === 'string' ? url.split('/').pop() : item.label;
-                                        return (
-                                            <div key={i} className="flex items-center gap-2 mb-1">
-                                                <button
-                                                    onClick={() => { navigator.clipboard.writeText(url); }}
-                                                    className="text-xs text-blue-400 hover:text-blue-300 truncate max-w-xs text-left"
-                                                    title={url}
-                                                >
-                                                    {label}
-                                                </button>
-                                                <span className="text-neutral-600 text-xs">|</span>
-                                                <a href={url} target="_blank" rel="noopener" className="text-xs text-orange-400 hover:text-orange-300">Open</a>
-                                            </div>
-                                        );
-                                    })}
+                                    <p className="text-sm text-green-400 mb-2">Cloud links (click to copy):</p>
+                                    {cloudLinks.map((link, i) => (
+                                        <div key={i} className="flex items-center gap-2 mb-1">
+                                            <button
+                                                onClick={() => { navigator.clipboard.writeText(link); }}
+                                                className="text-xs text-blue-400 hover:text-blue-300 truncate max-w-xs text-left"
+                                                title={link}
+                                            >
+                                                {link.split('/').pop()}
+                                            </button>
+                                            <span className="text-neutral-600 text-xs">|</span>
+                                            <a href={link} target="_blank" rel="noopener" className="text-xs text-orange-400 hover:text-orange-300">Open</a>
+                                        </div>
+                                    ))}
                                     <button
-                                        onClick={() => { navigator.clipboard.writeText(cloudLinks.map(l => typeof l === 'string' ? l : l.url).join('\n')); }}
+                                        onClick={() => { navigator.clipboard.writeText(cloudLinks.join('\n')); }}
                                         className="mt-2 px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs text-white"
                                     >
-                                        Copy Link
+                                        Copy All Links
                                     </button>
                                     <button
-                                        onClick={() => { setCloudLinks([]); setIsExporting(false); setExportStatus(''); setExportProgress(0); }}
+                                        onClick={() => setCloudLinks([])}
                                         className="mt-2 ml-2 px-3 py-1 bg-neutral-700 hover:bg-neutral-600 rounded text-xs text-white"
                                     >
-                                        Done
+                                        Dismiss
                                     </button>
                                 </div>
                             )}
