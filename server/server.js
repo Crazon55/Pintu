@@ -11,7 +11,7 @@ import { createVideoProcessor } from './videoProcessor.js';
 import { createJobQueue } from './simpleQueue.js'; // Use your simpleQueue or Bull
 import { transcribeWithGroq } from './groqTranscriber.js';
 import { generateASS, generateIndianFounderASS } from './subtitleGenerator.js';
-import { uploadToCloudinary } from './cloudinaryUploader.js';
+import { uploadBatchToDrive } from './driveUploader.js';
 import { burnSubtitles } from './subtitleBurner.js';
 import { removeSilence } from './silenceRemover.js';
 
@@ -43,6 +43,23 @@ if (existsSync(presetsPath)) {
 } else {
   console.log('No presets.json found – using presets from client requests');
 }
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/presets', (req, res) => {
+  res.json({
+    presets: allPresets,
+    defaults: {
+      fontScale: 1,
+      wordSpacing: 0.25,
+      videoScale: 100,
+      fitMode: 'cover',
+      showCredit: true,
+    },
+  });
+});
 
 app.post('/api/export', upload.single('video'), async (req, res) => {
   try {
@@ -361,8 +378,7 @@ app.get('/api/download-silence-removed', async (req, res) => {
 
 // --- GOOGLE DRIVE UPLOAD ---
 
-// Upload exported videos to Cloudinary after export completes
-app.post('/api/upload-to-cloud', express.json(), async (req, res) => {
+app.post('/api/upload-to-drive', express.json(), async (req, res) => {
   try {
     const { jobId } = req.body;
     if (!jobId) return res.status(400).json({ error: 'jobId is required.' });
@@ -377,14 +393,13 @@ app.post('/api/upload-to-cloud', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'No video files found.' });
     }
 
-    const results = [];
-    for (const vp of videoPaths) {
-      const result = await uploadToCloudinary(vp, basename(vp));
-      results.push(result);
-    }
-    res.json({ success: true, files: results });
+    const subfolderName = job.data?.ideaName || `export-${jobId}`;
+    const result = await uploadBatchToDrive(videoPaths, subfolderName);
+    const driveUrl = `https://drive.google.com/drive/folders/${result.folderId}`;
+
+    res.json({ success: true, driveUrl, files: result.files });
   } catch (err) {
-    console.error('[cloudinary] Upload error:', err.message);
+    console.error('[drive] Upload error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
