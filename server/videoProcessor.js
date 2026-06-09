@@ -54,6 +54,7 @@ const fontsDir = join(__dirname, 'assets', 'fonts');
 const fontNames = {
   regular: ['Inter_18pt-Regular.ttf', 'Inter-Regular.ttf'],
   bold: ['Inter_18pt-Bold.ttf', 'Inter-Bold.ttf'],
+  black: ['Inter_18pt-Black.ttf', 'Inter-Black.ttf'],
   thin: ['Inter_18pt-Thin.ttf', 'Inter-Thin.ttf']
 };
 function findFont(names) {
@@ -65,6 +66,7 @@ function findFont(names) {
 }
 const interRegular = findFont(fontNames.regular);
 const interBold = findFont(fontNames.bold);
+const interBlack = findFont(fontNames.black);
 const interThin = findFont(fontNames.thin);
 
 if (interRegular) {
@@ -74,6 +76,12 @@ if (interRegular) {
 if (interBold) {
   registerFont(interBold, { family: 'Inter', weight: 'bold' });
   console.log('✓ Inter Bold font registered');
+}
+if (interBlack) {
+  registerFont(interBlack, { family: 'Inter', weight: '900' });
+  console.log('✓ Inter Black font registered');
+} else {
+  console.warn('⚠ Inter Black not found. Tried:', fontNames.black.join(', '));
 }
 if (interThin) {
   // Register under a separate family so it doesn't overwrite Inter Regular for weight:'normal'.
@@ -358,8 +366,8 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     let drawX = hookIsCenterAligned ? (720 - line.width + spacing) / 2 : 50;
     for (const t of line.tokens) {
       const grp = groupMap[tokenIdx++];
-      // Weight: IBC/IFCore/IFC all use bold weight for all tokens
-      const fontWeight = (isIBC || isIFCore || isIFC) ? 'bold' : (t.bold ? 'bold' : 'normal');
+      // Weight: IBC/IFCore/IFC use Inter Black (900) for all tokens; others vary by bold tag
+      const fontWeight = (isIBC || isIFCore || isIFC) ? '900' : (t.bold ? 'bold' : 'normal');
       ctx.font = `${fontWeight} ${fontSize}px Inter`;
       // Color: IBC uses orange→green dual groups; others use hookColor for bold, white for normal
       let fillColor;
