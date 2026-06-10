@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { createReadStream } from 'fs';
+import { createReadStream, readFileSync } from 'fs';
 import { basename, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -11,16 +11,14 @@ const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '1mg-q6sQmQZ8cieiX
 function getDriveClient() {
   if (driveClient) return driveClient;
   const keyFile = join(__driveDir, 'service-account.json');
-  const serviceAccount = JSON.parse(require('fs').readFileSync(keyFile, 'utf8'));
+  const serviceAccount = JSON.parse(readFileSync(keyFile, 'utf8'));
   console.log('[drive] Using key file:', keyFile);
   console.log('[drive] Target folder:', DRIVE_FOLDER_ID);
-  console.log('[drive] Impersonating:', 'krishna.koushik@owledmedia.com');
-  // Impersonate the user so uploads use their storage quota
+  console.log('[drive] Service account:', serviceAccount.client_email);
   const auth = new google.auth.JWT({
     email: serviceAccount.client_email,
     key: serviceAccount.private_key,
     scopes: ['https://www.googleapis.com/auth/drive'],
-    subject: 'krishna.koushik@owledmedia.com',
   });
   driveClient = google.drive({ version: 'v3', auth });
   return driveClient;
