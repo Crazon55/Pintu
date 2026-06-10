@@ -1665,76 +1665,32 @@ export default function App() {
                             clearInterval(serverPollIntervalRef.current);
                             serverPollIntervalRef.current = null;
                         }
-                        setExportStatus('Export complete! Downloading...');
+                        setExportStatus('Export complete! Uploading to Drive...');
                         setExportProgress(100);
 
                         try {
-                            // Download zip (retry a few times since zip creation can lag behind job completion)
-                            const zipUrl = `${SERVER_URL}/api/download/${jobId}`;
-                            const maxAttempts = 6;
-                            let lastErr = null;
-
-                            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                                if (signal.aborted) return;
-                                setExportStatus(`Export complete! Downloading... (attempt ${attempt}/${maxAttempts})`);
-
-                                const dlResponse = await fetch(zipUrl, { signal });
-                                if (dlResponse.ok) {
-                                    const blob = await dlResponse.blob();
-                                    const blobUrl = window.URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = blobUrl;
-                                    a.download = `export-${jobId}.zip`;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    a.remove();
-                                    window.URL.revokeObjectURL(blobUrl);
-                                    lastErr = null;
-                                    // Upload to Drive in background after ZIP download
-                                    fetch(`${SERVER_URL}/api/upload-to-drive`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ jobId }),
-                                    })
-                                        .then(r => r.json())
-                                        .then(data => {
-                                            if (data.files) {
-                                                setDriveLinks(data.files.map(f => f.webViewLink).filter(Boolean));
-                                            }
-                                        })
-                                        .catch(err => console.error('[drive] Upload error:', err));
-                                    break;
-                                }
-
-                                // Try to surface a meaningful server error to the user
-                                let serverMsg = `HTTP ${dlResponse.status}`;
-                                try {
-                                    const j = await dlResponse.json();
-                                    serverMsg = j?.error || JSON.stringify(j);
-                                } catch {
-                                    try { serverMsg = (await dlResponse.text()) || serverMsg; } catch { }
-                                }
-                                lastErr = new Error(serverMsg);
-
-                                // Not ready yet (common): wait and retry
-                                if (dlResponse.status === 404 || dlResponse.status === 409 || dlResponse.status === 425) {
-                                    await new Promise(r => setTimeout(r, 1000));
-                                    continue;
-                                }
-
-                                // Anything else: stop retrying
-                                break;
+                            const driveRes = await fetch(`${SERVER_URL}/api/upload-to-drive`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ jobId }),
+                                signal,
+                            });
+                            if (!driveRes.ok) {
+                                const j = await driveRes.json().catch(() => ({}));
+                                throw new Error(j.error || `HTTP ${driveRes.status}`);
                             }
-
-                            if (lastErr) throw lastErr;
+                            const data = await driveRes.json();
+                            if (data.files) {
+                                setDriveLinks(data.files.map(f => f.webViewLink).filter(Boolean));
+                            }
 
                             setIsExporting(false);
                             setExportStatus('');
                             setExportProgress(0);
                         } catch (err) {
                             if (err.name === 'AbortError') return;
-                            console.error('Download error:', err);
-                            setExportStatus(`Download failed: ${err.message}`);
+                            console.error('Drive upload error:', err);
+                            setExportStatus(`Drive upload failed: ${err.message}`);
                             setIsExporting(false);
                             setTimeout(() => { setExportStatus(''); setExportProgress(0); }, 5000);
                         }
