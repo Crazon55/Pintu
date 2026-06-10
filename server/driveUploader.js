@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 let driveClient = null;
 
 const __driveDir = dirname(fileURLToPath(import.meta.url));
-const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '1mg-q6sQmQZ8cieiXe10fE7iYUn04AzL8';
+const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '0AMBxg_5KAT-oUk9PVA';
 
 function getDriveClient() {
   if (driveClient) return driveClient;
@@ -69,6 +69,7 @@ export async function uploadBatchToDrive(filePaths, subfolderName, parentFolderI
 
   // Create subfolder
   const folder = await drive.files.create({
+    supportsAllDrives: true,
     requestBody: {
       name: subfolderName,
       mimeType: 'application/vnd.google-apps.folder',
