@@ -1356,6 +1356,7 @@ export default function App() {
     const [isExporting, setIsExporting] = useState(false);
     const [exportStatus, setExportStatus] = useState('');
     const [cloudLinks, setCloudLinks] = useState([]);
+    const [driveLinks, setDriveLinks] = useState([]);
     const [exportProgress, setExportProgress] = useState(0);
     const [showKoushikPopup, setShowKoushikPopup] = useState(false);
     const [presetSearch, setPresetSearch] = useState('');
@@ -1689,6 +1690,19 @@ export default function App() {
                                     a.remove();
                                     window.URL.revokeObjectURL(blobUrl);
                                     lastErr = null;
+                                    // Upload to Drive in background after ZIP download
+                                    fetch(`${SERVER_URL}/api/upload-to-drive`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ jobId }),
+                                    })
+                                        .then(r => r.json())
+                                        .then(data => {
+                                            if (data.files) {
+                                                setDriveLinks(data.files.map(f => f.webViewLink).filter(Boolean));
+                                            }
+                                        })
+                                        .catch(err => console.error('[drive] Upload error:', err));
                                     break;
                                 }
 
@@ -2464,6 +2478,31 @@ export default function App() {
                                 <div className="h-full bg-yellow-500 transition-all duration-300" style={{ width: `${exportProgress}%` }}></div>
                             </div>
                             <p className="text-neutral-500 text-xs mt-4">Please keep this tab open.</p>
+                            {driveLinks.length > 0 && (
+                                <div className="mt-4 w-full max-w-md">
+                                    <p className="text-sm text-green-400 mb-2">Uploaded to Google Drive:</p>
+                                    {driveLinks.map((link, i) => (
+                                        <div key={i} className="flex items-center gap-2 mb-1">
+                                            <a href={link} target="_blank" rel="noopener" className="text-xs text-blue-400 hover:text-blue-300 truncate max-w-xs">
+                                                {link.split('/').pop() || `File ${i + 1}`}
+                                            </a>
+                                            <span className="text-neutral-600 text-xs">|</span>
+                                            <button
+                                                onClick={() => navigator.clipboard.writeText(link)}
+                                                className="text-xs text-orange-400 hover:text-orange-300"
+                                            >
+                                                Copy
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={() => setDriveLinks([])}
+                                        className="mt-2 px-3 py-1 bg-neutral-700 hover:bg-neutral-600 rounded text-xs text-white"
+                                    >
+                                        Dismiss
+                                    </button>
+                                </div>
+                            )}
                             {cloudLinks.length > 0 && (
                                 <div className="mt-4 w-full max-w-md">
                                     <p className="text-sm text-green-400 mb-2">Cloud links (click to copy):</p>

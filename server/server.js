@@ -12,6 +12,7 @@ import { createJobQueue } from './simpleQueue.js'; // Use your simpleQueue or Bu
 import { transcribeWithGroq } from './groqTranscriber.js';
 import { generateASS, generateIndianFounderASS } from './subtitleGenerator.js';
 import { uploadToCloudinary } from './cloudinaryUploader.js';
+import { uploadToDrive } from './driveUploader.js';
 import { burnSubtitles } from './subtitleBurner.js';
 import { removeSilence } from './silenceRemover.js';
 
@@ -385,6 +386,33 @@ app.post('/api/upload-to-cloud', express.json(), async (req, res) => {
     res.json({ success: true, files: results });
   } catch (err) {
     console.error('[cloudinary] Upload error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/upload-to-drive', express.json(), async (req, res) => {
+  try {
+    const { jobId } = req.body;
+    if (!jobId) return res.status(400).json({ error: 'jobId is required.' });
+
+    const job = await jobQueue.getJob(jobId);
+    if (!job || job.state !== 'completed' || !job.returnvalue?.videoPaths) {
+      return res.status(400).json({ error: 'Job not found or not completed.' });
+    }
+
+    const videoPaths = job.returnvalue.videoPaths.filter(p => existsSync(p));
+    if (videoPaths.length === 0) {
+      return res.status(400).json({ error: 'No video files found.' });
+    }
+
+    const results = [];
+    for (const vp of videoPaths) {
+      const result = await uploadToDrive(vp, basename(vp));
+      results.push(result);
+    }
+    res.json({ success: true, files: results });
+  } catch (err) {
+    console.error('[drive] Upload error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
