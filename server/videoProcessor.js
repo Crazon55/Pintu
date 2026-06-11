@@ -494,9 +494,9 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const totalBarsH = lines.length * barH;
   let barY = 1280 - bottomMargin - totalBarsH;
 
-  // Pass 1: black background for all lines (full width)
+  // Pass 1: black background from text start to bottom of frame (full width)
   ctx.fillStyle = '#111111';
-  ctx.fillRect(0, barY, 720, totalBarsH);
+  ctx.fillRect(0, barY, 720, 1280 - barY);
 
   // Pass 2: gradient on top for bold lines only, then text
   let y = barY;
