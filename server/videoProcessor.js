@@ -494,7 +494,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const totalBarsH = lines.length * barH;
   let barY = 1280 - bottomMargin - totalBarsH;
 
-  const isIndiaStartupStory = (preset.name || '').toLowerCase() === 'indiastartupstory';
+  const isIndiaStartupStory = (preset.name || '').toLowerCase() === 'indiastartupstory-news';
 
   // For indiastartupstory: black gradient fade from video into solid black
   if (isIndiaStartupStory) {
