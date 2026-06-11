@@ -519,22 +519,21 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     const barW = Math.min(720, textW + padX * 2);
 
     if (bold) {
-      const grad = ctx.createLinearGradient(0, 0, barW, 0);
       if (isIndiaStartupStory) {
-        grad.addColorStop(0, '#EF5350');
-        grad.addColorStop(0.5, '#F2EFE1');
-        grad.addColorStop(1, '#EF5350');
+        ctx.fillStyle = '#e31d38';
+        ctx.fillRect(0, y, barW, barH);
       } else {
+        const grad = ctx.createLinearGradient(0, 0, barW, 0);
         grad.addColorStop(0, '#FF8932');
         grad.addColorStop(0.5, '#F2EFE1');
         grad.addColorStop(1, '#3AB26B');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, y, barW, barH);
       }
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, y, barW, barH);
     }
 
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = bold ? '#000000' : '#FFFFFF';
+    ctx.fillStyle = isIndiaStartupStory ? '#FFFFFF' : (bold ? '#000000' : '#FFFFFF');
     ctx.fillText(text, padX, y + barH / 2);
     y += barH;
   }
