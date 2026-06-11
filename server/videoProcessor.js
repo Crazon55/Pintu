@@ -490,7 +490,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   if (curWords.length) lines.push({ text: curWords.join(' '), bold: curBold });
 
   const barH = Math.round(fontSize * 1.45);
-  const bottomMargin = 60;
+  const bottomMargin = 160;
   const totalBarsH = lines.length * barH;
   let barY = 1280 - bottomMargin - totalBarsH;
 

@@ -868,9 +868,14 @@ const PreviewCard = memo(({
                                 <img src={getLogoUrl(preset.logo)} className="w-14 h-14" style={{ objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
                             </div>
                         )}
+                        {/* indiastartupstory: black gradient fade from video into black above text area */}
+                        {preset.name === 'indiastartupstory' && (
+                            <div className="absolute left-0 w-full z-10" style={{ bottom: '13%', height: '30%', background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)' }} />
+                        )}
                         {/* Gradient bars at the bottom — only bold lines get highlighted */}
-                        <div className="absolute bottom-10 left-0 z-20 flex flex-col gap-0">
+                        <div className="absolute left-0 z-20 flex flex-col gap-0" style={{ bottom: '13%' }}>
                             {(() => {
+                                const isISS = preset.name === 'indiastartupstory';
                                 const raw = (preset.headline || '')
                                     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
                                     .replace(/<b\s[^>]*>/gi, '<b>')
@@ -896,11 +901,11 @@ const PreviewCard = memo(({
                                 }
                                 if (curWords.length) lines.push({ text: curWords.join(' '), bold: curBold });
                                 return (
-                                    <div style={{ background: '#111111', display: 'inline-flex', flexDirection: 'column', gap: 0 }}>
+                                    <div style={{ background: isISS ? '#000000' : '#111111', display: 'inline-flex', flexDirection: 'column', gap: 0 }}>
                                         {lines.map((line, i) => (
                                             <div key={i} className="px-3 py-1" style={{
-                                                background: line.bold ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : 'transparent',
-                                                color: line.bold ? '#000000' : '#ffffff',
+                                                background: line.bold ? (isISS ? '#e31d38' : 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)') : 'transparent',
+                                                color: isISS ? '#ffffff' : (line.bold ? '#000000' : '#ffffff'),
                                                 fontFamily: "'Inter', sans-serif",
                                                 fontWeight: 800,
                                                 fontSize: `${previewFontSize * 0.82}px`,
