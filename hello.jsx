@@ -868,36 +868,42 @@ const PreviewCard = memo(({
                                 <img src={getLogoUrl(preset.logo)} className="w-14 h-14" style={{ objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
                             </div>
                         )}
-                        {/* Gradient bars at the bottom */}
+                        {/* Gradient bars at the bottom — only bold lines get highlighted */}
                         <div className="absolute bottom-10 left-0 z-20 flex flex-col gap-0">
                             {(() => {
-                                const plain = (preset.headline || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-                                const words = plain.split(/\s+/).filter(Boolean);
-                                const lines = [];
-                                let cur = '';
-                                const avgCharsPerLine = 22;
-                                for (const w of words) {
-                                    const test = cur ? `${cur} ${w}` : w;
-                                    if (test.length > avgCharsPerLine && cur) { lines.push(cur); cur = w; }
-                                    else cur = test;
-                                }
-                                if (cur) lines.push(cur);
-                                return lines.map((line, i) => {
-                                    const isLast = i === lines.length - 1;
-                                    return (
-                                        <div key={i} className="inline-block px-3 py-1" style={{
-                                            background: isLast ? '#111111' : 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)',
-                                            color: isLast ? '#ffffff' : '#000000',
-                                            fontFamily: "'Inter', sans-serif",
-                                            fontWeight: 800,
-                                            fontSize: `${previewFontSize * 0.82}px`,
-                                            lineHeight: 1.4,
-                                            whiteSpace: 'nowrap',
-                                        }}>
-                                            {line}
-                                        </div>
-                                    );
+                                const raw = (preset.headline || '').replace(/<\/?strong>/gi, m => m.toLowerCase().replace('strong', 'b'));
+                                const tokens = [];
+                                raw.split(/(<b>.*?<\/b>)/i).forEach(p => {
+                                    if (!p) return;
+                                    const isB = /^<b>/i.test(p);
+                                    p.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
                                 });
+                                const avgCharsPerLine = 22;
+                                const lines = [];
+                                let curWords = [], curBold = false, curLen = 0;
+                                for (const t of tokens) {
+                                    const addLen = curLen ? curLen + 1 + t.text.length : t.text.length;
+                                    if (addLen > avgCharsPerLine && curWords.length) {
+                                        lines.push({ text: curWords.join(' '), bold: curBold });
+                                        curWords = [t.text]; curBold = t.bold; curLen = t.text.length;
+                                    } else {
+                                        curWords.push(t.text); if (t.bold) curBold = true; curLen = addLen;
+                                    }
+                                }
+                                if (curWords.length) lines.push({ text: curWords.join(' '), bold: curBold });
+                                return lines.map((line, i) => (
+                                    <div key={i} className="inline-block px-3 py-1" style={{
+                                        background: line.bold ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : 'transparent',
+                                        color: line.bold ? '#000000' : '#ffffff',
+                                        fontFamily: "'Inter', sans-serif",
+                                        fontWeight: 800,
+                                        fontSize: `${previewFontSize * 0.82}px`,
+                                        lineHeight: 1.4,
+                                        whiteSpace: 'nowrap',
+                                    }}>
+                                        {line.text}
+                                    </div>
+                                ));
                             })()}
                         </div>
                     </>
