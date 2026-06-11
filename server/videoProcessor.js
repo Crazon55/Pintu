@@ -494,16 +494,20 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const totalBarsH = lines.length * barH;
   let barY = 1280 - bottomMargin - totalBarsH;
 
-  // Gradient: video fades to black above the text area
-  const gradientH = 160;
-  const fadeGrad = ctx.createLinearGradient(0, barY - gradientH, 0, barY);
-  fadeGrad.addColorStop(0, 'rgba(0,0,0,0)');
-  fadeGrad.addColorStop(1, 'rgba(0,0,0,1)');
-  ctx.fillStyle = fadeGrad;
-  ctx.fillRect(0, barY - gradientH, 720, gradientH);
+  const isIndiaStartupStory = (preset.name || '').toLowerCase() === 'indiastartupstory';
 
-  // Pass 1: solid black background from text start to bottom of frame (full width)
-  ctx.fillStyle = '#000000';
+  // For indiastartupstory: black gradient fade from video into solid black
+  if (isIndiaStartupStory) {
+    const gradientH = 160;
+    const fadeGrad = ctx.createLinearGradient(0, barY - gradientH, 0, barY);
+    fadeGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    fadeGrad.addColorStop(1, 'rgba(0,0,0,1)');
+    ctx.fillStyle = fadeGrad;
+    ctx.fillRect(0, barY - gradientH, 720, gradientH);
+  }
+
+  // Pass 1: black background from text start to bottom of frame (full width)
+  ctx.fillStyle = isIndiaStartupStory ? '#000000' : '#111111';
   ctx.fillRect(0, barY, 720, 1280 - barY);
 
   // Pass 2: gradient on top for bold lines only, then text
@@ -516,9 +520,15 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
     if (bold) {
       const grad = ctx.createLinearGradient(0, 0, barW, 0);
-      grad.addColorStop(0, '#FF8932');
-      grad.addColorStop(0.5, '#F2EFE1');
-      grad.addColorStop(1, '#3AB26B');
+      if (isIndiaStartupStory) {
+        grad.addColorStop(0, '#EF5350');
+        grad.addColorStop(0.5, '#F2EFE1');
+        grad.addColorStop(1, '#EF5350');
+      } else {
+        grad.addColorStop(0, '#FF8932');
+        grad.addColorStop(0.5, '#F2EFE1');
+        grad.addColorStop(1, '#3AB26B');
+      }
       ctx.fillStyle = grad;
       ctx.fillRect(0, y, barW, barH);
     }
