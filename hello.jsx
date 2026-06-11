@@ -119,7 +119,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 80, name: 'indian-founders-co-tweet', handle: '@indianfoundersco', ratio: '4:3', color: '#2cb162', active: false, hidden: true, layout: 'social', logo: 'indian-founders-co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 81, name: 'startupbydog', handle: '@startupbydog', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'startupbydog.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 82, name: 'Entrepreneursindia.co', handle: '@entrepreneursindia.co', ratio: '4:3', color: '#6500D1', active: true, layout: 'social', logo: 'Entrepreneursindia.co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
-    { id: 92, name: 'indiabusinesscom', handle: '@indiabusinesscom', ratio: '4:3', color: '#FF5F07', active: true, layout: 'hook_video', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 65 } },
+    { id: 92, name: 'indiabusinesscom', handle: '@indiabusinesscom', ratio: '9:16', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 65 } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
 ];
 
@@ -688,7 +688,7 @@ const PreviewCard = memo(({
     const isCenteredLeftAlign = preset.name === 'startupsoncrack' || preset.name === 'millionaire.founders' || preset.name === 'startupscheming' || preset.name === 'indian business com';
     const textAlignClass = isCenterAligned ? 'text-center items-center px-6' : (isCenteredLeftAlign ? 'text-left items-start px-14' : 'text-left items-start px-6');
     const justifyClass = 'justify-center gap-1';
-    const showMainHookBlock = preset.layout !== 'hook_video' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer';
+    const showMainHookBlock = preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer';
     const eyebrowSizeScale = preset.hookEyebrowSizeScale ?? 1.1;
     const eyebrowGapScale = preset.hookEyebrowGapScale ?? 7.0;
     const eyebrowAlignment = preset.hookEyebrowAlignment ?? 'left';
@@ -858,8 +858,52 @@ const PreviewCard = memo(({
                     </div>
                 )}
 
+                {/* 1b-news. NEWS-TICKER LAYOUT: logo top-left, gradient bars at bottom */}
+                {preset.layout === 'news_ticker' && (
+                    <>
+                        {/* Logo top-left */}
+                        {getLogoUrl(preset.logo) && (
+                            <div className="absolute top-3 left-3 z-50">
+                                <img src={getLogoUrl(preset.logo)} className="w-14 h-14" style={{ objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
+                            </div>
+                        )}
+                        {/* Gradient bars at the bottom */}
+                        <div className="absolute bottom-10 left-0 z-20 flex flex-col gap-0">
+                            {(() => {
+                                const plain = (preset.headline || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                                const words = plain.split(/\s+/).filter(Boolean);
+                                const lines = [];
+                                let cur = '';
+                                const avgCharsPerLine = 22;
+                                for (const w of words) {
+                                    const test = cur ? `${cur} ${w}` : w;
+                                    if (test.length > avgCharsPerLine && cur) { lines.push(cur); cur = w; }
+                                    else cur = test;
+                                }
+                                if (cur) lines.push(cur);
+                                return lines.map((line, i) => {
+                                    const isLast = i === lines.length - 1;
+                                    return (
+                                        <div key={i} className="inline-block px-3 py-1" style={{
+                                            background: isLast ? '#111111' : 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)',
+                                            color: isLast ? '#ffffff' : '#000000',
+                                            fontFamily: "'Inter', sans-serif",
+                                            fontWeight: 800,
+                                            fontSize: `${previewFontSize * 0.82}px`,
+                                            lineHeight: 1.4,
+                                            whiteSpace: 'nowrap',
+                                        }}>
+                                            {line}
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
+                    </>
+                )}
+
                 {/* 1b. HEADER SECTION (Stacked inside content flow) */}
-                {preset.layout !== 'watermark' && preset.layout !== 'hook_video' && (
+                {preset.layout !== 'watermark' && preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && (
                     <div className={`w-full ${preset.name === 'wealth lessons india' ? 'px-4' : 'px-6'} z-10 shrink-0 mb-1`}>
                         {/* SOCIAL HEADER */}
                         {preset.layout === 'social' && preset.name !== 'founderdaily' && preset.name !== 'founderbusinesstips' && preset.name !== 'kwazyfounders' && (
@@ -917,7 +961,7 @@ const PreviewCard = memo(({
                 )}
 
                 {/* 2. HOOK TEXT */}
-                {preset.layout !== 'hook_video' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer' && (
+                {preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer' && (
                     <div
                         ref={headlineRef}
                         data-headline="true"
@@ -1214,7 +1258,7 @@ const PreviewCard = memo(({
                 </div>
 
                 {/* 4. CREDIT TEXT (Footer) - Left Aligned below video, matching export layout */}
-                {showCredit && preset.layout !== 'hook_video' && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && !isAicrackedOrEvolvingPreset && (
+                {showCredit && preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && !isAicrackedOrEvolvingPreset && (
                     <div
                         ref={creditRef}
                         className={`w-full z-10 text-left px-6 relative ${isRepositioningCredit ? 'cursor-move ring-2 ring-yellow-500' : ''}`}
