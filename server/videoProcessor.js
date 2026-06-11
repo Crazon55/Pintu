@@ -465,7 +465,9 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const padX = 28;
 
   // Parse bold tokens so only bold lines get gradient bars
-  const cleanedHtml = (headline || '').replace(/<\/?strong>/gi, m => m.toLowerCase().replace('strong', 'b'));
+  let cleanedHtml = cleanHTML(headline || '');
+  cleanedHtml = cleanedHtml.replace(/<\/?strong>/gi, m => m.toLowerCase().replace('strong', 'b'));
+  cleanedHtml = cleanedHtml.replace(/<\/?b>/gi, m => m.toLowerCase());
   const tokens = [];
   cleanedHtml.split(/(<b>.*?<\/b>)/i).forEach(p => {
     if (!p) return;
