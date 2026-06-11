@@ -494,6 +494,12 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const totalBarsH = lines.length * barH;
   let barY = 1280 - bottomMargin - totalBarsH;
 
+  // Pass 1: black background for all lines (full width)
+  ctx.fillStyle = '#111111';
+  ctx.fillRect(0, barY, 720, totalBarsH);
+
+  // Pass 2: gradient on top for bold lines only, then text
+  let y = barY;
   for (let i = 0; i < lines.length; i++) {
     const { text, bold } = lines[i];
     ctx.font = `normal ${fontSize}px ${fontFamily}`;
@@ -506,15 +512,13 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
       grad.addColorStop(0.5, '#F2EFE1');
       grad.addColorStop(1, '#3AB26B');
       ctx.fillStyle = grad;
-    } else {
-      ctx.fillStyle = '#111111';
+      ctx.fillRect(0, y, barW, barH);
     }
-    ctx.fillRect(0, barY, barW, barH);
 
     ctx.textBaseline = 'middle';
     ctx.fillStyle = bold ? '#000000' : '#FFFFFF';
-    ctx.fillText(text, padX, barY + barH / 2);
-    barY += barH;
+    ctx.fillText(text, padX, y + barH / 2);
+    y += barH;
   }
 
   await fs.writeFile(savePath, canvas.toBuffer('image/png'));

@@ -895,19 +895,23 @@ const PreviewCard = memo(({
                                     }
                                 }
                                 if (curWords.length) lines.push({ text: curWords.join(' '), bold: curBold });
-                                return lines.map((line, i) => (
-                                    <div key={i} className="inline-block px-3 py-1" style={{
-                                        background: line.bold ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : '#111111',
-                                        color: line.bold ? '#000000' : '#ffffff',
-                                        fontFamily: "'Inter', sans-serif",
-                                        fontWeight: 800,
-                                        fontSize: `${previewFontSize * 0.82}px`,
-                                        lineHeight: 1.4,
-                                        whiteSpace: 'nowrap',
-                                    }}>
-                                        {line.text}
+                                return (
+                                    <div style={{ background: '#111111', display: 'inline-flex', flexDirection: 'column', gap: 0 }}>
+                                        {lines.map((line, i) => (
+                                            <div key={i} className="px-3 py-1" style={{
+                                                background: line.bold ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : 'transparent',
+                                                color: line.bold ? '#000000' : '#ffffff',
+                                                fontFamily: "'Inter', sans-serif",
+                                                fontWeight: 800,
+                                                fontSize: `${previewFontSize * 0.82}px`,
+                                                lineHeight: 1.4,
+                                                whiteSpace: 'nowrap',
+                                            }}>
+                                                {line.text}
+                                            </div>
+                                        ))}
                                     </div>
-                                ));
+                                );
                             })()}
                         </div>
                     </>
