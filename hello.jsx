@@ -871,7 +871,11 @@ const PreviewCard = memo(({
                         {/* Gradient bars at the bottom — only bold lines get highlighted */}
                         <div className="absolute bottom-10 left-0 z-20 flex flex-col gap-0">
                             {(() => {
-                                const raw = (preset.headline || '').replace(/<\/?strong>/gi, m => m.toLowerCase().replace('strong', 'b'));
+                                const raw = (preset.headline || '')
+                                    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+                                    .replace(/<b\s[^>]*>/gi, '<b>')
+                                    .replace(/<\/?strong>/gi, m => m.toLowerCase().replace('strong', 'b'))
+                                    .replace(/<(?!\/?b\b)[^>]*>/gi, '');
                                 const tokens = [];
                                 raw.split(/(<b>.*?<\/b>)/i).forEach(p => {
                                     if (!p) return;
