@@ -82,7 +82,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 43, name: 'theevolvinggpt', handle: '@theevolvinggpt', ratio: '16:9', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 44, name: 'foundrsonig', handle: '@foundrsonig', ratio: '4:3', color: '#ECECDC', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 45, name: 'indianfoundr', handle: '@indianfoundr', ratio: '1:1', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
-    { id: 46, name: 'indiastartupstory', handle: '@indiastartupstory', ratio: '4:3', color: '#EF5350', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 65 } },
+    { id: 46, name: 'indiastartupstory', handle: '@indiastartupstory', ratio: '4:3', color: '#EF5350', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
     { id: 47, name: 'neworderai', handle: '@neworderai', ratio: '4:3', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 48, name: 'startupsinthelast24hrs', handle: '@startupsinthelast24hrs', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'startupsinthelast24hrs.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 68, name: 'indian ai future', handle: '@indianaifuture', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'indian-ai-future.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
@@ -121,6 +121,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 82, name: 'Entrepreneursindia.co', handle: '@entrepreneursindia.co', ratio: '4:3', color: '#6500D1', active: true, layout: 'social', logo: 'Entrepreneursindia.co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 92, name: 'indiabusinesscom', handle: '@indiabusinesscom', ratio: '4:3', color: '#FF5F07', active: true, layout: 'hook_video', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 65 } },
     { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '9:16', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 65 } },
+    { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '9:16', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 65 } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
 ];
 
@@ -138,7 +139,7 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
 }));
 
 // Presets configured during the "Experiment X" pass — surfaced in their own quick-pick section
-const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory'];
+const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'indiastartupstory-news'];
 
 // Helper to get logo URL (handles both data URIs and filenames)
 const getLogoUrl = (logo) => {
@@ -868,14 +869,14 @@ const PreviewCard = memo(({
                                 <img src={getLogoUrl(preset.logo)} className="w-14 h-14" style={{ objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
                             </div>
                         )}
-                        {/* indiastartupstory: black gradient fade from video into black above text area */}
-                        {preset.name === 'indiastartupstory' && (
+                        {/* indiastartupstory-news: black gradient fade from video into black above text area */}
+                        {preset.name === 'indiastartupstory-news' && (
                             <div className="absolute left-0 w-full z-10" style={{ bottom: '13%', height: '30%', background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)' }} />
                         )}
                         {/* Gradient bars at the bottom — only bold lines get highlighted */}
                         <div className="absolute left-0 z-20 flex flex-col gap-0" style={{ bottom: '13%' }}>
                             {(() => {
-                                const isISS = preset.name === 'indiastartupstory';
+                                const isISS = preset.name === 'indiastartupstory-news';
                                 const raw = (preset.headline || '')
                                     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
                                     .replace(/<b\s[^>]*>/gi, '<b>')
