@@ -506,8 +506,10 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
       grad.addColorStop(0.5, '#F2EFE1');
       grad.addColorStop(1, '#3AB26B');
       ctx.fillStyle = grad;
-      ctx.fillRect(0, barY, barW, barH);
+    } else {
+      ctx.fillStyle = '#111111';
     }
+    ctx.fillRect(0, barY, barW, barH);
 
     ctx.textBaseline = 'middle';
     ctx.fillStyle = bold ? '#000000' : '#FFFFFF';
