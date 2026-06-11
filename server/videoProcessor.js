@@ -458,27 +458,34 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const ctx = canvas.getContext('2d', { alpha: true });
   ctx.clearRect(0, 0, 720, 1280);
 
-  const rawText = (headline || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   const fontFamily = interExtraBold ? 'InterExtraBold' : 'Inter';
   const fontSize = Math.round(54 * (fontScale || 1));
   ctx.font = `normal ${fontSize}px ${fontFamily}`;
   const maxLineW = 660;
   const padX = 28;
 
-  // Wrap into lines
-  const words = rawText.split(/\s+/).filter(Boolean);
+  // Parse bold tokens so only bold lines get gradient bars
+  const cleanedHtml = (headline || '').replace(/<\/?strong>/gi, m => m.toLowerCase().replace('strong', 'b'));
+  const tokens = [];
+  cleanedHtml.split(/(<b>.*?<\/b>)/i).forEach(p => {
+    if (!p) return;
+    const isB = /^<b>/i.test(p);
+    p.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
+  });
+
+  // Wrap into lines tracking bold presence
   const lines = [];
-  let cur = '';
-  for (const w of words) {
-    const test = cur ? `${cur} ${w}` : w;
-    if (ctx.measureText(test).width > maxLineW && cur) {
-      lines.push(cur);
-      cur = w;
+  let curWords = [], curBold = false;
+  for (const t of tokens) {
+    const test = curWords.length ? `${curWords.join(' ')} ${t.text}` : t.text;
+    if (ctx.measureText(test).width > maxLineW && curWords.length) {
+      lines.push({ text: curWords.join(' '), bold: curBold });
+      curWords = [t.text]; curBold = t.bold;
     } else {
-      cur = test;
+      curWords.push(t.text); if (t.bold) curBold = true;
     }
   }
-  if (cur) lines.push(cur);
+  if (curWords.length) lines.push({ text: curWords.join(' '), bold: curBold });
 
   const barH = Math.round(fontSize * 1.45);
   const bottomMargin = 60;
@@ -486,16 +493,12 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   let barY = 1280 - bottomMargin - totalBarsH;
 
   for (let i = 0; i < lines.length; i++) {
-    const text = lines[i];
+    const { text, bold } = lines[i];
     ctx.font = `normal ${fontSize}px ${fontFamily}`;
     const textW = ctx.measureText(text).width;
     const barW = Math.min(720, textW + padX * 2);
-    const isLast = i === lines.length - 1;
 
-    if (isLast) {
-      ctx.fillStyle = '#111111';
-      ctx.fillRect(0, barY, barW, barH);
-    } else {
+    if (bold) {
       const grad = ctx.createLinearGradient(0, 0, barW, 0);
       grad.addColorStop(0, '#FF8932');
       grad.addColorStop(0.5, '#F2EFE1');
@@ -505,7 +508,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     }
 
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = isLast ? '#FFFFFF' : '#000000';
+    ctx.fillStyle = bold ? '#000000' : '#FFFFFF';
     ctx.fillText(text, padX, barY + barH / 2);
     barY += barH;
   }
