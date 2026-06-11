@@ -138,7 +138,7 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
 }));
 
 // Presets configured during the "Experiment X" pass — surfaced in their own quick-pick section
-const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory'];
+const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory'];
 
 // Helper to get logo URL (handles both data URIs and filenames)
 const getLogoUrl = (logo) => {
