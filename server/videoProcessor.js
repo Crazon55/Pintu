@@ -448,6 +448,93 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   };
 }
 
+/**
+ * NEWS-TICKER LAYOUT (indiabusinesscom)
+ * Full-frame video (videoY=0, videoH=1280). Canvas is transparent everywhere except
+ * the gradient bars at the bottom. Logo overlaid by FFmpeg at top-left.
+ */
+async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacingMultiplier, savePath) {
+  const canvas = createCanvas(720, 1280);
+  const ctx = canvas.getContext('2d', { alpha: true });
+  ctx.clearRect(0, 0, 720, 1280);
+
+  const rawText = (headline || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const fontFamily = interExtraBold ? 'InterExtraBold' : 'Inter';
+  const fontSize = Math.round(54 * (fontScale || 1));
+  ctx.font = `normal ${fontSize}px ${fontFamily}`;
+  const maxLineW = 660;
+  const padX = 28;
+
+  // Wrap into lines
+  const words = rawText.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(test).width > maxLineW && cur) {
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = test;
+    }
+  }
+  if (cur) lines.push(cur);
+
+  const barH = Math.round(fontSize * 1.45);
+  const bottomMargin = 60;
+  const totalBarsH = lines.length * barH;
+  let barY = 1280 - bottomMargin - totalBarsH;
+
+  for (let i = 0; i < lines.length; i++) {
+    const text = lines[i];
+    ctx.font = `normal ${fontSize}px ${fontFamily}`;
+    const textW = ctx.measureText(text).width;
+    const barW = Math.min(720, textW + padX * 2);
+    const isLast = i === lines.length - 1;
+
+    if (isLast) {
+      ctx.fillStyle = '#111111';
+      ctx.fillRect(0, barY, barW, barH);
+    } else {
+      const grad = ctx.createLinearGradient(0, 0, barW, 0);
+      grad.addColorStop(0, '#FF8932');
+      grad.addColorStop(0.5, '#F2EFE1');
+      grad.addColorStop(1, '#3AB26B');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, barY, barW, barH);
+    }
+
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = isLast ? '#FFFFFF' : '#000000';
+    ctx.fillText(text, padX, barY + barH / 2);
+    barY += barH;
+  }
+
+  await fs.writeFile(savePath, canvas.toBuffer('image/png'));
+
+  let logoPath = null;
+  if (preset.logo && preset.showLogo !== false) {
+    const logoFile = join(__dirname, 'assets', 'logos', preset.logo);
+    if (existsSync(logoFile)) logoPath = logoFile;
+  }
+
+  return {
+    overlayPath: savePath,
+    videoY: 0,
+    videoX: 0,
+    videoW: 720,
+    videoH: 1280,
+    watermark: null,
+    logoOverlay: logoPath ? {
+      path: logoPath,
+      position: preset.rules?.logoPosition || 'top-left',
+      size: preset.rules?.logoSize || 65,
+      opacity: preset.rules?.logoOpacity ?? 1,
+      circular: preset.rules?.logoCircular !== undefined ? preset.rules.logoCircular : false,
+    } : null,
+  };
+}
+
 export function createVideoProcessor() {
   return {
     async processVideo({ videoPath, presets, headline, fontScale, wordSpacing, videoScale, fitMode, showCredit = true, ideaName = '', onProgress }) {
@@ -527,6 +614,12 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   if (preset.layout === 'hook_video') {
     const resolvedHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
     return generateHookVideoOverlay(preset, resolvedHeadline, fontScale, wordSpacingMultiplier, savePath);
+  }
+
+  // News-ticker layout: full-frame video, gradient bars at bottom
+  if (preset.layout === 'news_ticker') {
+    const resolvedHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
+    return generateNewsTickerOverlay(preset, resolvedHeadline, fontScale, wordSpacingMultiplier, savePath);
   }
 
   const canvas = createCanvas(720, 1280);
@@ -1520,7 +1613,8 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       'theprimefounder',
       'bestindianpodcast',
       'risewithcontent',
-      'indian business com'
+      'indian business com',
+      'indiabusinesscom'
     ];
     const skipWatermark = noWatermarkPresets.includes(presetNameLower);
     if (layout.watermark && !skipWatermark) {
