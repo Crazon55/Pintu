@@ -869,11 +869,11 @@ const PreviewCard = memo(({
                     <>
                         {/* Logo — text logo top-left, image logo top-left or bottom-left per rules */}
                         {preset.rules?.textLogo ? (
-                            <div className="absolute left-3 z-50 text-white font-black leading-tight" style={{ fontFamily: "'Inter', sans-serif", whiteSpace: 'pre-line', fontSize: `${(preset.rules?.logoSize || 42) * 0.55}px`, lineHeight: 1.1, top: preset.ratio === '9:16' ? '5%' : '12px' }}>
+                            <div className="absolute z-50 text-white font-black leading-tight" style={{ fontFamily: "'Inter', sans-serif", whiteSpace: 'pre-line', fontSize: `${(preset.rules?.logoSize || 42) * 0.55}px`, lineHeight: 1.1, top: preset.ratio === '9:16' ? '7.6%' : '12px', left: preset.ratio === '9:16' ? '4.2%' : '12px' }}>
                                 {preset.rules.textLogo}
                             </div>
                         ) : getLogoUrl(preset.logo) ? (
-                            <div className="absolute z-50" style={preset.rules?.logoPosition === 'bottom-left' ? { bottom: '12px', left: '8.2%' } : preset.name === 'indiabusinesscom-news' ? { top: '4.5%', left: '6.4%' } : { top: '12px', left: '12px' }}>
+                            <div className="absolute z-50" style={preset.rules?.logoPosition === 'bottom-left' ? { bottom: '12px', left: '8.2%' } : preset.name === 'indiabusinesscom-news' ? { top: '4.5%', left: '6.4%' } : preset.name === 'indianfounderbrief-news' ? { top: '6.4%', left: '10%' } : { top: '12px', left: '12px' }}>
                                 <img src={getLogoUrl(preset.logo)} className="w-14 h-14" style={{ objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
                             </div>
                         ) : null}
@@ -1155,7 +1155,7 @@ const PreviewCard = memo(({
                 {/* 3. VIDEO CONTAINER */}
                 <div
                     ref={containerRef}
-                    className={`w-full relative bg-black shrink-0 group ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : isResizingVideo ? 'ring-2 ring-blue-500 z-50' : 'cursor-pointer'} ''}`}
+                    className={`w-full relative bg-black shrink-0 group overflow-hidden ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : isResizingVideo ? 'ring-2 ring-blue-500 z-50' : 'cursor-pointer'} ''}`}
                     style={{
                         ...getAspectRatioStyle(preset.ratio)
                     }}
@@ -1359,13 +1359,13 @@ const PreviewCard = memo(({
             <button
                 onClick={() => onToggle(preset.id)}
                 title="Select preset for export"
-                className={`absolute top-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium shadow-lg border-2 transition-all min-w-[88px] justify-center ${preset.active ? 'bg-orange-500 text-black border-orange-400 ring-1 ring-orange-300' : 'bg-neutral-800/95 text-neutral-300 border-orange-500/60 hover:border-orange-500 hover:bg-orange-500/20 backdrop-blur-sm'}`}
+                className={`absolute top-2 left-2 z-[100] flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium shadow-lg border-2 transition-all min-w-[88px] justify-center ${preset.active ? 'bg-orange-500 text-black border-orange-400 ring-1 ring-orange-300' : 'bg-neutral-800/95 text-neutral-300 border-orange-500/60 hover:border-orange-500 hover:bg-orange-500/20 backdrop-blur-sm'}`}
             >
                 {preset.active ? <CheckSquare size={14} className="shrink-0" /> : <Square size={14} className="shrink-0 text-orange-400" />}
                 <span>{preset.active ? 'Selected' : 'Select'}</span>
             </button>
 
-            <div className="absolute top-2 right-2 flex gap-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-2 right-2 flex gap-1 z-[100] opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                     onClick={(e) => { e.stopPropagation(); setIsRepositioning(!isRepositioning); setIsResizingVideo(false); }}
                     className={`w-5 h-5 flex items-center justify-center rounded text-xs ${isRepositioning ? 'bg-blue-500 text-white' : 'bg-neutral-800/90 text-neutral-400 backdrop-blur-sm'} hover:bg-blue-600`}
