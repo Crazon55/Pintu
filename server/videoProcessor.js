@@ -51,6 +51,7 @@ verifyFfmpeg();
 // Register Inter fonts for export overlay generation (headline, footer, watermark).
 // Uses fonts from server/assets/fonts/ (Inter_18pt-Regular.ttf, Inter_18pt-Bold.ttf, Inter_18pt-Thin.ttf or Inter-Regular.ttf, Inter-Bold.ttf, Inter-Thin.ttf).
 const fontsDir = join(__dirname, 'assets', 'fonts');
+const logosDir = join(__dirname, 'assets', 'logos');
 const fontNames = {
   regular: ['Inter_18pt-Regular.ttf', 'Inter-Regular.ttf'],
   bold: ['Inter_18pt-Bold.ttf', 'Inter-Bold.ttf'],
@@ -77,6 +78,7 @@ if (interRegular) {
 }
 if (interBold) {
   registerFont(interBold, { family: 'Inter', weight: 'bold' });
+  registerFont(interBold, { family: 'InterBold', weight: 'normal' });
   console.log('✓ Inter Bold font registered');
 }
 if (interExtraBold) {
@@ -125,6 +127,30 @@ if (existsSync(poppinsThin)) {
   console.log('✓ Poppins Thin font registered');
 }
 
+// Register Montserrat for 101xtechnology hook_video presets.
+const montserratMedium = resolve(fontsDir, 'Montserrat-Medium.ttf');
+const montserratBold = resolve(fontsDir, 'Montserrat-Bold.ttf');
+const montserratExtraBold = resolve(fontsDir, 'Montserrat-ExtraBold.ttf');
+const montserratBlack = resolve(fontsDir, 'Montserrat-Black.ttf');
+if (existsSync(montserratMedium)) {
+  registerFont(montserratMedium, { family: 'MontserratMedium', weight: 'normal', style: 'normal' });
+  registerFont(montserratMedium, { family: 'Montserrat Medium', weight: 'normal', style: 'normal' });
+  console.log('✓ Montserrat Medium registered');
+}
+if (existsSync(montserratBold)) {
+  registerFont(montserratBold, { family: 'Montserrat', weight: 'bold' });
+  console.log('✓ Montserrat Bold registered');
+}
+if (existsSync(montserratExtraBold)) {
+  registerFont(montserratExtraBold, { family: 'MontserratExtraBold', weight: 'normal' });
+  console.log('✓ Montserrat ExtraBold registered');
+}
+if (existsSync(montserratBlack)) {
+  registerFont(montserratBlack, { family: 'MontserratBlack', weight: 'normal', style: 'normal' });
+  registerFont(montserratBlack, { family: 'Montserrat Black', weight: 'normal', style: 'normal' });
+  console.log('✓ Montserrat Black registered');
+}
+
 // Load Poppins TTF via opentype.js for pixel-accurate advance width measurement.
 // Canvas falls back to Sans on Windows (pango can't find unregistered fonts by alias),
 // so we bypass canvas measureText entirely for Poppins and read directly from the TTF.
@@ -133,6 +159,82 @@ try {
   if (existsSync(poppinsRegular)) { _otPoppinsReg = opentypeLoad(poppinsRegular); console.log('✓ Poppins Regular loaded via opentype.js'); }
   if (existsSync(poppinsBold))    { _otPoppinsBold = opentypeLoad(poppinsBold);   console.log('✓ Poppins Bold loaded via opentype.js'); }
 } catch(e) { console.warn('opentype.js load failed:', e.message); }
+
+let _otInterReg = null, _otInterBold = null;
+try {
+  if (existsSync(interRegular)) { _otInterReg = opentypeLoad(interRegular); console.log('✓ Inter Regular loaded via opentype.js'); }
+  if (existsSync(interBold))    { _otInterBold = opentypeLoad(interBold);   console.log('✓ Inter Bold loaded via opentype.js'); }
+} catch (e) { console.warn('Inter opentype load failed:', e.message); }
+
+function drawVerifiedBadge(ctx, cx, cy, sz) {
+  const half = sz / 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, half, 0, 2 * Math.PI);
+  ctx.fillStyle = '#1D9BF0';
+  ctx.fill();
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - 4.5, cy + 0.5);
+  ctx.lineTo(cx - 1, cy + 4);
+  ctx.lineTo(cx + 4.5, cy - 3.5);
+  ctx.stroke();
+}
+let _otMontserratMed = null;
+try {
+  if (existsSync(montserratMedium)) {
+    _otMontserratMed = opentypeLoad(montserratMedium);
+    console.log('✓ Montserrat Medium loaded via opentype.js');
+  }
+} catch (e) { console.warn('Montserrat Medium opentype load failed:', e.message); }
+
+// Draw text via opentype.js paths — bypasses Windows canvas/Pango font lookup issues.
+// opentype Path.draw() reads path.fill, NOT ctx.fillStyle.
+function drawOpentypeText(ctx, font, text, x, baselineY, fontSize, fillStyle) {
+  if (!font || !text) return false;
+  const path = font.getPath(text, x, baselineY, fontSize);
+  path.fill = fillStyle;
+  ctx.save();
+  path.draw(ctx);
+  ctx.restore();
+  return true;
+}
+
+// 90° linear gradient (#4898ab → #90d46c) clipped to glyph shape — for <b> highlight words only.
+function drawOpentypeGradientText(ctx, font, text, x, baselineY, fontSize, colorStart, colorEnd) {
+  if (!font || !text) return false;
+  const path = font.getPath(text, x, baselineY, fontSize);
+  const bb = path.getBoundingBox();
+  const grad = ctx.createLinearGradient(bb.x1, bb.y1, bb.x2, bb.y1);
+  grad.addColorStop(0, colorStart);
+  grad.addColorStop(1, colorEnd);
+  ctx.save();
+  ctx.beginPath();
+  for (const cmd of path.commands) {
+    if (cmd.type === 'M') ctx.moveTo(cmd.x, cmd.y);
+    else if (cmd.type === 'L') ctx.lineTo(cmd.x, cmd.y);
+    else if (cmd.type === 'C') ctx.bezierCurveTo(cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x, cmd.y);
+    else if (cmd.type === 'Q') ctx.quadraticCurveTo(cmd.x1, cmd.y1, cmd.x, cmd.y);
+    else if (cmd.type === 'Z') ctx.closePath();
+  }
+  ctx.clip();
+  ctx.fillStyle = grad;
+  ctx.fillRect(bb.x1, bb.y1, Math.max(1, bb.x2 - bb.x1), Math.max(1, bb.y2 - bb.y1));
+  ctx.restore();
+  return true;
+}
+
+function middleToBaseline(font, fontSize, midY) {
+  const scale = fontSize / font.unitsPerEm;
+  return midY + ((font.ascender + font.descender) / 2) * scale;
+}
+
+function measureOtWidth(font, text, fontSize) {
+  if (!font) return 0;
+  return font.getAdvanceWidth(text, fontSize);
+}
 
 // Measure a string's advance width in px using opentype.js (same metrics FFmpeg uses).
 function measurePoppins(text, size, bold) {
@@ -447,6 +549,267 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     } : null,
   };
 }
+
+/** Side padding for aroll video frame — only 2:3 portrait gets inset bars. */
+function getArollVideoSidePad(ratio, rules) {
+  if (rules?.videoPadX != null) return rules.videoPadX;
+  const r = String(ratio || '').replace(/\s/g, '');
+  return r === '2:3' ? 44 : 0;
+}
+
+/**
+ * A-ROLL LAYOUT (101xtechnology)
+ * Full-frame source video plays behind canvas. Canvas: solid black band at top
+ * (with "101xt." logo group + hook text), transparent below so video shows through.
+ * hookPosition: 'top' | 'mid' | 'low' controls vertical placement of the text block,
+ * matching Canva design DAHMcOtTkhM pages 8, 7, 9 respectively.
+ */
+async function generateArollOverlay(preset, headline, fontScale, wordSpacingMultiplier, savePath) {
+  const CANVAS_H = 1280;
+  const canvas = createCanvas(720, CANVAS_H);
+  const ctx = canvas.getContext('2d', { alpha: true });
+
+  const isLogoSocial = preset.rules?.arollStyle === 'logo_social';
+  const showTopGlow = !isLogoSocial && preset.rules?.topGlow !== false;
+  const hookPosition = preset.rules?.hookPosition || 'mid';
+  const textLogo = preset.rules?.textLogo || (isLogoSocial ? preset.name : '101xt.');
+  const handle = preset.handle || '@101xtechnology';
+  const hlColors = preset.rules?.highlightColors || ['#4898ab', '#90d46c'];
+
+  const textStartX = 50;
+  const maxTextW = 620;
+  const fontSize = Math.round(38 * (fontScale || 1));
+  const lineHeight = fontSize * 1.35;
+
+  // --- Video frame ---
+  const sidePad = getArollVideoSidePad(preset.ratio, preset.rules);
+  let videoW = 720 - sidePad * 2;
+  if (videoW % 2 !== 0) videoW -= 1;
+  const videoX = Math.round((720 - videoW) / 2);
+  const [wR, hR] = (preset.ratio || '16:9').split(':').map(Number);
+  let videoH = Math.round(videoW * (hR / wR));
+  if (videoH > CANVAS_H) videoH = CANVAS_H;
+  if (videoH % 2 !== 0) videoH += 1;
+
+  // --- Tokenize + wrap hook text ---
+  let cleanedHtml = cleanHTML(headline || '');
+  cleanedHtml = cleanedHtml.replace(/<\/?strong>/gi, (m) => m.toLowerCase().replace('strong', 'b'));
+  cleanedHtml = cleanedHtml.replace(/<\/?b>/gi, (m) => m.toLowerCase());
+  const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
+  const lines = [];
+  const logicalLines = cleanedHtml.split('\n').map(s => s.trim()).filter(Boolean);
+
+  const hookOtFont = isLogoSocial ? (_otInterReg || null) : (_otPoppinsBold || null);
+  const hookOtBold = isLogoSocial ? (_otInterBold || _otInterReg || null) : (_otPoppinsBold || null);
+  const hookCanvasFF = isLogoSocial
+    ? (existsSync(interRegular) ? 'Inter' : 'sans-serif')
+    : (existsSync(poppinsBold) ? 'PoppinsBoldM' : 'Inter');
+  const hookCanvasBoldFF = isLogoSocial
+    ? (existsSync(interBold) ? 'InterBold' : hookCanvasFF)
+    : hookCanvasFF;
+
+  const measureHookWord = (text, bold) => {
+    if (isLogoSocial) {
+      const f = bold ? hookOtBold : hookOtFont;
+      return f ? measureOtWidth(f, text, fontSize) : (ctx.font = `${bold ? 'bold' : 'normal'} ${fontSize}px Inter`, ctx.measureText(text).width);
+    }
+    return hookOtFont ? measureOtWidth(hookOtFont, text, fontSize) : (ctx.font = `normal ${fontSize}px ${hookCanvasFF}`, ctx.measureText(text).width);
+  };
+
+  const hookMaxW = isLogoSocial ? 620 : maxTextW;
+  const hookStartX = textStartX;
+  for (const lineHtml of logicalLines) {
+    const tokens = [];
+    lineHtml.split(/(<b>.*?<\/b>)/i).forEach(part => {
+      if (!part) return;
+      const isB = /^<b>/i.test(part);
+      part.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
+    });
+    let curLine = { tokens: [], width: 0 };
+    for (const t of tokens) {
+      const w = measureHookWord(t.text, t.bold);
+      const advance = w + spacing;
+      if (curLine.width + advance > hookMaxW && curLine.tokens.length > 0) {
+        lines.push(curLine);
+        curLine = { tokens: [], width: 0 };
+      }
+      curLine.tokens.push({ ...t, measuredWidth: w });
+      curLine.width += advance;
+    }
+    if (curLine.tokens.length > 0) lines.push(curLine);
+  }
+
+  // --- Vertical stack layout ---
+  const LOGO_SOCIAL_SZ = 70;
+  const headerToHookGap = isLogoSocial ? 16 : 14;
+  const hookToVideoGap = 26;
+  const brandFontSz = isLogoSocial ? 32 : 46;
+  const handleFontSz = isLogoSocial ? 18 : 20;
+  const headerH = isLogoSocial ? LOGO_SOCIAL_SZ : brandFontSz;
+  const hookTextH = lines.length * lineHeight;
+  const totalTextH = headerH + headerToHookGap + hookTextH;
+  const totalStackH = totalTextH + hookToVideoGap + videoH;
+
+  const ratioKey = String(preset.ratio || '16:9').replace(/\s/g, '');
+  const centerWideStack = ratioKey === '16:9' || ratioKey === '6:5';
+  let startY;
+  if (centerWideStack) {
+    const centered = Math.round((CANVAS_H - totalStackH) / 2);
+    startY = Math.max(Math.round(CANVAS_H * 0.06), centered - Math.round(CANVAS_H * 0.045));
+  } else if (hookPosition === 'top') {
+    startY = Math.round(CANVAS_H * 0.09);
+  } else if (hookPosition === 'low') {
+    startY = Math.round(CANVAS_H * 0.14 + (CANVAS_H * 0.86 - totalStackH) / 2);
+  } else {
+    startY = Math.round((CANVAS_H - totalStackH) / 2);
+  }
+
+  const logoGroupY = startY;
+  const hookTextStartY = startY + headerH + headerToHookGap;
+  let videoTopY = startY + Math.round(totalTextH) + hookToVideoGap;
+  if (videoTopY % 2 !== 0) videoTopY += 1;
+
+  // Background
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, 720, CANVAS_H);
+  if (showTopGlow) {
+    const cornerGlow = ctx.createRadialGradient(760, -30, 0, 760, -30, 500);
+    cornerGlow.addColorStop(0, 'rgba(100, 155, 85, 0.32)');
+    cornerGlow.addColorStop(0.22, 'rgba(60, 110, 55, 0.14)');
+    cornerGlow.addColorStop(0.5, 'rgba(25, 45, 22, 0.05)');
+    cornerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = cornerGlow;
+    ctx.fillRect(0, 0, 720, CANVAS_H);
+  }
+  ctx.clearRect(videoX, videoTopY, videoW, videoH);
+
+  if (isLogoSocial) {
+    // Logo + name/tick row + handle below (Indian Tech Daily style)
+    const logoX = textStartX;
+    const logoY = logoGroupY;
+    const textColX = logoX + LOGO_SOCIAL_SZ + 14;
+    const logoFile = preset.logo || 'indiantechdaily.png';
+    const logoPath = resolve(logosDir, logoFile);
+    if (existsSync(logoPath)) {
+      const logoImg = await loadImage(logoPath);
+      const cx = logoX + LOGO_SOCIAL_SZ / 2;
+      const cy = logoY + LOGO_SOCIAL_SZ / 2;
+      const r = LOGO_SOCIAL_SZ / 2;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - 1, 0, 2 * Math.PI);
+      ctx.clip();
+      ctx.drawImage(logoImg, logoX, logoY, LOGO_SOCIAL_SZ, LOGO_SOCIAL_SZ);
+      ctx.restore();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - 1, 0, 2 * Math.PI);
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    const nameMidY = logoGroupY + Math.round(LOGO_SOCIAL_SZ * 0.36);
+    const nameBaseline = _otInterBold
+      ? middleToBaseline(_otInterBold, brandFontSz, nameMidY)
+      : logoGroupY + Math.round(brandFontSz * 0.78);
+    const handleLineGap = 10;
+    const handleBaseline = nameBaseline + Math.round(brandFontSz * 0.38) + handleLineGap;
+    const badgeSz = Math.round(brandFontSz * 0.62);
+    const badgeGap = 8;
+    let nameW = 0;
+    if (_otInterBold) {
+      drawOpentypeText(ctx, _otInterBold, textLogo, textColX, nameBaseline, brandFontSz, '#FFFFFF');
+      nameW = measureOtWidth(_otInterBold, textLogo, brandFontSz);
+    } else {
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = `bold ${brandFontSz}px Inter`;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(textLogo, textColX, nameBaseline);
+      nameW = ctx.measureText(textLogo).width;
+    }
+    drawVerifiedBadge(ctx, textColX + nameW + badgeGap + badgeSz / 2, nameMidY, badgeSz);
+    if (_otInterReg) {
+      drawOpentypeText(ctx, _otInterReg, handle, textColX, handleBaseline, handleFontSz, '#AAAAAA');
+    } else {
+      ctx.font = `normal ${handleFontSz}px Inter`;
+      ctx.fillStyle = '#AAAAAA';
+      ctx.fillText(handle, textColX, handleBaseline);
+    }
+  } else {
+    // 101xt. · tick · @handle — single row, tick vertically centered on name
+    const nameMidY = logoGroupY + Math.round(brandFontSz * 0.42);
+    const badgeGap = 8;
+    const handleGap = 18;
+    const badgeSz = Math.round(brandFontSz * 0.52);
+
+    let brandTextW;
+    if (_otMontserratMed) {
+      const brandBaseline = middleToBaseline(_otMontserratMed, brandFontSz, nameMidY);
+      const handleBaseline = middleToBaseline(_otMontserratMed, handleFontSz, nameMidY);
+      drawOpentypeText(ctx, _otMontserratMed, textLogo, textStartX, brandBaseline, brandFontSz, '#FFFFFF');
+      brandTextW = measureOtWidth(_otMontserratMed, textLogo, brandFontSz);
+      drawVerifiedBadge(ctx, textStartX + brandTextW + badgeGap + badgeSz / 2, nameMidY, badgeSz);
+      drawOpentypeText(ctx, _otMontserratMed, handle, textStartX + brandTextW + badgeGap + badgeSz + handleGap, handleBaseline, handleFontSz, '#AAAAAA');
+    } else {
+      const brandFF = existsSync(montserratMedium) ? 'MontserratMedium' : 'Inter';
+      const handleFF = existsSync(montserratMedium) ? 'MontserratMedium' : 'Inter';
+      ctx.textBaseline = 'middle';
+      ctx.font = `normal ${brandFontSz}px ${brandFF}`;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(textLogo, textStartX, nameMidY);
+      brandTextW = ctx.measureText(textLogo).width;
+      drawVerifiedBadge(ctx, textStartX + brandTextW + badgeGap + badgeSz / 2, nameMidY, badgeSz);
+      ctx.font = `normal ${handleFontSz}px ${handleFF}`;
+      ctx.fillStyle = '#AAAAAA';
+      ctx.fillText(handle, textStartX + brandTextW + badgeGap + badgeSz + handleGap, nameMidY);
+    }
+  }
+
+  // Hook text
+  let drawY = hookTextStartY;
+  for (const line of lines) {
+    let drawX = hookStartX;
+    const lineMidY = drawY + fontSize / 2;
+    for (const t of line.tokens) {
+      const otFont = isLogoSocial ? (t.bold ? hookOtBold : hookOtFont) : hookOtFont;
+      const hookBaselineLine = otFont ? middleToBaseline(otFont, fontSize, lineMidY) : drawY;
+      if (otFont) {
+        if (!isLogoSocial && t.bold) {
+          drawOpentypeGradientText(ctx, otFont, t.text, drawX, hookBaselineLine, fontSize, hlColors[0], hlColors[1]);
+        } else {
+          drawOpentypeText(ctx, t.bold ? hookOtBold : hookOtFont, t.text, drawX, hookBaselineLine, fontSize, '#FFFFFF');
+        }
+      } else {
+        ctx.textBaseline = 'top';
+        ctx.font = `${t.bold ? 'bold' : 'normal'} ${fontSize}px ${t.bold ? hookCanvasBoldFF : hookCanvasFF}`;
+        if (!isLogoSocial && t.bold) {
+          const bbW = ctx.measureText(t.text).width;
+          const grad = ctx.createLinearGradient(drawX, drawY, drawX + bbW, drawY);
+          grad.addColorStop(0, hlColors[0]);
+          grad.addColorStop(1, hlColors[1]);
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = '#FFFFFF';
+        }
+        ctx.fillText(t.text, drawX, drawY);
+      }
+      drawX += t.measuredWidth + spacing;
+    }
+    drawY += lineHeight;
+  }
+
+  await fs.writeFile(savePath, canvas.toBuffer('image/png'));
+
+  return {
+    overlayPath: savePath,
+    videoY: videoTopY,  // video hole sits below the hook; black fills above + below
+    videoX: videoX,     // inset: black bars on left + right
+    videoW: videoW,
+    videoH: videoH,
+    watermark: null,
+    logoOverlay: null,
+  };
+}
+
 
 /**
  * NEWS-TICKER LAYOUT (indiabusinesscom)
@@ -786,6 +1149,12 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   if (preset.layout === 'hook_video') {
     const resolvedHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
     return generateHookVideoOverlay(preset, resolvedHeadline, fontScale, wordSpacingMultiplier, savePath);
+  }
+
+  // A-roll layout: full-frame video behind, solid black band at top with logo group + hook text
+  if (preset.layout === 'aroll') {
+    const resolvedHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
+    return generateArollOverlay(preset, resolvedHeadline, fontScale, wordSpacingMultiplier, savePath);
   }
 
   // News-ticker layout: full-frame video, gradient bars at bottom
@@ -1702,11 +2071,12 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       console.warn('Could not probe video dimensions, using defaults:', error.message);
     }
 
-    // No side padding: video always full canvas width (720) at x=0
+    // Video width/x default to full canvas (720 @ x=0); aroll insets the frame with
+    // left/right padding by supplying layout.videoW / layout.videoX.
     const CANVAS_W = 720;
-    const sw = Math.round(CANVAS_W / 2) * 2;
+    const sw = Math.round((layout.videoW || CANVAS_W) / 2) * 2;
     const sh = Math.round(layout.videoH / 2) * 2;
-    const sx = 0;
+    const sx = Math.round(layout.videoX || 0);
     const sy = Math.round(layout.videoY);
 
     const posX = preset.position?.x ?? 50;
@@ -1732,11 +2102,12 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
     const borderRadius = preset.rules?.videoBorderRadius || 0;
     const hasRoundedCorners = borderRadius > 0;
 
-    // For news_ticker the canvas IS the total output (720×canvasH); other layouts always output 720×1280.
-    const totalOutputH = preset.layout === 'news_ticker' ? sh : 1280;
+    // For news_ticker the canvas IS the total output (720×canvasH). aroll embeds the video
+    // as a hole inside a fixed 9:16 reel, so it outputs 720×1280 like the default layouts.
+    const totalOutputH = (preset.layout === 'news_ticker') ? sh : 1280;
     const filterChain = [
       `[0:v]${vFilter},setsar=1[v]`,
-      `[v]pad=720:${totalOutputH}:0:${sy}:black[base]`,
+      `[v]pad=720:${totalOutputH}:${sx}:${sy}:black[base]`,
       `[1:v]scale=720:${totalOutputH},format=rgba[graphics]`,
       `[base][graphics]overlay=0:0[ovl]`,
       `[ovl]format=yuv420p[ovl]`
@@ -1753,7 +2124,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       const maskExpr = `if(lt(min(min(X,${w}-X),min(Y,${h}-Y)),${radius}),0,1)`;
       filterChain.push(`[valpha]geq=a='${maskExpr}'[vrounded]`);
       filterChain.push(`[vrounded]format=yuv420p[v2]`);
-      filterChain.push(`[v2]pad=720:${totalOutputH}:0:${sy}:black[base]`);
+      filterChain.push(`[v2]pad=720:${totalOutputH}:${sx}:${sy}:black[base]`);
       filterChain.push(`[1:v]scale=720:${totalOutputH},format=rgba[graphics]`);
       filterChain.push(`[base][graphics]overlay=0:0[ovl]`);
       filterChain.push(`[ovl]format=yuv420p[ovl]`);
@@ -1791,7 +2162,10 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       'indiabusinesscom-news',
       'indiastartupstory-news',
       'ifc-news',
-      'indianfounderbrief-news'
+      'indianfounderbrief-news',
+      '101xtechnology-top',
+      '101xtechnology-mid',
+      '101xtechnology-low'
     ];
     const skipWatermark = noWatermarkPresets.includes(presetNameLower);
     if (layout.watermark && !skipWatermark) {
@@ -1999,8 +2373,8 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       filterChain.push(`[${currentOutput}]copy[out]`);
     }
 
-    // Scale news_ticker output up to 1080px wide (4:5 → 1080×1350, 9:16 → 1080×1920)
-    if (preset.layout === 'news_ticker') {
+    // Scale news_ticker and aroll output up to 1080px wide (9:16 → 1080×1920)
+    if (preset.layout === 'news_ticker' || preset.layout === 'aroll') {
       const lastIdx = filterChain.length - 1;
       filterChain[lastIdx] = filterChain[lastIdx].replace('copy[out]', 'scale=1080:-2[out]');
     }
@@ -2049,3 +2423,5 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       }).save(outputPathAbs);
   });
 }
+
+export { generateArollOverlay };
