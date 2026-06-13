@@ -124,6 +124,8 @@ const INITIAL_PRESETS_RAW = [
     { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55 } },
     { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 50, textLogo: 'IFC.' } },
     { id: 97, name: 'indianfounderbrief-news', handle: '@indianfounderbrief', ratio: '9:16', color: '#1565C0', active: true, layout: 'news_ticker', logo: 'indianfounderbrief.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 150 } },
+    { id: 98, name: '101xtechnology-aroll', handle: '@101xtechnology', ratio: '16:9', color: '#4898ab', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: '101xt.', highlightColors: ['#4898ab', '#90d46c'], topGlow: true } },
+    { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
 ];
 
@@ -141,7 +143,7 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
 }));
 
 // Presets configured during the "Experiment X" pass — surfaced in their own quick-pick section
-const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'indiastartupstory-news', 'ifc-news', 'indianfounderbrief-news'];
+const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'indiastartupstory-news', 'ifc-news', 'indianfounderbrief-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
 
 // Helper to get logo URL (handles both data URIs and filenames)
 const getLogoUrl = (logo) => {
@@ -463,6 +465,8 @@ const PreviewCard = memo(({
     const getAspectRatioStyle = (r) => {
         switch (r) {
             case '16:9': return { paddingBottom: '56.25%' };
+            case '6:5': return { paddingBottom: '83.33%' };
+            case '2:3': return { paddingBottom: '150%' };
             case '1:1': return { paddingBottom: '100%' };
             case '4:3': return { paddingBottom: '75%' };
             case '3:4': return { paddingBottom: '133.33%' };
@@ -471,6 +475,9 @@ const PreviewCard = memo(({
             default: return { paddingBottom: '100%' };
         }
     };
+
+    // aroll video frame: only 2:3 portrait gets side padding (matches export)
+    const arollHasSidePad = preset.layout === 'aroll' && preset.ratio === '2:3';
 
     const handleMouseDown = (e) => {
         if (!isRepositioning) return;
@@ -685,7 +692,7 @@ const PreviewCard = memo(({
         if (!preset.active) return 20; // Default size for inactive presets
         const textLength = preset.headline ? stripHTML(preset.headline).length : 0;
         const baseSize = calculateFontSize(textLength, effectiveFontScale);
-        const layoutScale = preset.layout === 'hook_video' ? 0.5 : preset.layout === 'logo_centered' ? 0.35 : 0.45;
+        const layoutScale = (preset.layout === 'hook_video' || preset.layout === 'aroll') ? 0.5 : preset.layout === 'logo_centered' ? 0.35 : 0.45;
         return Math.max(10, baseSize * layoutScale);
     }, [preset.headline, preset.layout, effectiveFontScale, preset.active]);
 
@@ -693,8 +700,13 @@ const PreviewCard = memo(({
     const isCenterAligned = preset.alignment === 'center';
     const isCenteredLeftAlign = preset.name === 'startupsoncrack' || preset.name === 'millionaire.founders' || preset.name === 'startupscheming' || preset.name === 'indian business com';
     const textAlignClass = isCenterAligned ? 'text-center items-center px-6' : (isCenteredLeftAlign ? 'text-left items-start px-14' : 'text-left items-start px-6');
-    const justifyClass = 'justify-center gap-1';
-    const showMainHookBlock = preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer';
+    // aroll: 16:9/6:5 stacks centered; 2:3 uses hookPosition (top/mid/low)
+    const arollHookPos = preset.layout === 'aroll' ? (preset.rules?.hookPosition || 'mid') : null;
+    const arollCenterStack = preset.layout === 'aroll' && (preset.ratio === '16:9' || preset.ratio === '6:5');
+    const justifyClass = arollHookPos
+        ? (arollCenterStack ? 'justify-center gap-1 -mt-[4%]' : arollHookPos === 'top' ? 'justify-start gap-1 pt-[9%]' : arollHookPos === 'low' ? 'justify-center gap-1 pt-[14%]' : 'justify-center gap-1')
+        : 'justify-center gap-1';
+    const showMainHookBlock = preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && preset.layout !== 'aroll' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer';
     const eyebrowSizeScale = preset.hookEyebrowSizeScale ?? 1.1;
     const eyebrowGapScale = preset.hookEyebrowGapScale ?? 7.0;
     const eyebrowAlignment = preset.hookEyebrowAlignment ?? 'left';
@@ -782,7 +794,7 @@ const PreviewCard = memo(({
 
             {/* MAIN CONTENT AREA - FULL HEIGHT FLEX */}
             {/* This allows us to stack everything (Header -> Text -> Video -> Footer) properly in one flow */}
-            <div className={`flex-1 w-full flex flex-col ${justifyClass} relative ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : 'bg-neutral-900'}`}>
+            <div className={`flex-1 w-full flex flex-col ${justifyClass} relative ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : (preset.layout === 'aroll' ? '' : 'bg-neutral-900')}`} style={preset.layout === 'aroll' ? (preset.rules?.topGlow === false ? { background: '#000000' } : { background: 'radial-gradient(ellipse 60% 45% at 95% 0%, rgba(100, 155, 85, 0.32) 0%, rgba(60, 110, 55, 0.12) 30%, transparent 68%), #000000' }) : undefined}>
 
                 {/* 1a. HOOK_VIDEO HEADER: optional line above hook, then hook text centered on black */}
                 {preset.layout === 'hook_video' && (
@@ -847,12 +859,12 @@ const PreviewCard = memo(({
                                                 ? (groupMap[idx] === 1 ? '#FF5F07' : groupMap[idx] >= 2 ? '#46DB27' : '#FFFFFF')
                                                 : (segment.highlight ? preset.color : '#FFFFFF'),
                                             fontWeight: preset.name === 'indian-founders-co'
-                                                ? (segment.highlight ? 900 : 400)
-                                                : preset.name === 'indiabusinesscom'
-                                                    ? 800
-                                                    : preset.name === 'indianfoundercore'
-                                                        ? 900
-                                                        : (segment.highlight ? 700 : 400),
+                                                    ? (segment.highlight ? 900 : 400)
+                                                    : preset.name === 'indiabusinesscom'
+                                                        ? 800
+                                                        : preset.name === 'indianfoundercore'
+                                                            ? 900
+                                                            : (segment.highlight ? 700 : 400),
                                         }}
                                     >
                                         {segment.text}{' '}
@@ -967,8 +979,87 @@ const PreviewCard = memo(({
                     </>
                 )}
 
+                {/* 1b-aroll. AROLL LAYOUT: in-flow black header band ("101xt." + badge + handle + hook)
+                    above the embedded video band. Output stays a 9:16 reel — only the video frame
+                    ratio + vertical placement (top/mid/low) change between variants. */}
+                {preset.layout === 'aroll' && (() => {
+                    const isLogoSocial = preset.rules?.arollStyle === 'logo_social';
+                    const textLogo = preset.rules?.textLogo || (isLogoSocial ? preset.name : '101xt.');
+                    const brandSize = Math.round(previewFontSize * (isLogoSocial ? 0.85 : 1.2));
+                    const handleSize = Math.round(previewFontSize * 0.52);
+                    const hlColors = preset.rules?.highlightColors || ['#4898ab', '#90d46c'];
+                    const segments = parseHeadline(preset.headline || '');
+                    const badgePx = Math.max(10, Math.round(brandSize * (isLogoSocial ? 0.62 : 0.52)));
+
+                    const hookBlock = (
+                        <div className="pb-2" style={{
+                            fontFamily: isLogoSocial ? "'Inter', sans-serif" : "'Poppins', sans-serif",
+                            fontSize: `${previewFontSize}px`,
+                            lineHeight: 1.35,
+                            fontWeight: isLogoSocial ? 400 : 700,
+                        }}>
+                            {segments.map((seg, idx) => {
+                                if (seg.lineBreak) return <br key={idx} />;
+                                if (!isLogoSocial && seg.highlight) {
+                                    return (
+                                        <span key={idx} style={{
+                                            fontWeight: 700,
+                                            background: `linear-gradient(90deg, ${hlColors[0]}, ${hlColors[1]})`,
+                                            WebkitBackgroundClip: 'text',
+                                            WebkitTextFillColor: 'transparent',
+                                            backgroundClip: 'text',
+                                        }}>{seg.text}{' '}</span>
+                                    );
+                                }
+                                return <span key={idx} style={{ color: '#FFFFFF', fontWeight: seg.highlight ? 700 : (isLogoSocial ? 400 : 700) }}>{seg.text}{' '}</span>;
+                            })}
+                        </div>
+                    );
+
+                    if (isLogoSocial) {
+                        return (
+                            <div className="w-full px-[7%] z-10 shrink-0">
+                                <div className="flex gap-3.5 pt-3 pb-1.5 items-start">
+                                    <div className="w-[70px] h-[70px] rounded-full ring-1 ring-white/70 overflow-hidden shrink-0 bg-neutral-800">
+                                        {getLogoUrl(preset.logo) ? (
+                                            <img src={getLogoUrl(preset.logo)} className="w-full h-full object-cover scale-[1.2]" alt="" />
+                                        ) : null}
+                                    </div>
+                                    <div className="flex flex-col justify-center min-h-[70px]">
+                                        <div className="flex items-center">
+                                            <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: `${brandSize}px`, color: '#FFFFFF', lineHeight: 1, whiteSpace: 'nowrap' }}>{textLogo}</span>
+                                            <div className="rounded-full flex items-center justify-center flex-shrink-0" style={{ width: `${badgePx}px`, height: `${badgePx}px`, background: '#1D9BF0', marginLeft: '8px' }}>
+                                                <svg viewBox="0 0 24 24" fill="none" style={{ width: '68%', height: '68%' }}>
+                                                    <path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400, fontSize: `${handleSize}px`, color: '#AAAAAA', lineHeight: 1, marginTop: '10px' }}>{preset.handle}</span>
+                                    </div>
+                                </div>
+                                {hookBlock}
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div className="w-full px-[7%] z-10 shrink-0">
+                            <div className="flex items-center pt-3 pb-1.5">
+                                <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 500, fontSize: `${brandSize}px`, color: '#FFFFFF', lineHeight: 1, whiteSpace: 'nowrap' }}>{textLogo}</span>
+                                <div className="rounded-full flex items-center justify-center flex-shrink-0" style={{ width: `${badgePx}px`, height: `${badgePx}px`, background: '#1D9BF0', marginLeft: '8px' }}>
+                                    <svg viewBox="0 0 24 24" fill="none" style={{ width: '68%', height: '68%' }}>
+                                        <path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                </div>
+                                <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 500, fontSize: `${handleSize}px`, color: '#AAAAAA', lineHeight: 1, whiteSpace: 'nowrap', marginLeft: '18px' }}>{preset.handle}</span>
+                            </div>
+                            {hookBlock}
+                        </div>
+                    );
+                })()}
+
                 {/* 1b. HEADER SECTION (Stacked inside content flow) */}
-                {preset.layout !== 'watermark' && preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && (
+                {preset.layout !== 'watermark' && preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && preset.layout !== 'aroll' && (
                     <div className={`w-full ${preset.name === 'wealth lessons india' ? 'px-4' : 'px-6'} z-10 shrink-0 mb-1`}>
                         {/* SOCIAL HEADER */}
                         {preset.layout === 'social' && preset.name !== 'founderdaily' && preset.name !== 'founderbusinesstips' && preset.name !== 'kwazyfounders' && (
@@ -1026,7 +1117,7 @@ const PreviewCard = memo(({
                 )}
 
                 {/* 2. HOOK TEXT */}
-                {preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer' && (
+                {preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && preset.layout !== 'aroll' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer' && (
                     <div
                         ref={headlineRef}
                         data-headline="true"
@@ -1152,11 +1243,12 @@ const PreviewCard = memo(({
                     </div>
                 )}
 
-                {/* 3. VIDEO CONTAINER */}
+                {/* 3. VIDEO CONTAINER (aroll: inset with left/right padding to match export) */}
                 <div
                     ref={containerRef}
-                    className={`w-full relative bg-black shrink-0 group overflow-hidden ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : isResizingVideo ? 'ring-2 ring-blue-500 z-50' : 'cursor-pointer'} ''}`}
+                    className={`relative bg-black shrink-0 group overflow-hidden ${preset.layout === 'aroll' ? 'mx-auto' : 'w-full'} ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : isResizingVideo ? 'ring-2 ring-blue-500 z-50' : 'cursor-pointer'} ''}`}
                     style={{
+                        ...(preset.layout === 'aroll' ? { width: arollHasSidePad ? '87.8%' : '100%' } : {}),
                         ...getAspectRatioStyle(preset.ratio)
                     }}
                     onDoubleClick={() => setIsRepositioning(!isRepositioning)}
@@ -1323,7 +1415,7 @@ const PreviewCard = memo(({
                 </div>
 
                 {/* 4. CREDIT TEXT (Footer) - Left Aligned below video, matching export layout */}
-                {showCredit && preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && !isAicrackedOrEvolvingPreset && (
+                {showCredit && preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && preset.layout !== 'aroll' && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && !isAicrackedOrEvolvingPreset && (
                     <div
                         ref={creditRef}
                         className={`w-full z-10 text-left px-6 relative ${isRepositioningCredit ? 'cursor-move ring-2 ring-yellow-500' : ''}`}
@@ -2204,7 +2296,7 @@ export default function App() {
                                                     <span className="text-sm font-bold text-white">{p.name}</span>
                                                     {/* Aspect Ratio Selector */}
                                                     <div className="flex gap-2">
-                                                        {['16:9', '4:3', '3:4', '1:1'].map(r => (
+                                                        {(p.layout === 'aroll' ? ['16:9', '6:5', '2:3'] : ['16:9', '4:3', '3:4', '1:1']).map(r => (
                                                             <button
                                                                 key={r}
                                                                 onClick={() => {
