@@ -120,8 +120,10 @@ const INITIAL_PRESETS_RAW = [
     { id: 81, name: 'startupbydog', handle: '@startupbydog', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'startupbydog.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 82, name: 'Entrepreneursindia.co', handle: '@entrepreneursindia.co', ratio: '4:3', color: '#6500D1', active: true, layout: 'social', logo: 'Entrepreneursindia.co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 92, name: 'indiabusinesscom', handle: '@indiabusinesscom', ratio: '4:3', color: '#FF5F07', active: true, layout: 'hook_video', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 65 } },
-    { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '9:16', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 65 } },
-    { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '9:16', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 65 } },
+    { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '4:5', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 65 } },
+    { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55 } },
+    { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 50, textLogo: 'IFC.' } },
+    { id: 97, name: 'indianfounderbrief-news', handle: '@indianfounderbrief', ratio: '9:16', color: '#1565C0', active: true, layout: 'news_ticker', logo: 'indianfounderbrief.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 150 } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
 ];
 
@@ -139,7 +141,7 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
 }));
 
 // Presets configured during the "Experiment X" pass — surfaced in their own quick-pick section
-const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'indiastartupstory-news'];
+const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'indiastartupstory-news', 'ifc-news', 'indianfounderbrief-news'];
 
 // Helper to get logo URL (handles both data URIs and filenames)
 const getLogoUrl = (logo) => {
@@ -464,6 +466,8 @@ const PreviewCard = memo(({
             case '1:1': return { paddingBottom: '100%' };
             case '4:3': return { paddingBottom: '75%' };
             case '3:4': return { paddingBottom: '133.33%' };
+            case '4:5': return { paddingBottom: '125%' };
+            case '9:16': return { paddingBottom: '177.78%' };
             default: return { paddingBottom: '100%' };
         }
     };
@@ -863,20 +867,39 @@ const PreviewCard = memo(({
                 {/* 1b-news. NEWS-TICKER LAYOUT: logo top-left, gradient bars at bottom */}
                 {preset.layout === 'news_ticker' && (
                     <>
-                        {/* Logo top-left */}
-                        {getLogoUrl(preset.logo) && (
-                            <div className="absolute top-3 left-3 z-50">
+                        {/* Logo — text logo top-left, image logo top-left or bottom-left per rules */}
+                        {preset.rules?.textLogo ? (
+                            <div className="absolute left-3 z-50 text-white font-black leading-tight" style={{ fontFamily: "'Inter', sans-serif", whiteSpace: 'pre-line', fontSize: `${(preset.rules?.logoSize || 42) * 0.55}px`, lineHeight: 1.1, top: preset.ratio === '9:16' ? '5%' : '12px' }}>
+                                {preset.rules.textLogo}
+                            </div>
+                        ) : getLogoUrl(preset.logo) ? (
+                            <div className="absolute z-50" style={preset.rules?.logoPosition === 'bottom-left' ? { bottom: '12px', left: '8.2%' } : preset.name === 'indiabusinesscom-news' ? { top: '4.5%', left: '6.4%' } : { top: '12px', left: '12px' }}>
                                 <img src={getLogoUrl(preset.logo)} className="w-14 h-14" style={{ objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
                             </div>
+                        ) : null}
+                        {/* Social strip top-right — indiabusinesscom-news only */}
+                        {preset.name === 'indiabusinesscom-news' && (
+                            <div className="absolute z-50" style={{ top: '2%', right: '2%' }}>
+                                <img src={getLogoUrl('IndianBusinessCom NewsStatic Format (1).png')} style={{ width: '13%', objectFit: 'contain' }} />
+                            </div>
                         )}
-                        {/* indiastartupstory-news: black gradient fade from video into black above text area */}
-                        {preset.name === 'indiastartupstory-news' && (
-                            <div className="absolute left-0 w-full z-10" style={{ bottom: '13%', height: '30%', background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)' }} />
+                        {/* Gradient fade from video into black — all news_ticker presets */}
+                        <div className="absolute left-0 w-full z-10" style={{ bottom: '13%', height: '30%', background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)' }} />
+                        {/* Sub hook (footer) text below the bars */}
+                        {preset.footer && String(preset.footer).trim() && (
+                            <div className="absolute left-0 z-20 w-full" style={{ bottom: '3%', paddingLeft: '12px', paddingRight: '12px' }}>
+                                <div style={{ color: 'rgba(255,255,255,0.85)', fontFamily: "'Inter', sans-serif", fontSize: `${previewFontSize * 0.42}px`, lineHeight: 1.4, fontWeight: 500, textAlign: preset.name === 'ifc-news' ? 'center' : 'left' }}>
+                                    {String(preset.footer).trim()}
+                                </div>
+                            </div>
                         )}
                         {/* Gradient bars at the bottom — only bold lines get highlighted */}
-                        <div className="absolute left-0 z-20 flex flex-col gap-0" style={{ bottom: '13%' }}>
+                        <div className="absolute left-0 z-20 flex flex-col gap-0" style={{ bottom: '13%', paddingLeft: (preset.name === 'indiastartupstory-news' || preset.name === 'indianfounderbrief-news') ? '10%' : '0', ...(preset.name === 'ifc-news' ? { right: '0', alignItems: 'center' } : {}) }}>
                             {(() => {
+                                const isIBC = preset.name === 'indiabusinesscom-news';
                                 const isISS = preset.name === 'indiastartupstory-news';
+                                const isIFC = preset.name === 'ifc-news';
+                                const isIFB = preset.name === 'indianfounderbrief-news';
                                 const raw = (preset.headline || '')
                                     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
                                     .replace(/<b\s[^>]*>/gi, '<b>')
@@ -889,33 +912,54 @@ const PreviewCard = memo(({
                                     p.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
                                 });
                                 const avgCharsPerLine = 22;
+                                // Wrap into lines (store token arrays for word-level rendering)
                                 const lines = [];
-                                let curWords = [], curBold = false, curLen = 0;
+                                let curToks = [], curLen = 0;
                                 for (const t of tokens) {
                                     const addLen = curLen ? curLen + 1 + t.text.length : t.text.length;
-                                    if (addLen > avgCharsPerLine && curWords.length) {
-                                        lines.push({ text: curWords.join(' '), bold: curBold });
-                                        curWords = [t.text]; curBold = t.bold; curLen = t.text.length;
+                                    if (addLen > avgCharsPerLine && curToks.length) {
+                                        lines.push(curToks);
+                                        curToks = [t]; curLen = t.text.length;
                                     } else {
-                                        curWords.push(t.text); if (t.bold) curBold = true; curLen = addLen;
+                                        curToks.push(t); curLen = addLen;
                                     }
                                 }
-                                if (curWords.length) lines.push({ text: curWords.join(' '), bold: curBold });
+                                if (curToks.length) lines.push(curToks);
                                 return (
-                                    <div style={{ background: isISS ? '#000000' : '#111111', display: 'inline-flex', flexDirection: 'column', gap: 0 }}>
-                                        {lines.map((line, i) => (
-                                            <div key={i} className="px-3 py-1" style={{
-                                                background: line.bold ? (isISS ? '#e31d38' : 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)') : 'transparent',
-                                                color: isISS ? '#ffffff' : (line.bold ? '#000000' : '#ffffff'),
-                                                fontFamily: "'Inter', sans-serif",
-                                                fontWeight: 800,
-                                                fontSize: `${previewFontSize * 0.82}px`,
-                                                lineHeight: 1.4,
-                                                whiteSpace: 'nowrap',
-                                            }}>
-                                                {line.text}
-                                            </div>
-                                        ))}
+                                    <div style={{ background: '#000000', display: isIFC ? 'flex' : 'inline-flex', flexDirection: 'column', gap: 0, ...(isIFC ? { width: '100%' } : {}) }}>
+                                        {lines.map((lineTokens, i) => {
+                                            // Group consecutive tokens into bold/non-bold runs
+                                            const runs = [];
+                                            for (const t of lineTokens) {
+                                                if (!runs.length || runs[runs.length-1].bold !== t.bold)
+                                                    runs.push({ bold: t.bold, words: [t.text] });
+                                                else
+                                                    runs[runs.length-1].words.push(t.text);
+                                            }
+                                            return (
+                                                <div key={i} className="py-1" style={{
+                                                    display: 'flex', alignItems: 'stretch',
+                                                    justifyContent: (isIBC || isIFC) ? 'center' : 'flex-start',
+                                                    fontFamily: isISS ? "'Poppins', sans-serif" : "'Inter', sans-serif",
+                                                    fontWeight: 800,
+                                                    fontSize: `${previewFontSize * 0.82}px`,
+                                                    lineHeight: 1.4,
+                                                    whiteSpace: 'nowrap',
+                                                    paddingLeft: isIBC ? '0' : ((isISS || isIFB) ? '0' : '12px'),
+                                                }}>
+                                                    {runs.map((run, j) => (
+                                                        <span key={j} style={{
+                                                            background: run.bold ? (isIFB ? 'transparent' : (isIBC ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : preset.color)) : 'transparent',
+                                                            color: isIFB ? (run.bold ? preset.color : '#ffffff') : ((isIBC || isIFC) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff'),
+                                                            padding: run.bold ? '0 4px' : '0 2px',
+                                                            borderRadius: (isISS && run.bold) ? '6px' : undefined,
+                                                        }}>
+                                                            {run.words.join(' ')}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 );
                             })()}
@@ -1730,34 +1774,48 @@ export default function App() {
                             clearInterval(serverPollIntervalRef.current);
                             serverPollIntervalRef.current = null;
                         }
-                        setExportStatus('Export complete! Uploading to Drive...');
                         setExportProgress(100);
 
-                        try {
-                            const driveRes = await fetch(`${SERVER_URL}/api/upload-to-drive`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ jobId }),
-                                signal,
-                            });
-                            if (!driveRes.ok) {
-                                const j = await driveRes.json().catch(() => ({}));
-                                throw new Error(j.error || `HTTP ${driveRes.status}`);
-                            }
-                            const data = await driveRes.json();
-                            if (data.files) {
-                                setDriveLinks(data.files.map(f => f.webViewLink).filter(Boolean));
-                            }
+                        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
+                        if (isLocalhost) {
+                            setExportStatus('Export complete! Starting ZIP download...');
+                            const a = document.createElement('a');
+                            a.href = `${SERVER_URL}/api/download/${jobId}`;
+                            a.download = '';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
                             setIsExporting(false);
-                            setExportStatus('');
-                            setExportProgress(0);
-                        } catch (err) {
-                            if (err.name === 'AbortError') return;
-                            console.error('Drive upload error:', err);
-                            setExportStatus(`Drive upload failed: ${err.message}`);
-                            setIsExporting(false);
-                            setTimeout(() => { setExportStatus(''); setExportProgress(0); }, 5000);
+                            setTimeout(() => { setExportStatus(''); setExportProgress(0); }, 2000);
+                        } else {
+                            setExportStatus('Export complete! Uploading to Drive...');
+                            try {
+                                const driveRes = await fetch(`${SERVER_URL}/api/upload-to-drive`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ jobId }),
+                                    signal,
+                                });
+                                if (!driveRes.ok) {
+                                    const j = await driveRes.json().catch(() => ({}));
+                                    throw new Error(j.error || `HTTP ${driveRes.status}`);
+                                }
+                                const data = await driveRes.json();
+                                if (data.files) {
+                                    setDriveLinks(data.files.map(f => f.webViewLink).filter(Boolean));
+                                }
+
+                                setIsExporting(false);
+                                setExportStatus('');
+                                setExportProgress(0);
+                            } catch (err) {
+                                if (err.name === 'AbortError') return;
+                                console.error('Drive upload error:', err);
+                                setExportStatus(`Drive upload failed: ${err.message}`);
+                                setIsExporting(false);
+                                setTimeout(() => { setExportStatus(''); setExportProgress(0); }, 5000);
+                            }
                         }
                     } else if (jobStatus.state === 'failed') {
                         if (serverPollIntervalRef.current) {
@@ -2269,14 +2327,17 @@ export default function App() {
                                                     </div>
                                                 </div>
 
-                                                {/* Credit Text Input */}
+                                                {/* Sub Hook / Credit Text Input */}
                                                 <div className="space-y-2">
+                                                    {p.layout === 'news_ticker' && (
+                                                        <label className="text-xs text-neutral-400 font-medium">Sub Hook</label>
+                                                    )}
                                                     <input
                                                         type="text"
                                                         value={p.footer}
                                                         onChange={(e) => updateIndividualText(p.id, 'footer', e.target.value)}
                                                         className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm text-neutral-400 focus:border-orange-500 focus:outline-none"
-                                                        placeholder="Credit: The Founders Show"
+                                                        placeholder={p.layout === 'news_ticker' ? 'Sub hook text...' : 'Credit: The Founders Show'}
                                                     />
                                                 </div>
 
