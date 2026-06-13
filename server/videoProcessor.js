@@ -454,11 +454,22 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
  * the gradient bars at the bottom. Logo overlaid by FFmpeg at top-left.
  */
 async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacingMultiplier, savePath) {
-  const canvas = createCanvas(720, 1280);
+  const isIBCNews = (preset.name || '').toLowerCase() === 'indiabusinesscom-news';
+  const isISSNews = (preset.name || '').toLowerCase() === 'indiastartupstory-news';
+  const isIFCNews = (preset.name || '').toLowerCase() === 'ifc-news';
+  const isIFBNews = (preset.name || '').toLowerCase() === 'indianfounderbrief-news';
+  // Derive canvas height from preset ratio (e.g. 4:5 → 900, 9:16 → 1280)
+  const [wR, hR] = (preset.ratio || '9:16').split(':').map(Number);
+  let canvasH = Math.round(720 * hR / wR);
+  if (canvasH % 2 !== 0) canvasH++;
+  const canvas = createCanvas(720, canvasH);
   const ctx = canvas.getContext('2d', { alpha: true });
-  ctx.clearRect(0, 0, 720, 1280);
+  ctx.clearRect(0, 0, 720, canvasH);
 
-  const fontFamily = interExtraBold ? 'InterExtraBold' : 'Inter';
+  // ISS-news uses PoppinsBoldM (registered as weight:normal to avoid Windows GDI synthetic-bold issues).
+  // All other news presets use InterExtraBold/Inter — same pattern.
+  const fontFamily = isISSNews ? 'PoppinsBoldM' : (interExtraBold ? 'InterExtraBold' : 'Inter');
+  const fontWeight = 'normal'; // bold variants are registered as separate families, always use 'normal'
   const fontSize = Math.round(54 * (fontScale || 1));
   ctx.font = `normal ${fontSize}px ${fontFamily}`;
   const maxLineW = 660;
@@ -475,73 +486,203 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     p.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
   });
 
-  // Wrap into lines tracking bold presence
+  // Wrap tokens into lines — use opentype.js Poppins metrics for ISS-news so bar widths match FFmpeg rendering
+  const measureWordW = (text) =>
+    isISSNews && _otPoppinsBold ? _otPoppinsBold.getAdvanceWidth(text, fontSize) : ctx.measureText(text).width;
   const lines = [];
-  let curWords = [], curBold = false;
+  let curTokens = [];
   for (const t of tokens) {
-    const test = curWords.length ? `${curWords.join(' ')} ${t.text}` : t.text;
-    if (ctx.measureText(test).width > maxLineW && curWords.length) {
-      lines.push({ text: curWords.join(' '), bold: curBold });
-      curWords = [t.text]; curBold = t.bold;
+    const testW = [...curTokens, t].reduce((acc, tok, i) => acc + (i > 0 ? measureWordW(' ') : 0) + measureWordW(tok.text), 0);
+    if (testW > maxLineW && curTokens.length) {
+      lines.push(curTokens);
+      curTokens = [t];
     } else {
-      curWords.push(t.text); if (t.bold) curBold = true;
+      curTokens.push(t);
     }
   }
-  if (curWords.length) lines.push({ text: curWords.join(' '), bold: curBold });
+  if (curTokens.length) lines.push(curTokens);
 
   const barH = Math.round(fontSize * 1.45);
   const bottomMargin = 160;
   const totalBarsH = lines.length * barH;
-  let barY = 1280 - bottomMargin - totalBarsH;
+  let barY = canvasH - bottomMargin - totalBarsH;
 
-  const isIndiaStartupStory = (preset.name || '').toLowerCase() === 'indiastartupstory-news';
+  const spaceW = measureWordW(' ');
 
-  // For indiastartupstory: black gradient fade from video into solid black
-  if (isIndiaStartupStory) {
-    const gradientH = 160;
-    const fadeGrad = ctx.createLinearGradient(0, barY - gradientH, 0, barY);
-    fadeGrad.addColorStop(0, 'rgba(0,0,0,0)');
-    fadeGrad.addColorStop(1, 'rgba(0,0,0,1)');
-    ctx.fillStyle = fadeGrad;
-    ctx.fillRect(0, barY - gradientH, 720, gradientH);
-  }
+  // Gradient fade from video into solid black (all news_ticker presets)
+  const gradientH = 160;
+  const fadeGrad = ctx.createLinearGradient(0, barY - gradientH, 0, barY);
+  fadeGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  fadeGrad.addColorStop(1, 'rgba(0,0,0,1)');
+  ctx.fillStyle = fadeGrad;
+  ctx.fillRect(0, barY - gradientH, 720, gradientH);
 
-  // Pass 1: black background from text start to bottom of frame (full width)
-  ctx.fillStyle = isIndiaStartupStory ? '#000000' : '#111111';
-  ctx.fillRect(0, barY, 720, 1280 - barY);
+  // Pass 1: solid black background from text start to bottom of frame
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, barY, 720, canvasH - barY);
 
-  // Pass 2: gradient on top for bold lines only, then text
+  // ISS-news text is rendered via FFmpeg drawtext (canvas font resolution unreliable on Windows)
+  const newsTickerTextSegments = isISSNews ? [] : null;
+
+  // Pass 2: word-level bars — draw gradient only behind consecutive bold runs, then text
   let y = barY;
-  for (let i = 0; i < lines.length; i++) {
-    const { text, bold } = lines[i];
+  for (const lineTokens of lines) {
     ctx.font = `normal ${fontSize}px ${fontFamily}`;
-    const textW = ctx.measureText(text).width;
-    const barW = Math.min(720, textW + padX * 2);
+    const wordWidths = lineTokens.map(t => measureWordW(t.text));
 
-    if (bold) {
-      if (isIndiaStartupStory) {
-        ctx.fillStyle = '#e31d38';
-        ctx.fillRect(0, y, barW, barH);
+    // IBC/IFC: center; ISS: 76px; IFB: 70px; others: padX
+    const totalLineW = wordWidths.reduce((a, w, i) => a + w + (i > 0 ? spaceW : 0), 0);
+    const lineStartX = (isIBCNews || isIFCNews) ? Math.round((720 - totalLineW) / 2) : (isISSNews ? 76 : (isIFBNews ? 70 : padX));
+    // ISS uses rounded-corner bars; others use plain rects
+    const fillBar = (bx, bw) => {
+      if (isISSNews) {
+        const r = 6;
+        ctx.beginPath();
+        ctx.moveTo(bx + r, y); ctx.arcTo(bx + bw, y, bx + bw, y + barH, r);
+        ctx.arcTo(bx + bw, y + barH, bx, y + barH, r);
+        ctx.arcTo(bx, y + barH, bx, y, r);
+        ctx.arcTo(bx, y, bx + bw, y, r);
+        ctx.closePath(); ctx.fill();
       } else {
-        const grad = ctx.createLinearGradient(0, 0, barW, 0);
+        ctx.fillRect(bx, y, bw, barH);
+      }
+    };
+    let runStartX = null;
+    let runEndX = 0;
+    let x = lineStartX;
+    for (let i = 0; i < lineTokens.length; i++) {
+      const t = lineTokens[i];
+      const w = wordWidths[i];
+      if (t.bold) {
+        if (runStartX === null) runStartX = x - 4;
+        runEndX = x + w + 4;
+      } else if (runStartX !== null) {
+        // end of a bold run — draw the bar
+        const runW = runEndX - runStartX;
+        if (isIBCNews) {
+          const grad = ctx.createLinearGradient(runStartX, 0, runEndX, 0);
+          grad.addColorStop(0, '#FF8932');
+          grad.addColorStop(0.5, '#F2EFE1');
+          grad.addColorStop(1, '#3AB26B');
+          ctx.fillStyle = grad;
+          fillBar(runStartX, runW);
+        } else if (!isIFBNews) {
+          ctx.fillStyle = preset.color || '#e31d38';
+          fillBar(runStartX, runW);
+        }
+        runStartX = null;
+      }
+      x += w + spaceW;
+    }
+    // close any trailing bold run
+    if (runStartX !== null) {
+      const runW = runEndX - runStartX;
+      if (isIBCNews) {
+        const grad = ctx.createLinearGradient(runStartX, 0, runEndX, 0);
         grad.addColorStop(0, '#FF8932');
         grad.addColorStop(0.5, '#F2EFE1');
         grad.addColorStop(1, '#3AB26B');
         ctx.fillStyle = grad;
-        ctx.fillRect(0, y, barW, barH);
+        fillBar(runStartX, runW);
+      } else if (!isIFBNews) {
+        ctx.fillStyle = preset.color || '#e31d38';
+        fillBar(runStartX, runW);
       }
     }
 
+    // Draw text word by word; for ISS-news collect positions for FFmpeg drawtext instead
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = isIndiaStartupStory ? '#FFFFFF' : (bold ? '#000000' : '#FFFFFF');
-    ctx.fillText(text, padX, y + barH / 2);
+    x = lineStartX;
+    for (let i = 0; i < lineTokens.length; i++) {
+      const t = lineTokens[i];
+      if (isISSNews) {
+        newsTickerTextSegments.push({
+          text: t.text,
+          x: Math.round(x),
+          baselineY: Math.round(y + fontSize * 1.075),
+          fontSize,
+        });
+      } else {
+        ctx.fillStyle = isIFBNews ? (t.bold ? (preset.color || '#FFFFFF') : '#FFFFFF') : ((isIBCNews || isIFCNews) ? (t.bold ? '#000000' : '#FFFFFF') : '#FFFFFF');
+        ctx.fillText(t.text, x, y + barH / 2);
+      }
+      x += wordWidths[i] + spaceW;
+    }
     y += barH;
+  }
+
+  // Description text (footer) below headline — used by IFC, IFB and similar news presets
+  if (preset.footer && String(preset.footer).trim()) {
+    const descText = String(preset.footer).trim();
+    const descFontSize = Math.round(fontSize * 0.52);
+    ctx.font = `normal ${descFontSize}px Inter`;
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.textBaseline = 'top';
+    const descMaxW = 660;
+    const descWords = descText.split(/\s+/);
+    const descLines = [];
+    let curLine = '';
+    for (const word of descWords) {
+      const test = curLine ? `${curLine} ${word}` : word;
+      if (ctx.measureText(test).width > descMaxW && curLine) {
+        descLines.push(curLine);
+        curLine = word;
+      } else {
+        curLine = test;
+      }
+    }
+    if (curLine) descLines.push(curLine);
+    const descLineH = Math.round(descFontSize * 1.55);
+    let descY = y + 12;
+    for (const dline of descLines) {
+      if (descY + descFontSize > canvasH - 10) break; // don't overflow canvas
+      const descX = isIFCNews ? Math.round((720 - ctx.measureText(dline).width) / 2) : padX;
+      ctx.fillText(dline, descX, descY);
+      descY += descLineH;
+    }
+  }
+
+  // Social strip (right-side vertical icons bar) for indiabusinesscom-news only
+  if (isIBCNews) {
+    const socialStripPath = join(__dirname, 'assets', 'logos', 'IndianBusinessCom NewsStatic Format (1).png');
+    if (existsSync(socialStripPath)) {
+      const stripImg = await loadImage(socialStripPath);
+      const stripW = 32;
+      const stripH = Math.round(stripImg.height * (stripW / stripImg.width));
+      ctx.drawImage(stripImg, 720 - stripW - 5, 15, stripW, stripH);
+    }
+  }
+
+  // Text logo drawn directly on canvas (for presets without a PNG logo file)
+  if (preset.rules?.textLogo) {
+    const textLogoLines = String(preset.rules.textLogo).split('\n');
+    const textLogoSize = Math.round((preset.rules?.logoSize || 42) * 0.9);
+    ctx.font = `900 ${textLogoSize}px Inter`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textBaseline = 'top';
+    textLogoLines.forEach((line, idx) => {
+      ctx.fillText(line, 20, 45 + idx * Math.round(textLogoSize * 1.1));
+    });
+  }
+
+  // ISS-news: draw logo directly on canvas below the headline text (bottom-left)
+  if (isISSNews && preset.logo && preset.showLogo !== false) {
+    const logoFile = join(__dirname, 'assets', 'logos', preset.logo);
+    if (existsSync(logoFile)) {
+      const logoImg = await loadImage(logoFile);
+      const logoH = Math.round((preset.rules?.logoSize || 55) * 0.85);
+      const logoW = Math.round(logoImg.width * (logoH / logoImg.height));
+      ctx.globalAlpha = preset.rules?.logoOpacity ?? 1;
+      ctx.drawImage(logoImg, 59, y + 60, logoW, logoH);
+      ctx.globalAlpha = 1;
+    }
   }
 
   await fs.writeFile(savePath, canvas.toBuffer('image/png'));
 
+  // For ISS-news the logo is already on canvas — skip FFmpeg logoOverlay to avoid double rendering
   let logoPath = null;
-  if (preset.logo && preset.showLogo !== false) {
+  if (!isISSNews && preset.logo && preset.showLogo !== false) {
     const logoFile = join(__dirname, 'assets', 'logos', preset.logo);
     if (existsSync(logoFile)) logoPath = logoFile;
   }
@@ -551,7 +692,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     videoY: 0,
     videoX: 0,
     videoW: 720,
-    videoH: 1280,
+    videoH: canvasH,
     watermark: null,
     logoOverlay: logoPath ? {
       path: logoPath,
@@ -560,6 +701,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
       opacity: preset.rules?.logoOpacity ?? 1,
       circular: preset.rules?.logoCircular !== undefined ? preset.rules.logoCircular : false,
     } : null,
+    newsTickerTextSegments,
   };
 }
 
@@ -1588,11 +1730,12 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
     const borderRadius = preset.rules?.videoBorderRadius || 0;
     const hasRoundedCorners = borderRadius > 0;
 
-    // Video as base: pad 720×videoHeight to 720×1280 (video at 0,sy full width), then overlay graphics. Composite alpha first, then convert to yuv420 so transparent hole shows video (no black bars).
+    // For news_ticker the canvas IS the total output (720×canvasH); other layouts always output 720×1280.
+    const totalOutputH = preset.layout === 'news_ticker' ? sh : 1280;
     const filterChain = [
       `[0:v]${vFilter},setsar=1[v]`,
-      `[v]pad=720:1280:0:${sy}:black[base]`,
-      `[1:v]scale=720:1280,format=rgba[graphics]`,
+      `[v]pad=720:${totalOutputH}:0:${sy}:black[base]`,
+      `[1:v]scale=720:${totalOutputH},format=rgba[graphics]`,
       `[base][graphics]overlay=0:0[ovl]`,
       `[ovl]format=yuv420p[ovl]`
     ];
@@ -1608,8 +1751,8 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       const maskExpr = `if(lt(min(min(X,${w}-X),min(Y,${h}-Y)),${radius}),0,1)`;
       filterChain.push(`[valpha]geq=a='${maskExpr}'[vrounded]`);
       filterChain.push(`[vrounded]format=yuv420p[v2]`);
-      filterChain.push(`[v2]pad=720:1280:0:${sy}:black[base]`);
-      filterChain.push(`[1:v]scale=720:1280,format=rgba[graphics]`);
+      filterChain.push(`[v2]pad=720:${totalOutputH}:0:${sy}:black[base]`);
+      filterChain.push(`[1:v]scale=720:${totalOutputH},format=rgba[graphics]`);
       filterChain.push(`[base][graphics]overlay=0:0[ovl]`);
       filterChain.push(`[ovl]format=yuv420p[ovl]`);
     }
@@ -1642,7 +1785,11 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       'bestindianpodcast',
       'risewithcontent',
       'indian business com',
-      'indiabusinesscom'
+      'indiabusinesscom',
+      'indiabusinesscom-news',
+      'indiastartupstory-news',
+      'ifc-news',
+      'indianfounderbrief-news'
     ];
     const skipWatermark = noWatermarkPresets.includes(presetNameLower);
     if (layout.watermark && !skipWatermark) {
@@ -1694,14 +1841,16 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
           logoX = sx + sw - logoSize - 8;
           logoY = sy + 8;
         } else {
-          logoX = sx + 8;
-          logoY = sy + 8;
+          logoX = sx + (preset.layout === 'news_ticker' ? 46 : 8);
+          logoY = sy + (preset.layout === 'news_ticker' ? 41 : 8);
         }
         const logoOpacity = layout.logoOverlay.opacity;
         const opacityFilter = logoOpacity ? `,colorchannelmixer=aa=${logoOpacity}` : '';
         const r = logoSize / 2;
         const circularMask = layout.logoOverlay.circular ? `,geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='if(lte(sqrt(pow(X-${r},2)+pow(Y-${r},2)),${r}),alpha(X,Y),0)'` : '';
-        filterChain.push(`[2:v]scale=${logoSize}:${logoSize},format=rgba${circularMask}${opacityFilter}[logoscaled]`);
+        const isIFBLogo = (preset.name || '').toLowerCase() === 'indianfounderbrief-news';
+        const logoScaleStr = isIFBLogo ? `crop=340:265:80:115,scale=${logoSize}:-2` : `scale=${logoSize}:${logoSize}`;
+        filterChain.push(`[2:v]${logoScaleStr},format=rgba${circularMask}${opacityFilter}[logoscaled]`);
         const logoOverlayFilter = `[${currentOutput}][logoscaled]overlay=${logoX}:${logoY}[logoed]`;
         filterChain.push(logoOverlayFilter);
         currentOutput = 'logoed';
@@ -1744,6 +1893,24 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         }
         currentOutput = 'headlineOut';
       }
+
+      // News ticker Poppins text via FFmpeg drawtext \u2014 bypasses canvas font resolution on Windows
+      if (layout.newsTickerTextSegments && layout.newsTickerTextSegments.length > 0) {
+        const poppinsBoldFile = 'assets/fonts/Poppins-Bold.ttf';
+        const nttSegs = layout.newsTickerTextSegments;
+        for (let si = 0; si < nttSegs.length; si++) {
+          const seg = nttSegs[si];
+          const textEsc = seg.text
+            .replace(/\\/g, '\\\\')
+            .replace(/:/g, '\\:')
+            .replace(/'/g, '\u2019');
+          const inLbl = si === 0 ? currentOutput : `ptt${si}`;
+          const outLbl = si === nttSegs.length - 1 ? 'pttFinal' : `ptt${si + 1}`;
+          filterChain.push(`[${inLbl}]drawtext=text='${textEsc}':expansion=none:fontfile=${poppinsBoldFile}:fontsize=${seg.fontSize}:x=${seg.x}:y=${seg.baselineY}:y_align=baseline:fontcolor=white[${outLbl}]`);
+        }
+        currentOutput = 'pttFinal';
+      }
+
       // Orange border removed for Business Cracked
       filterChain.push(`[${currentOutput}]copy[out]`);
     } else {
@@ -1756,14 +1923,16 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
           logoX = sx + sw - logoSize - 8;
           logoY = sy + 8;
         } else {
-          logoX = sx + 8;
-          logoY = sy + 8;
+          logoX = sx + (preset.layout === 'news_ticker' ? 46 : 8);
+          logoY = sy + (preset.layout === 'news_ticker' ? 41 : 8);
         }
         const logoOpacity = layout.logoOverlay.opacity;
         const opacityFilter = logoOpacity ? `,colorchannelmixer=aa=${logoOpacity}` : '';
         const r = logoSize / 2;
         const circularMask = layout.logoOverlay.circular ? `,geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='if(lte(sqrt(pow(X-${r},2)+pow(Y-${r},2)),${r}),alpha(X,Y),0)'` : '';
-        filterChain.push(`[2:v]scale=${logoSize}:${logoSize},format=rgba${circularMask}${opacityFilter}[logoscaled]`);
+        const isIFBLogo = (preset.name || '').toLowerCase() === 'indianfounderbrief-news';
+        const logoScaleStr = isIFBLogo ? `crop=340:265:80:115,scale=${logoSize}:-2` : `scale=${logoSize}:${logoSize}`;
+        filterChain.push(`[2:v]${logoScaleStr},format=rgba${circularMask}${opacityFilter}[logoscaled]`);
         const logoOverlayFilter = `[${currentOutput}][logoscaled]overlay=${logoX}:${logoY}[logoed]`;
         filterChain.push(logoOverlayFilter);
         currentOutput = 'logoed';
@@ -1806,8 +1975,32 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         }
         currentOutput = 'headlineOut';
       }
+
+      // News ticker Poppins text via FFmpeg drawtext — bypasses canvas font resolution on Windows
+      if (layout.newsTickerTextSegments && layout.newsTickerTextSegments.length > 0) {
+        const poppinsBoldFile = 'assets/fonts/Poppins-Bold.ttf';
+        const nttSegs = layout.newsTickerTextSegments;
+        for (let si = 0; si < nttSegs.length; si++) {
+          const seg = nttSegs[si];
+          const textEsc = seg.text
+            .replace(/\\/g, '\\\\')
+            .replace(/:/g, '\\:')
+            .replace(/'/g, '’');
+          const inLbl = si === 0 ? currentOutput : `ptt${si}`;
+          const outLbl = si === nttSegs.length - 1 ? 'pttFinal' : `ptt${si + 1}`;
+          filterChain.push(`[${inLbl}]drawtext=text='${textEsc}':expansion=none:fontfile=${poppinsBoldFile}:fontsize=${seg.fontSize}:x=${seg.x}:y=${seg.baselineY}:y_align=baseline:fontcolor=white[${outLbl}]`);
+        }
+        currentOutput = 'pttFinal';
+      }
+
       // Orange border removed for Business Cracked
       filterChain.push(`[${currentOutput}]copy[out]`);
+    }
+
+    // Scale news_ticker output up to 1080px wide (4:5 → 1080×1350, 9:16 → 1080×1920)
+    if (preset.layout === 'news_ticker') {
+      const lastIdx = filterChain.length - 1;
+      filterChain[lastIdx] = filterChain[lastIdx].replace('copy[out]', 'scale=1080:-2[out]');
     }
 
     // Log the full filter chain for debugging
