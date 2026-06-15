@@ -2214,18 +2214,20 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         const logoSize = layout.logoOverlay.size || 160;
         const isIFBLogo = (preset.name || '').toLowerCase() === 'indianfounderbrief-news';
         let logoX, logoY;
+        const logoPadX = preset.rules?.logoPadX ?? (preset.layout === 'news_ticker' ? (isIFBLogo ? 72 : 46) : 8);
+        const logoPadY = preset.rules?.logoPadY ?? (preset.layout === 'news_ticker' ? (isIFBLogo ? 82 : 41) : 8);
         if (layout.logoOverlay.position === 'top-right') {
-          logoX = sx + sw - logoSize - 8;
-          logoY = sy + 8;
+          logoX = sx + sw - logoSize - logoPadX;
+          logoY = sy + logoPadY;
         } else {
-          logoX = sx + (preset.layout === 'news_ticker' ? (isIFBLogo ? 72 : 46) : 8);
-          logoY = sy + (preset.layout === 'news_ticker' ? (isIFBLogo ? 82 : 41) : 8);
+          logoX = sx + logoPadX;
+          logoY = sy + logoPadY;
         }
         const logoOpacity = layout.logoOverlay.opacity;
         const opacityFilter = logoOpacity ? `,colorchannelmixer=aa=${logoOpacity}` : '';
         const r = logoSize / 2;
         const circularMask = layout.logoOverlay.circular ? `,geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='if(lte(sqrt(pow(X-${r},2)+pow(Y-${r},2)),${r}),alpha(X,Y),0)'` : '';
-        const logoScaleStr = isIFBLogo ? `crop=340:265:80:115,scale=${logoSize}:-2` : `scale=${logoSize}:${logoSize}`;
+        const logoScaleStr = isIFBLogo ? `crop=340:265:80:115,scale=${logoSize}:-2` : `scale=${logoSize}:-2`;
         filterChain.push(`[2:v]${logoScaleStr},format=rgba${circularMask}${opacityFilter}[logoscaled]`);
         const logoOverlayFilter = `[${currentOutput}][logoscaled]overlay=${logoX}:${logoY}[logoed]`;
         filterChain.push(logoOverlayFilter);
@@ -2296,18 +2298,20 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         const logoSize = layout.logoOverlay.size || 160;
         const isIFBLogo = (preset.name || '').toLowerCase() === 'indianfounderbrief-news';
         let logoX, logoY;
+        const logoPadX = preset.rules?.logoPadX ?? (preset.layout === 'news_ticker' ? (isIFBLogo ? 72 : 46) : 8);
+        const logoPadY = preset.rules?.logoPadY ?? (preset.layout === 'news_ticker' ? (isIFBLogo ? 82 : 41) : 8);
         if (layout.logoOverlay.position === 'top-right') {
-          logoX = sx + sw - logoSize - 8;
-          logoY = sy + 8;
+          logoX = sx + sw - logoSize - logoPadX;
+          logoY = sy + logoPadY;
         } else {
-          logoX = sx + (preset.layout === 'news_ticker' ? (isIFBLogo ? 72 : 46) : 8);
-          logoY = sy + (preset.layout === 'news_ticker' ? (isIFBLogo ? 82 : 41) : 8);
+          logoX = sx + logoPadX;
+          logoY = sy + logoPadY;
         }
         const logoOpacity = layout.logoOverlay.opacity;
         const opacityFilter = logoOpacity ? `,colorchannelmixer=aa=${logoOpacity}` : '';
         const r = logoSize / 2;
         const circularMask = layout.logoOverlay.circular ? `,geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='if(lte(sqrt(pow(X-${r},2)+pow(Y-${r},2)),${r}),alpha(X,Y),0)'` : '';
-        const logoScaleStr = isIFBLogo ? `crop=340:265:80:115,scale=${logoSize}:-2` : `scale=${logoSize}:${logoSize}`;
+        const logoScaleStr = isIFBLogo ? `crop=340:265:80:115,scale=${logoSize}:-2` : `scale=${logoSize}:-2`;
         filterChain.push(`[2:v]${logoScaleStr},format=rgba${circularMask}${opacityFilter}[logoscaled]`);
         const logoOverlayFilter = `[${currentOutput}][logoscaled]overlay=${logoX}:${logoY}[logoed]`;
         filterChain.push(logoOverlayFilter);
