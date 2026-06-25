@@ -6,6 +6,11 @@ import fs from 'fs/promises';
 import { existsSync, statSync } from 'fs';
 import { execSync } from 'child_process';
 import { loadSync as opentypeLoad } from 'opentype.js';
+import {
+  cleanHeadlineHtml,
+  layoutHeadlineLines,
+  layoutNewsTickerTokenLines,
+} from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -317,34 +322,8 @@ async function preloadEmojis(richLines) {
   await Promise.all(promises);
 }
 
-// Clean HTML entities, normalize <br> to newline (so it never shows as literal text), and normalize spaces
-const cleanHTML = (html) => {
-  if (!html) return '';
-  let cleaned = html.replace(/&nbsp;/g, ' ');
-  cleaned = cleaned.replace(/&amp;/g, '&');
-  cleaned = cleaned.replace(/&lt;/g, '<');
-  cleaned = cleaned.replace(/&gt;/g, '>');
-  cleaned = cleaned.replace(/&quot;/g, '"');
-  cleaned = cleaned.replace(/&#39;/g, "'");
-  // Support WhatsApp-style *word* / **word** syntax as bold: convert to <b>word</b>
-  // Order matters: handle **...** first so it doesn't get partially consumed by the single-* pass.
-  cleaned = cleaned.replace(/\*\*(\S(?:[\s\S]*?\S)?)\*\*/g, '<b>$1</b>');
-  cleaned = cleaned.replace(/\*(\S(?:[\s\S]*?\S)?)\*/g, '<b>$1</b>');
-  // Replace <br> / <br/> / <br /> with newline so line breaks show in export (and literal "<br>" never appears)
-  cleaned = cleaned.replace(/<br\s*\/?>/gi, '\n');
-  // Block elements (DIV, P) from editor Enter key -> newline so multi-line hook matches preview
-  cleaned = cleaned.replace(/<\/div\s*>/gi, '\n');
-  cleaned = cleaned.replace(/<\/p\s*>/gi, '\n');
-  cleaned = cleaned.replace(/<div[^>]*>/gi, '');
-  cleaned = cleaned.replace(/<p[^>]*>/gi, '');
-  // Strip any remaining HTML tags (span, font, i, etc.) but keep <b>/</b> for bold detection
-  cleaned = cleaned.replace(/<(?!\/?b\b)[^>]*>/gi, '');
-  // Normalize <b style="..."> or <b class="..."> to plain <b>
-  cleaned = cleaned.replace(/<b\s[^>]*>/gi, '<b>');
-  // Collapse spaces/tabs only (keep newlines so multi-line headlines work)
-  cleaned = cleaned.replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n');
-  return cleaned.trim();
-};
+// Clean HTML entities, normalize <br> to newline — shared with preview via shared/headlineLayout.js
+const cleanHTML = cleanHeadlineHtml;
 
 /**
  * Generate overlay for hook_video layout: black bg, hook text at top,
@@ -376,37 +355,17 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   const _isIFCore = _presetNameLower === 'indianfoundercore';
   const _isIFC = _presetNameLower === 'indian-founders-co';
 
-  // Tokenize + wrap, preserving explicit newlines (<br> / Shift+Enter) as hard line breaks.
+  // Tokenize + wrap, preserving explicit newlines (<br> / Line Layout editor) as hard line breaks.
   const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
-  const lines = [];
-  const logicalLines = cleanedHtml.split('\n').map(s => s.trim()).filter(Boolean);
-  for (const lineHtml of logicalLines) {
-    const tokens = [];
-    lineHtml.split(/(<b>.*?<\/b>)/i).forEach(p => {
-      if (!p) return;
-      const isB = /^<b>/i.test(p);
-      p.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
-    });
-
-    let curLine = { tokens: [], width: 0 };
-    for (const t of tokens) {
-      // Measure with the same font used for drawing so line-wrap and drawX advance are accurate.
-      let mFamily, mWeight;
-      if (_isIFCore || _isIFC) { mFamily = interBlack ? 'InterBlack' : 'Inter'; mWeight = 'normal'; }
-      else if (_isIBC) { mFamily = interExtraBold ? 'InterExtraBold' : 'Inter'; mWeight = 'normal'; }
-      else { mFamily = 'Inter'; mWeight = t.bold ? 'bold' : 'normal'; }
-      ctx.font = `${mWeight} ${fontSize}px ${mFamily}`;
-      const w = ctx.measureText(t.text).width;
-      const advance = w + spacing;
-      if (curLine.width + advance > maxTextW && curLine.tokens.length > 0) {
-        lines.push(curLine);
-        curLine = { tokens: [], width: 0 };
-      }
-      curLine.tokens.push({ ...t, measuredWidth: w });
-      curLine.width += advance;
-    }
-    if (curLine.tokens.length > 0) lines.push(curLine);
-  }
+  const measureHookWord = (text, bold) => {
+    let mFamily, mWeight;
+    if (_isIFCore || _isIFC) { mFamily = interBlack ? 'InterBlack' : 'Inter'; mWeight = 'normal'; }
+    else if (_isIBC) { mFamily = interExtraBold ? 'InterExtraBold' : 'Inter'; mWeight = 'normal'; }
+    else { mFamily = 'Inter'; mWeight = bold ? 'bold' : 'normal'; }
+    ctx.font = `${mWeight} ${fontSize}px ${mFamily}`;
+    return ctx.measureText(text).width;
+  };
+  const lines = layoutHeadlineLines(cleanedHtml, measureHookWord, maxTextW, spacing);
 
   const showHookEyebrow = preset.showHookEyebrow === true;
   const hookEyebrowPlain = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
@@ -596,8 +555,6 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
   cleanedHtml = cleanedHtml.replace(/<\/?strong>/gi, (m) => m.toLowerCase().replace('strong', 'b'));
   cleanedHtml = cleanedHtml.replace(/<\/?b>/gi, (m) => m.toLowerCase());
   const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
-  const lines = [];
-  const logicalLines = cleanedHtml.split('\n').map(s => s.trim()).filter(Boolean);
 
   const hookOtFont = isLogoSocial ? (_otInterReg || null) : (_otPoppinsBold || null);
   const hookOtBold = isLogoSocial ? (_otInterBold || _otInterReg || null) : (_otPoppinsBold || null);
@@ -618,26 +575,7 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
 
   const hookMaxW = isLogoSocial ? 620 : maxTextW;
   const hookStartX = textStartX;
-  for (const lineHtml of logicalLines) {
-    const tokens = [];
-    lineHtml.split(/(<b>.*?<\/b>)/i).forEach(part => {
-      if (!part) return;
-      const isB = /^<b>/i.test(part);
-      part.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
-    });
-    let curLine = { tokens: [], width: 0 };
-    for (const t of tokens) {
-      const w = measureHookWord(t.text, t.bold);
-      const advance = w + spacing;
-      if (curLine.width + advance > hookMaxW && curLine.tokens.length > 0) {
-        lines.push(curLine);
-        curLine = { tokens: [], width: 0 };
-      }
-      curLine.tokens.push({ ...t, measuredWidth: w });
-      curLine.width += advance;
-    }
-    if (curLine.tokens.length > 0) lines.push(curLine);
-  }
+  const lines = layoutHeadlineLines(cleanedHtml, measureHookWord, hookMaxW, spacing);
 
   // --- Vertical stack layout ---
   const LOGO_SOCIAL_SZ = 70;
@@ -838,32 +776,11 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const maxLineW = 660;
   const padX = 28;
 
-  // Parse bold tokens so only bold lines get gradient bars
+  // Parse bold tokens — respect manual line breaks, then soft-wrap each line
   let cleanedHtml = cleanHTML(headline || '');
-  cleanedHtml = cleanedHtml.replace(/<\/?strong>/gi, m => m.toLowerCase().replace('strong', 'b'));
-  cleanedHtml = cleanedHtml.replace(/<\/?b>/gi, m => m.toLowerCase());
-  const tokens = [];
-  cleanedHtml.split(/(<b>.*?<\/b>)/i).forEach(p => {
-    if (!p) return;
-    const isB = /^<b>/i.test(p);
-    p.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
-  });
-
-  // Wrap tokens into lines — use opentype.js Poppins metrics for ISS-news so bar widths match FFmpeg rendering
   const measureWordW = (text) =>
     isISSNews && _otPoppinsBold ? _otPoppinsBold.getAdvanceWidth(text, fontSize) : ctx.measureText(text).width;
-  const lines = [];
-  let curTokens = [];
-  for (const t of tokens) {
-    const testW = [...curTokens, t].reduce((acc, tok, i) => acc + (i > 0 ? measureWordW(' ') : 0) + measureWordW(tok.text), 0);
-    if (testW > maxLineW && curTokens.length) {
-      lines.push(curTokens);
-      curTokens = [t];
-    } else {
-      curTokens.push(t);
-    }
-  }
-  if (curTokens.length) lines.push(curTokens);
+  const lines = layoutNewsTickerTokenLines(cleanedHtml, measureWordW, maxLineW);
 
   const barH = Math.round(fontSize * 1.45);
   const bottomMargin = 160;
@@ -2003,37 +1920,19 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
 // Poppins advance widths come from opentype.js (exact TTF metrics = what FFmpeg uses). No scale needed.
 
 function calculateRichLines(ctx, html, maxW, size, spacing, forceBold, fontFamily = 'Inter') {
-  let cleanedHtml = cleanHTML(html);
-  cleanedHtml = cleanedHtml.replace(/<\/?strong>/gi, (m) => m.toLowerCase().replace('strong', 'b'));
-  cleanedHtml = cleanedHtml.replace(/<\/?b>/gi, (m) => m.toLowerCase());
+  const cleanedHtml = cleanHTML(html);
   const usePoppinsFamilies = fontFamily === 'Poppins';
-  const allLines = [];
-  // Split by newline so <br> becomes real line breaks; process each logical line then word-wrap
-  const logicalLines = cleanedHtml.split('\n').map(s => s.trim()).filter(Boolean);
-  for (const lineHtml of logicalLines) {
-    const tokens = [];
-    lineHtml.split(/(<b>.*?<\/b>)/i).forEach(p => {
-      if (!p) return;
-      const isB = /^<b>/i.test(p);
-      p.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB || forceBold }));
-    });
-    const lines = []; let cur = { tokens: [], width: 0 };
-    tokens.forEach(t => {
-      const isBoldWord = t.bold || forceBold;
-      // Use same font strings as draw loop so line-break widths match rendered widths exactly.
-      // Poppins: use opentype.js for exact TTF advance (canvas falls back to Sans on Windows).
-      // Inter/others: use canvas measureText as usual.
-      const w = usePoppinsFamilies
-        ? measurePoppins(t.text, size, isBoldWord)
-        : measureTokenWidth(ctx, t.text, size, isBoldWord, fontFamily);
-      const advance = w + spacing * size;
-      if (cur.width + advance > maxW && cur.tokens.length > 0) { lines.push(cur); cur = { tokens: [], width: 0 }; }
-      cur.tokens.push(t); cur.width += advance;
-    });
-    if (cur.tokens.length > 0) lines.push(cur);
-    allLines.push(...lines);
-  }
-  return allLines;
+  return layoutHeadlineLines(
+    cleanedHtml,
+    (text, bold) => {
+      const isBoldWord = bold || forceBold;
+      return usePoppinsFamilies
+        ? measurePoppins(text, size, isBoldWord)
+        : measureTokenWidth(ctx, text, size, isBoldWord, fontFamily);
+    },
+    maxW,
+    spacing * size,
+  );
 }
 
 async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, fitMode) {

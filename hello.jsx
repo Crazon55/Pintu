@@ -1,5 +1,18 @@
-import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, memo, useMemo } from 'react';
 import { Upload, Monitor, Layout, Download, Play, Pause, RotateCcw, Loader, Grid, Maximize, CheckSquare, Square, Edit2, Save, BadgeCheck, Image as ImageIcon, Type, Sliders, Users, Globe, Move, Volume2, VolumeX, Bold, X, Video } from 'lucide-react';
+import {
+    cleanHeadlineHtml,
+    layoutHeadlineLines,
+    layoutNewsTickerTokenLines,
+    canvasPxToPercent,
+    CANVAS_REF_W,
+    getExportFontSize,
+    getExportEyebrowFontSize,
+    getExportMaxTextWidth,
+    getExportNewsMaxLineWidth,
+    headlineHtmlToPlainLines,
+    plainLinesToHeadlineHtml,
+} from './shared/headlineLayout.js';
 // Inter is loaded globally via public/fonts/*.woff2 (see index.css)
 
 // --- HARDCODED LOGOS (SVG Data URIs) ---
@@ -254,6 +267,36 @@ const parseHeadline = (html) => {
     return segments;
 };
 
+let _measureCanvas = null;
+function getMeasureCtx() {
+    if (!_measureCanvas && typeof document !== 'undefined') {
+        _measureCanvas = document.createElement('canvas');
+    }
+    return _measureCanvas?.getContext('2d') || null;
+}
+
+/** Match export line-wrap at preview scale (720px reference canvas). */
+function buildPreviewLines(headline, { fontSize, maxWidth, wordSpacing, fontFamily, boldWeight = 700 }) {
+    const ctx = getMeasureCtx();
+    if (!ctx || !headline) return [];
+    const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
+    const spacing = wordSpacing * fontSize;
+    return layoutHeadlineLines(cleaned, (text, bold) => {
+        ctx.font = `${bold ? boldWeight : 400} ${fontSize}px ${fontFamily}`;
+        return ctx.measureText(text).width;
+    }, maxWidth, spacing);
+}
+
+function buildNewsTickerPreviewLines(headline, { fontSize, maxWidth, fontFamily, boldWeight = 800 }) {
+    const ctx = getMeasureCtx();
+    if (!ctx || !headline) return [];
+    const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
+    return layoutNewsTickerTokenLines(cleaned, (text) => {
+        ctx.font = `${boldWeight} ${fontSize}px ${fontFamily}`;
+        return ctx.measureText(text).width;
+    }, maxWidth);
+}
+
 // Helper to calculate font size (uses text length without HTML tags)
 const calculateFontSize = (textLength, scaleMultiplier = 1) => {
     let size = 32;
@@ -295,12 +338,21 @@ const RichTextEditor = ({ value, onChange, placeholder, className }) => {
         if (!editor) return;
 
         const handleKeyDown = (e) => {
-            // B key for bold (when Ctrl/Cmd is pressed)
             if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
                 e.preventDefault();
                 handleBold();
+                return;
             }
-            // Don't handle B key alone - let user type normally
+            // Shift+Enter = manual line break (matches export); Enter = new paragraph
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault();
+                document.execCommand('insertLineBreak');
+                if (onChange && editorRef.current) onChange(editorRef.current.innerHTML);
+            } else if (e.key === 'Enter') {
+                requestAnimationFrame(() => {
+                    if (onChange && editorRef.current) onChange(editorRef.current.innerHTML);
+                });
+            }
         };
 
         editor.addEventListener('keydown', handleKeyDown);
@@ -322,12 +374,12 @@ const RichTextEditor = ({ value, onChange, placeholder, className }) => {
         }
     };
 
-    // Update content when value changes externally
+    // Update content when value changes externally (skip while focused so typing stays live)
     useEffect(() => {
-        if (editorRef.current && editorRef.current.innerHTML !== value) {
+        if (editorRef.current && !isFocused && editorRef.current.innerHTML !== value) {
             editorRef.current.innerHTML = value || '';
         }
-    }, [value]);
+    }, [value, isFocused]);
 
     return (
         <div className="relative">
@@ -344,7 +396,7 @@ const RichTextEditor = ({ value, onChange, placeholder, className }) => {
                     <Bold size={14} />
                     <span className="text-[10px]">B</span>
                 </button>
-                <span className="text-[10px] text-neutral-500">Select text and press B or click Bold</span>
+                <span className="text-[10px] text-neutral-500">Bold: select text + B · New line: <kbd className="px-1 bg-neutral-700 rounded">Shift+Enter</kbd> · Paragraph: Enter</span>
             </div>
             <div
                 ref={editorRef}
@@ -357,6 +409,50 @@ const RichTextEditor = ({ value, onChange, placeholder, className }) => {
                 style={{ minHeight: '60px' }}
                 suppressContentEditableWarning
             />
+        </div>
+    );
+};
+
+/** Manual line layout — one textarea row = one line on preview/export (no auto word-wrap). */
+const HeadlineLineBreakEditor = ({ headlineHtml, onChange, className }) => {
+    const [localText, setLocalText] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
+
+    useEffect(() => {
+        if (!isFocused) {
+            const lines = headlineHtmlToPlainLines(normalizeBoldHTML(headlineHtml || ''));
+            setLocalText(lines.join('\n'));
+        }
+    }, [headlineHtml, isFocused]);
+
+    const handleChange = (e) => {
+        const text = e.target.value;
+        setLocalText(text);
+        const rows = text.split('\n');
+        onChange(plainLinesToHeadlineHtml(rows, headlineHtml || ''));
+    };
+
+    const lineCount = localText ? localText.split('\n').length : 1;
+
+    return (
+        <div className="space-y-2 pt-2 border-t border-neutral-700">
+            <div>
+                <label className="text-xs text-neutral-300 font-medium">Line Layout</label>
+                <p className="text-[10px] text-neutral-500 mt-0.5">
+                    Arrange where each line sits — one row = one line on the video. Press <kbd className="px-1 bg-neutral-700 rounded">Enter</kbd> for a new line. Bold from the hook editor above is kept.
+                </p>
+            </div>
+            <textarea
+                value={localText}
+                onChange={handleChange}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                rows={Math.max(3, Math.min(lineCount + 1, 8))}
+                spellCheck={false}
+                placeholder={'HELLO, GOODMORNING\nGANG\nDOG HERE'}
+                className={className || 'w-full bg-neutral-900 border border-neutral-700 rounded p-3 text-sm text-white placeholder-neutral-600 focus:border-orange-500 focus:outline-none font-mono leading-relaxed resize-y min-h-[88px]'}
+            />
+            <p className="text-[10px] text-neutral-500">{lineCount} line{lineCount === 1 ? '' : 's'} — preview and export use this layout exactly</p>
         </div>
     );
 };
@@ -393,10 +489,22 @@ const PreviewCard = memo(({
     const [localVideoScale, setLocalVideoScale] = useState(videoScale || 100);
     const [ifcFontInfo, setIfcFontInfo] = useState(null);
     const containerRef = useRef(null);
+    const cardRef = useRef(null);
     const creditRef = useRef(null);
     const watermarkRef = useRef(null);
     const headlineRef = useRef(null);
     const videoElementRef = useRef(null);
+    const [previewCardW, setPreviewCardW] = useState(CANVAS_REF_W);
+
+    useLayoutEffect(() => {
+        const el = cardRef.current;
+        if (!el) return;
+        const update = () => setPreviewCardW(el.offsetWidth || CANVAS_REF_W);
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
 
     useEffect(() => {
         if (preset.name !== 'indian-founders-co') return;
@@ -688,13 +796,11 @@ const PreviewCard = memo(({
     // OPTIMIZATION: Skip expensive calculations for inactive presets
     // Only calculate when preset is active to save RAM and CPU
     const effectiveFontScale = preset.fontScale ?? fontScaleGlobal;
-    const previewFontSize = useMemo(() => {
-        if (!preset.active) return 20; // Default size for inactive presets
-        const textLength = preset.headline ? stripHTML(preset.headline).length : 0;
-        const baseSize = calculateFontSize(textLength, effectiveFontScale);
-        const layoutScale = (preset.layout === 'hook_video' || preset.layout === 'aroll') ? 0.5 : preset.layout === 'logo_centered' ? 0.35 : 0.45;
-        return Math.max(10, baseSize * layoutScale);
-    }, [preset.headline, preset.layout, effectiveFontScale, preset.active]);
+    const previewScale = previewCardW / CANVAS_REF_W;
+    const exportFontSize = getExportFontSize(preset, preset.headline, effectiveFontScale);
+    const previewFontSize = Math.max(10, exportFontSize * previewScale);
+    const exportMaxTextW = getExportMaxTextWidth(preset) * previewScale;
+    const exportNewsMaxLineW = getExportNewsMaxLineWidth() * previewScale;
 
     // Alignment Logic - Use preset.alignment property
     const isCenterAligned = preset.alignment === 'center';
@@ -713,17 +819,11 @@ const PreviewCard = memo(({
     const eyebrowAlignClass = eyebrowAlignment === 'center'
         ? 'text-center items-center px-6'
         : (isCenteredLeftAlign ? 'text-left items-start px-14' : 'text-left items-start px-6');
-    const eyebrowPreviewSize = Math.max(10, Math.round(previewFontSize * 0.52 * eyebrowSizeScale));
+    const eyebrowPreviewSize = Math.max(10, Math.round(getExportEyebrowFontSize(preset, effectiveFontScale, eyebrowSizeScale) * previewScale));
     // Keep preview spacing consistent with export (server uses ~16px * gapScale).
-    const eyebrowGapPx = Math.round(16 * eyebrowGapScale);
+    const eyebrowGapPx = Math.round(16 * eyebrowGapScale * previewScale);
     const eyebrowTextTrimmed = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
     const showEyebrowInPreview = preset.showHookEyebrow && eyebrowTextTrimmed.length > 0;
-
-    // OPTIMIZATION: Skip expensive parsing for inactive presets
-    const segments = useMemo(() => {
-        if (!preset.active) return []; // Empty array for inactive presets
-        return parseHeadline(preset.headline);
-    }, [preset.headline, preset.active]);
 
     // aicracked, theevolvinggpt, foundrsonig and related Poppins presets: no watermark, Poppins only (case-insensitive)
     const presetNameLower = (preset.name || '').toLowerCase().trim();
@@ -778,8 +878,20 @@ const PreviewCard = memo(({
     const clampedVideoScale = Math.max(localVideoScale || 100, 60);
     const previewVideoScale = clampedVideoScale / 100;
 
+    const mainHookLines = useMemo(() => {
+        const fontFamily = isPoppinsFont ? "'Poppins', sans-serif" : "'Inter', sans-serif";
+        return buildPreviewLines(preset.headline, {
+            fontSize: previewFontSize,
+            maxWidth: exportMaxTextW,
+            wordSpacing: adjustedWordSpacing,
+            fontFamily,
+            boldWeight: 700,
+        });
+    }, [preset.headline, previewFontSize, exportMaxTextW, adjustedWordSpacing, isPoppinsFont]);
+
     return (
         <div
+            ref={cardRef}
             className={`group relative ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : 'bg-black'} flex flex-col items-center select-none border-2 ${preset.active ? 'border-orange-500 ring-2 ring-orange-500/60 shadow-lg shadow-orange-500/20' : 'border-orange-500/50 opacity-70 hover:opacity-90 hover:border-orange-500/80'}`}
             data-preset-name={preset.name}
             style={{
@@ -835,42 +947,61 @@ const PreviewCard = memo(({
                             }}
                         >
                             {(() => {
-                                const segments = parseHeadline(preset.headline);
+                                const hookFontFamily = "'Inter', sans-serif";
+                                const hookBoldWeight = preset.name === 'indiabusinesscom' ? 800
+                                    : preset.name === 'indianfoundercore' ? 900
+                                    : preset.name === 'indian-founders-co' ? 900 : 700;
+                                const lines = buildPreviewLines(preset.headline, {
+                                    fontSize: previewFontSize,
+                                    maxWidth: exportMaxTextW,
+                                    wordSpacing: adjustedWordSpacing,
+                                    fontFamily: hookFontFamily,
+                                    boldWeight: hookBoldWeight,
+                                });
                                 let highlightGroupIndex = 0;
                                 let prevWasHighlight = false;
-                                const groupMap = segments.map(seg => {
-                                    if (seg.lineBreak) { prevWasHighlight = false; return -1; }
-                                    if (seg.highlight) {
+                                const groupForToken = (bold) => {
+                                    if (bold) {
                                         if (!prevWasHighlight) highlightGroupIndex++;
                                         prevWasHighlight = true;
                                         return highlightGroupIndex;
                                     }
                                     prevWasHighlight = false;
                                     return 0;
-                                });
-                                return segments.map((segment, idx) => {
-                                    if (segment.lineBreak) return <br key={`br-${idx}`} />;
-                                    return (
-                                    <span
-                                        key={idx}
+                                };
+                                return lines.map((line, li) => (
+                                    <div
+                                        key={li}
                                         style={{
-                                            fontSynthesis: 'none',
-                                            color: preset.name === 'indiabusinesscom'
-                                                ? (groupMap[idx] === 1 ? '#FF5F07' : groupMap[idx] >= 2 ? '#46DB27' : '#FFFFFF')
-                                                : (segment.highlight ? preset.color : '#FFFFFF'),
-                                            fontWeight: preset.name === 'indian-founders-co'
-                                                    ? (segment.highlight ? 900 : 400)
-                                                    : preset.name === 'indiabusinesscom'
-                                                        ? 800
-                                                        : preset.name === 'indianfoundercore'
-                                                            ? 900
-                                                            : (segment.highlight ? 700 : 400),
+                                            textAlign: isCenterAligned ? 'center' : 'left',
+                                            width: '100%',
                                         }}
                                     >
-                                        {segment.text}{' '}
-                                    </span>
-                                    );
-                                });
+                                        {line.tokens.map((t, ti) => {
+                                            const grp = groupForToken(t.bold);
+                                            return (
+                                                <span
+                                                    key={ti}
+                                                    style={{
+                                                        fontSynthesis: 'none',
+                                                        color: preset.name === 'indiabusinesscom'
+                                                            ? (grp === 1 ? '#FF5F07' : grp >= 2 ? '#46DB27' : '#FFFFFF')
+                                                            : (t.bold ? preset.color : '#FFFFFF'),
+                                                        fontWeight: preset.name === 'indian-founders-co'
+                                                            ? (t.bold ? 900 : 400)
+                                                            : preset.name === 'indiabusinesscom'
+                                                                ? 800
+                                                                : preset.name === 'indianfoundercore'
+                                                                    ? 900
+                                                                    : (t.bold ? 700 : 400),
+                                                    }}
+                                                >
+                                                    {t.text}{' '}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                ));
                             })()}
                         </div>
                     </div>
@@ -881,18 +1012,20 @@ const PreviewCard = memo(({
                     <>
                         {/* Logo — text logo top-left, image logo top-left or bottom-left per rules */}
                         {preset.rules?.textLogo ? (
-                            <div className="absolute z-50 text-white font-black leading-tight" style={{ fontFamily: "'Inter', sans-serif", whiteSpace: 'pre-line', fontSize: `${(preset.rules?.logoSize || 42) * 0.55}px`, lineHeight: 1.1, top: preset.ratio === '9:16' ? '7.6%' : '12px', left: preset.ratio === '9:16' ? '4.2%' : '12px' }}>
+                            <div className="absolute z-50 text-white font-black leading-tight" style={{ fontFamily: "'Inter', sans-serif", whiteSpace: 'pre-line', fontSize: `${Math.round((preset.rules?.logoSize || 42) * 0.9 * previewScale)}px`, lineHeight: 1.1, top: canvasPxToPercent(preset.name === 'ifc-news' ? 97 : 45), left: canvasPxToPercent(preset.name === 'ifc-news' ? 30 : 20) }}>
                                 {preset.rules.textLogo}
                             </div>
                         ) : getLogoUrl(preset.logo) ? (
-                            <div className="absolute z-50" style={preset.rules?.logoPosition === 'bottom-left' ? { bottom: '12px', left: '8.2%' } : preset.name === 'indiabusinesscom-news' ? { top: '4.5%', left: '6.4%' } : preset.name === 'indianfounderbrief-news' ? { top: '6.4%', left: '10%' } : { top: '12px', left: '12px' }}>
-                                <img src={getLogoUrl(preset.logo)} style={{ width: `${preset.rules?.logoSize || 48}px`, height: `${preset.rules?.logoSize || 48}px`, objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
+                            <div className="absolute z-50" style={preset.rules?.logoPosition === 'bottom-left'
+                                ? { bottom: canvasPxToPercent(12), left: canvasPxToPercent(preset.rules?.logoPadX ?? 59) }
+                                : { top: canvasPxToPercent(preset.rules?.logoPadY ?? (preset.name === 'indianfounderbrief-news' ? 82 : 41)), left: canvasPxToPercent(preset.rules?.logoPadX ?? (preset.name === 'indianfounderbrief-news' ? 72 : 46)) }}>
+                                <img src={getLogoUrl(preset.logo)} style={{ width: canvasPxToPercent(preset.rules?.logoSize || 48), height: canvasPxToPercent(preset.rules?.logoSize || 48), objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
                             </div>
                         ) : null}
                         {/* Social strip top-right — indiabusinesscom-news only */}
                         {preset.name === 'indiabusinesscom-news' && (
-                            <div className="absolute z-50" style={{ top: '2%', right: '2%' }}>
-                                <img src={getLogoUrl('IndianBusinessCom NewsStatic Format (1).png')} style={{ width: '13%', objectFit: 'contain' }} />
+                            <div className="absolute z-50" style={{ top: canvasPxToPercent(15), right: canvasPxToPercent(5) }}>
+                                <img src={getLogoUrl('IndianBusinessCom NewsStatic Format (1).png')} style={{ width: canvasPxToPercent(32), objectFit: 'contain' }} />
                             </div>
                         )}
                         {/* Gradient fade from video into black — all news_ticker presets */}
@@ -912,52 +1045,34 @@ const PreviewCard = memo(({
                                 const isISS = preset.name === 'indiastartupstory-news';
                                 const isIFC = preset.name === 'ifc-news';
                                 const isIFB = preset.name === 'indianfounderbrief-news';
-                                const raw = (preset.headline || '')
-                                    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
-                                    .replace(/<b\s[^>]*>/gi, '<b>')
-                                    .replace(/<\/?strong>/gi, m => m.toLowerCase().replace('strong', 'b'))
-                                    .replace(/<(?!\/?b\b)[^>]*>/gi, '');
-                                const tokens = [];
-                                raw.split(/(<b>.*?<\/b>)/i).forEach(p => {
-                                    if (!p) return;
-                                    const isB = /^<b>/i.test(p);
-                                    p.replace(/<\/?b>/gi, '').split(/\s+/).forEach(w => w && tokens.push({ text: w, bold: isB }));
+                                const ntFontSize = previewFontSize;
+                                const ntFontFamily = isISS ? "'Poppins', sans-serif" : "'Inter', sans-serif";
+                                const lines = buildNewsTickerPreviewLines(preset.headline, {
+                                    fontSize: ntFontSize,
+                                    maxWidth: exportNewsMaxLineW,
+                                    fontFamily: ntFontFamily,
+                                    boldWeight: 800,
                                 });
-                                const avgCharsPerLine = 22;
-                                // Wrap into lines (store token arrays for word-level rendering)
-                                const lines = [];
-                                let curToks = [], curLen = 0;
-                                for (const t of tokens) {
-                                    const addLen = curLen ? curLen + 1 + t.text.length : t.text.length;
-                                    if (addLen > avgCharsPerLine && curToks.length) {
-                                        lines.push(curToks);
-                                        curToks = [t]; curLen = t.text.length;
-                                    } else {
-                                        curToks.push(t); curLen = addLen;
-                                    }
-                                }
-                                if (curToks.length) lines.push(curToks);
                                 return (
                                     <div style={{ background: '#000000', display: isIFC ? 'flex' : 'inline-flex', flexDirection: 'column', gap: 0, ...(isIFC ? { width: '100%' } : {}) }}>
                                         {lines.map((lineTokens, i) => {
-                                            // Group consecutive tokens into bold/non-bold runs
                                             const runs = [];
                                             for (const t of lineTokens) {
-                                                if (!runs.length || runs[runs.length-1].bold !== t.bold)
+                                                if (!runs.length || runs[runs.length - 1].bold !== t.bold)
                                                     runs.push({ bold: t.bold, words: [t.text] });
                                                 else
-                                                    runs[runs.length-1].words.push(t.text);
+                                                    runs[runs.length - 1].words.push(t.text);
                                             }
                                             return (
                                                 <div key={i} className="py-1" style={{
                                                     display: 'flex', alignItems: 'stretch',
                                                     justifyContent: (isIBC || isIFC) ? 'center' : 'flex-start',
-                                                    fontFamily: isISS ? "'Poppins', sans-serif" : "'Inter', sans-serif",
+                                                    fontFamily: ntFontFamily,
                                                     fontWeight: 800,
-                                                    fontSize: `${previewFontSize * 0.82}px`,
+                                                    fontSize: `${ntFontSize}px`,
                                                     lineHeight: 1.4,
                                                     whiteSpace: 'nowrap',
-                                                    paddingLeft: isIBC ? '0' : ((isISS || isIFB) ? '0' : '12px'),
+                                                    paddingLeft: isIBC ? '0' : ((isISS || isIFB) ? '0' : canvasPxToPercent(12)),
                                                 }}>
                                                     {runs.map((run, j) => (
                                                         <span key={j} style={{
@@ -988,33 +1103,50 @@ const PreviewCard = memo(({
                     const brandSize = Math.round(previewFontSize * (isLogoSocial ? 0.85 : 1.2));
                     const handleSize = Math.round(previewFontSize * 0.52);
                     const hlColors = preset.rules?.highlightColors || ['#4898ab', '#90d46c'];
-                    const segments = parseHeadline(preset.headline || '');
                     const badgePx = Math.max(10, Math.round(brandSize * (isLogoSocial ? 0.62 : 0.52)));
 
-                    const hookBlock = (
-                        <div className="pb-2" style={{
-                            fontFamily: isLogoSocial ? "'Inter', sans-serif" : "'Poppins', sans-serif",
-                            fontSize: `${previewFontSize}px`,
-                            lineHeight: 1.35,
-                            fontWeight: isLogoSocial ? 400 : 700,
-                        }}>
-                            {segments.map((seg, idx) => {
-                                if (seg.lineBreak) return <br key={idx} />;
-                                if (!isLogoSocial && seg.highlight) {
-                                    return (
-                                        <span key={idx} style={{
-                                            fontWeight: 700,
-                                            background: `linear-gradient(90deg, ${hlColors[0]}, ${hlColors[1]})`,
-                                            WebkitBackgroundClip: 'text',
-                                            WebkitTextFillColor: 'transparent',
-                                            backgroundClip: 'text',
-                                        }}>{seg.text}{' '}</span>
-                                    );
-                                }
-                                return <span key={idx} style={{ color: '#FFFFFF', fontWeight: seg.highlight ? 700 : (isLogoSocial ? 400 : 700) }}>{seg.text}{' '}</span>;
-                            })}
-                        </div>
-                    );
+                    const hookBlock = (() => {
+                        const hookFontFamily = isLogoSocial ? "'Inter', sans-serif" : "'Poppins', sans-serif";
+                        const hookBoldWeight = isLogoSocial ? 700 : 700;
+                        const lines = buildPreviewLines(preset.headline || '', {
+                            fontSize: previewFontSize,
+                            maxWidth: exportMaxTextW,
+                            wordSpacing: adjustedWordSpacing,
+                            fontFamily: hookFontFamily,
+                            boldWeight: hookBoldWeight,
+                        });
+                        return (
+                            <div className="pb-2" style={{
+                                fontFamily: hookFontFamily,
+                                fontSize: `${previewFontSize}px`,
+                                lineHeight: 1.35,
+                                fontWeight: isLogoSocial ? 400 : 700,
+                            }}>
+                                {lines.map((line, li) => (
+                                    <div key={li}>
+                                        {line.tokens.map((t, ti) => {
+                                            if (!isLogoSocial && t.bold) {
+                                                return (
+                                                    <span key={ti} style={{
+                                                        fontWeight: 700,
+                                                        background: `linear-gradient(90deg, ${hlColors[0]}, ${hlColors[1]})`,
+                                                        WebkitBackgroundClip: 'text',
+                                                        WebkitTextFillColor: 'transparent',
+                                                        backgroundClip: 'text',
+                                                    }}>{t.text}{' '}</span>
+                                                );
+                                            }
+                                            return (
+                                                <span key={ti} style={{ color: '#FFFFFF', fontWeight: t.bold ? 700 : (isLogoSocial ? 400 : 700) }}>
+                                                    {t.text}{' '}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                ))}
+                            </div>
+                        );
+                    })();
 
                     if (isLogoSocial) {
                         return (
@@ -1153,91 +1285,79 @@ const PreviewCard = memo(({
                                 </div>
                             </div>
                         )}
-                        <div
-                            className="flex flex-wrap"
-                            style={{
-                                pointerEvents: isRepositioningHeadline ? 'none' : 'auto',
-                                justifyContent: isCenterAligned ? 'center' : 'flex-start',
-                                gap: `${preset.name === 'indian-founders-co' ? 0.33 : adjustedWordSpacing}em`,
-                                letterSpacing: preset.name === 'indian-founders-co' ? '0px' : (isPoppinsFont ? '0px' : undefined)
-                            }}
-                        >
-                            {/* Pre-compute highlight group index for Real India Business dual-color logic */}
+                        <div style={{ pointerEvents: isRepositioningHeadline ? 'none' : 'auto', width: '100%' }}>
                             {(() => {
                                 let highlightGroupIndex = 0;
                                 let prevWasHighlight = false;
-                                const groupMap = segments.map(seg => {
-                                    if (seg.lineBreak) { prevWasHighlight = false; return -1; }
-                                    if (seg.highlight) {
+                                const groupForToken = (highlight) => {
+                                    if (highlight) {
                                         if (!prevWasHighlight) highlightGroupIndex++;
                                         prevWasHighlight = true;
                                         return highlightGroupIndex;
                                     }
                                     prevWasHighlight = false;
                                     return 0;
-                                });
-                                return segments.map((segment, idx) => segment.lineBreak ? (
-                                <br key={idx} />
-                            ) : (
-                                <span
-                                    key={idx}
-                                    style={{
-                                        fontSynthesis: 'none',
-                                        color: (() => {
-                                            const highlightGroup = groupMap[idx];
-                                            if (preset.name === 'Real India Business') return highlightGroup === 1 ? '#FF8323' : highlightGroup >= 2 ? '#0DC100' : 'white';
-                                            if (preset.name === 'theprimefounder') return segment.highlight ? '#1DB077' : 'white';
-                                            if (preset.name === 'foundrsonig') return segment.highlight ? '#ECECDC' : 'white';
-                                            if (preset.name === 'indiasbestfounders' || preset.name === 'intelligence by ai') return segment.highlight ? '#ECECDC' : 'white';
-                                            if (preset.name === 'elitefoundrs') return segment.highlight ? '#5887FF' : 'white';
-                                            if (preset.name === 'indianfoundr') return segment.highlight ? '#487AF9' : 'white';
-                                            if (preset.name === 'the ai phaze') return segment.highlight ? '#95C5D1' : 'white';
-                                            if (preset.name === 'That AI page') return segment.highlight ? '#6523FF' : 'white';
-                                            if (preset.name === 'Revolution in tech') return segment.highlight ? '#FDB05E' : 'white';
-                                            if (preset.name === 'indiastartupstory') return segment.highlight ? '#EF5350' : 'white';
-                                            if (presetNameLower === 'risewithcontent') return segment.highlight ? '#E53935' : 'white';
-                                            if (preset.name === 'The Prime Ai Page') return segment.highlight ? '#FFCD1D' : 'white';
-                                            if (preset.name === 'Dhandha India') return segment.highlight ? '#FB9C39' : 'white';
-                                            if (preset.name === 'The Ai Gauntlet') return segment.highlight ? '#FFCD1D' : 'white';
-                                            if (presetNameLower === 'bestindianpodcast') return segment.highlight ? '#fde601' : 'white';
-                                            if (preset.name === 'founders-in-india') return segment.highlight ? '#7F53FF' : 'white';
-                                            if (preset.name === 'Entrepreneursindia.co') return 'white';
-                                            if (preset.name === 'peakofai' || isAicrackedOrEvolvingPreset) return 'white';
-                                            if (['founderdaily', 'founderbusinesstips', 'kwazyfounders', 'startup madness'].includes(preset.name)) return 'black';
-                                            if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return 'white';
-                                            if (['Founders God', 'CEO Mindset India', 'The Founders Show', 'Life Wealth Lessons', 'Billionaires of Bharat', 'ceo hustle advice', 'indian hustle advice', 'rich indian ceo', 'startupcoded', 'founders cracked', 'indian business com', 'Entrepreneurial India', 'Finding Good AI', 'Finding Good Tech', 'startupsinthelast24hrs', 'indian ai future', 'techinthelast24hrs', 'indianaipage', 'indiantechdaily', '101xtechnology', 'therisingai', 'Revolution in ai', 'Founders.India', 'Technology In India', 'Daily Tech India', 'The Prime Ai Page', 'Dhandha India', 'The Ai Gauntlet', 'startupbydog', 'foundersoncrack'].includes(preset.name)) return 'white';
-                                            return segment.highlight ? preset.color : 'white';
-                                        })(),
-                                        fontWeight: (() => {
-                                            // IFC uses local Inter 400 + 700; don't request weights we don't ship.
-                                            if (preset.name === 'indian-founders-co') return segment.highlight ? 800 : 400;
-                                            if (preset.name === 'bizzindia' || preset.name === '101xfounders') return segment.highlight ? 900 : 400;
-                                            if (preset.name === 'theprimefounder' || preset.name === 'peakofai' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indiastartupstory' || preset.name === 'neworderai') return segment.highlight ? 700 : 400;
-                                            if (preset.name === 'startup madness') return 800;
-                                            if (preset.name === 'indian business com') return segment.highlight ? 700 : 400;
-                                            if (preset.name === 'techinthelast24hrs') return 700;
-                                            if (preset.name === 'indianaipage' || preset.name === 'indiantechdaily' || preset.name === '101xtechnology' || preset.name === 'therisingai' || preset.name === 'Revolution in ai' || preset.name === 'Founders.India' || preset.name === 'Technology In India' || preset.name === 'Daily Tech India' || preset.name === 'The Prime Ai Page' || preset.name === 'Dhandha India' || preset.name === 'The Ai Gauntlet' || preset.name === '101xfounders-tweet' || preset.name === 'bizzindia-tweet' || preset.name === 'founders-in-india-tweet' || preset.name === 'indian-founders-co-tweet') return segment.highlight ? 700 : 400;
-                                            if (preset.name === 'rich indian ceo' || preset.name === 'Entrepreneurial India') return segment.highlight ? 700 : 400;
-                                            if (['founderdaily', 'founderbusinesstips', 'Life Wealth Lessons', 'Billionaires of Bharat', 'indian hustle advice', 'Finding Good AI', 'Finding Good Tech', 'startupsinthelast24hrs', 'indian ai future', 'startupbydog'].includes(preset.name)) return 400;
-                                            if (preset.name === 'founders cracked') return segment.highlight ? 700 : 400;
-                                            if (preset.name === 'ceo hustle advice') return segment.highlight ? 700 : 400;
-                                            if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return segment.highlight ? 800 : 400;
-                                            if (preset.name === 'founders-in-india' || preset.name === 'Entrepreneursindia.co') return segment.highlight ? 700 : 400;
-                                            if (preset.name === 'Real India Business') return segment.highlight ? 600 : 300;
-                                            if (['Founders God', 'CEO Mindset India', 'startupcoded', 'foundersoncrack'].includes(preset.name)) return 800;
-                                            if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return segment.highlight ? 800 : 400;
-                                            return segment.highlight ? 800 : 400;
-                                        })(),
-                                        fontFamily: ((preset.name === '101xfounders' || preset.name === 'bizzindia' || preset.name === 'indian-founders-co' || presetNameLower === 'bestindianpodcast')
-                                                ? "'Inter', sans-serif"
-                                                : isPoppinsFont
-                                                    ? "'Poppins', sans-serif"
-                                                    : (preset.name === 'Smart Business.in' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf') ? "'Inter', sans-serif" : 'inherit')
-                                    }}
-                                >
-                                    {segment.text}
-                                </span>
-                            ));
+                                };
+                                const tokenColor = (highlight, highlightGroup) => {
+                                    if (preset.name === 'Real India Business') return highlightGroup === 1 ? '#FF8323' : highlightGroup >= 2 ? '#0DC100' : 'white';
+                                    if (preset.name === 'theprimefounder') return highlight ? '#1DB077' : 'white';
+                                    if (preset.name === 'foundrsonig') return highlight ? '#ECECDC' : 'white';
+                                    if (preset.name === 'indiasbestfounders' || preset.name === 'intelligence by ai') return highlight ? '#ECECDC' : 'white';
+                                    if (preset.name === 'elitefoundrs') return highlight ? '#5887FF' : 'white';
+                                    if (preset.name === 'indianfoundr') return highlight ? '#487AF9' : 'white';
+                                    if (preset.name === 'the ai phaze') return highlight ? '#95C5D1' : 'white';
+                                    if (preset.name === 'That AI page') return highlight ? '#6523FF' : 'white';
+                                    if (preset.name === 'Revolution in tech') return highlight ? '#FDB05E' : 'white';
+                                    if (preset.name === 'indiastartupstory') return highlight ? '#EF5350' : 'white';
+                                    if (presetNameLower === 'risewithcontent') return highlight ? '#E53935' : 'white';
+                                    if (preset.name === 'The Prime Ai Page') return highlight ? '#FFCD1D' : 'white';
+                                    if (preset.name === 'Dhandha India') return highlight ? '#FB9C39' : 'white';
+                                    if (preset.name === 'The Ai Gauntlet') return highlight ? '#FFCD1D' : 'white';
+                                    if (presetNameLower === 'bestindianpodcast') return highlight ? '#fde601' : 'white';
+                                    if (preset.name === 'founders-in-india') return highlight ? '#7F53FF' : 'white';
+                                    if (preset.name === 'Entrepreneursindia.co') return 'white';
+                                    if (preset.name === 'peakofai' || isAicrackedOrEvolvingPreset) return 'white';
+                                    if (['founderdaily', 'founderbusinesstips', 'kwazyfounders', 'startup madness'].includes(preset.name)) return 'black';
+                                    if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return 'white';
+                                    if (['Founders God', 'CEO Mindset India', 'The Founders Show', 'Life Wealth Lessons', 'Billionaires of Bharat', 'ceo hustle advice', 'indian hustle advice', 'rich indian ceo', 'startupcoded', 'founders cracked', 'indian business com', 'Entrepreneurial India', 'Finding Good AI', 'Finding Good Tech', 'startupsinthelast24hrs', 'indian ai future', 'techinthelast24hrs', 'indianaipage', 'indiantechdaily', '101xtechnology', 'therisingai', 'Revolution in ai', 'Founders.India', 'Technology In India', 'Daily Tech India', 'The Prime Ai Page', 'Dhandha India', 'The Ai Gauntlet', 'startupbydog', 'foundersoncrack'].includes(preset.name)) return 'white';
+                                    return highlight ? preset.color : 'white';
+                                };
+                                const tokenWeight = (highlight) => {
+                                    if (preset.name === 'indian-founders-co') return highlight ? 800 : 400;
+                                    if (preset.name === 'bizzindia' || preset.name === '101xfounders') return highlight ? 900 : 400;
+                                    if (preset.name === 'theprimefounder' || preset.name === 'peakofai' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indiastartupstory' || preset.name === 'neworderai') return highlight ? 700 : 400;
+                                    if (preset.name === 'startup madness') return 800;
+                                    if (preset.name === 'indian business com') return highlight ? 700 : 400;
+                                    if (preset.name === 'techinthelast24hrs') return 700;
+                                    if (preset.name === 'indianaipage' || preset.name === 'indiantechdaily' || preset.name === '101xtechnology' || preset.name === 'therisingai' || preset.name === 'Revolution in ai' || preset.name === 'Founders.India' || preset.name === 'Technology In India' || preset.name === 'Daily Tech India' || preset.name === 'The Prime Ai Page' || preset.name === 'Dhandha India' || preset.name === 'The Ai Gauntlet' || preset.name === '101xfounders-tweet' || preset.name === 'bizzindia-tweet' || preset.name === 'founders-in-india-tweet' || preset.name === 'indian-founders-co-tweet') return highlight ? 700 : 400;
+                                    if (preset.name === 'rich indian ceo' || preset.name === 'Entrepreneurial India') return highlight ? 700 : 400;
+                                    if (['founderdaily', 'founderbusinesstips', 'Life Wealth Lessons', 'Billionaires of Bharat', 'indian hustle advice', 'Finding Good AI', 'Finding Good Tech', 'startupsinthelast24hrs', 'indian ai future', 'startupbydog'].includes(preset.name)) return 400;
+                                    if (preset.name === 'founders cracked') return highlight ? 700 : 400;
+                                    if (preset.name === 'ceo hustle advice') return highlight ? 700 : 400;
+                                    if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return highlight ? 800 : 400;
+                                    if (preset.name === 'founders-in-india' || preset.name === 'Entrepreneursindia.co') return highlight ? 700 : 400;
+                                    if (preset.name === 'Real India Business') return highlight ? 600 : 300;
+                                    if (['Founders God', 'CEO Mindset India', 'startupcoded', 'foundersoncrack'].includes(preset.name)) return 800;
+                                    if (['The Founders Show', 'Business India Lessons'].includes(preset.name)) return highlight ? 800 : 400;
+                                    return highlight ? 800 : 400;
+                                };
+                                const tokenFont = ((preset.name === '101xfounders' || preset.name === 'bizzindia' || preset.name === 'indian-founders-co' || presetNameLower === 'bestindianpodcast')
+                                    ? "'Inter', sans-serif"
+                                    : isPoppinsFont
+                                        ? "'Poppins', sans-serif"
+                                        : (preset.name === 'Smart Business.in' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf') ? "'Inter', sans-serif" : 'inherit');
+                                return mainHookLines.map((line, li) => (
+                                    <div key={li} style={{ textAlign: isCenterAligned ? 'center' : 'left', width: '100%', letterSpacing: preset.name === 'indian-founders-co' ? '0px' : (isPoppinsFont ? '0px' : undefined) }}>
+                                        {line.tokens.map((t, ti) => {
+                                            const grp = groupForToken(t.bold);
+                                            return (
+                                                <span key={ti} style={{ fontSynthesis: 'none', color: tokenColor(t.bold, grp), fontWeight: tokenWeight(t.bold), fontFamily: tokenFont }}>
+                                                    {t.text}{' '}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                ));
                             })()}
                         </div>
                     </div>
@@ -1350,15 +1470,28 @@ const PreviewCard = memo(({
 
                         {/* Logo overlay for hook_video layout - TOP RIGHT with 50% opacity */}
                         {preset.layout === 'hook_video' && preset.name !== 'indiabusinesscom' && getLogoUrl(preset.logo) && (
-                            <div className="absolute top-2 right-2 z-50">
-                                <img src={getLogoUrl(preset.logo)} className="w-16 h-16 rounded-full" style={{ objectFit: 'cover', opacity: preset.rules?.logoOpacity || 0.5 }} />
+                            <div className="absolute z-50" style={
+                                (preset.rules?.logoPosition || 'top-right') === 'top-left'
+                                    ? { top: canvasPxToPercent(preset.rules?.logoPadY ?? 8), left: canvasPxToPercent(preset.rules?.logoPadX ?? 8) }
+                                    : { top: canvasPxToPercent(preset.rules?.logoPadY ?? 8), right: canvasPxToPercent(preset.rules?.logoPadX ?? 8) }
+                            }>
+                                <img
+                                    src={getLogoUrl(preset.logo)}
+                                    style={{
+                                        width: canvasPxToPercent(preset.rules?.logoSize ?? 80),
+                                        height: canvasPxToPercent(preset.rules?.logoSize ?? 80),
+                                        objectFit: preset.rules?.logoCircular !== false ? 'cover' : 'contain',
+                                        borderRadius: preset.rules?.logoCircular !== false ? '50%' : undefined,
+                                        opacity: preset.rules?.logoOpacity ?? 0.5,
+                                    }}
+                                />
                             </div>
                         )}
 
                         {/* Logo overlay for indiabusinesscom - TOP LEFT, full opacity, uncropped */}
                         {preset.name === 'indiabusinesscom' && getLogoUrl(preset.logo) && (
-                            <div className="absolute z-50" style={{ top: `${preset.rules?.logoPadY ?? 12}px`, left: `${preset.rules?.logoPadX ?? 22}px` }}>
-                                <img src={getLogoUrl(preset.logo)} style={{ width: `${preset.rules?.logoSize ?? 48}px`, height: `${preset.rules?.logoSize ?? 48}px`, objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
+                            <div className="absolute z-50" style={{ top: canvasPxToPercent(preset.rules?.logoPadY ?? 12), left: canvasPxToPercent(preset.rules?.logoPadX ?? 22) }}>
+                                <img src={getLogoUrl(preset.logo)} style={{ width: canvasPxToPercent(preset.rules?.logoSize ?? 48), height: canvasPxToPercent(preset.rules?.logoSize ?? 48), objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
                             </div>
                         )}
 
@@ -2196,6 +2329,11 @@ export default function App() {
                                             className="w-full bg-neutral-900 border border-neutral-700 rounded p-3 text-sm text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none font-medium min-h-[80px]"
                                         />
 
+                                        <HeadlineLineBreakEditor
+                                            headlineHtml={globalHeadline}
+                                            onChange={(html) => updateGlobalText(html, globalFooter)}
+                                        />
+
                                         <input
                                             type="text"
                                             value={globalFooter}
@@ -2341,13 +2479,17 @@ export default function App() {
                                                     <span>Select text and press B or click Bold</span>
                                                 </div>
 
-                                                {/* Hook Text Input */}
                                                 <div className="space-y-2">
+                                                    <label className="text-xs text-neutral-400">Hook text (bold)</label>
                                                     <RichTextEditor
                                                         value={p.headline}
                                                         onChange={(html) => updateIndividualText(p.id, 'headline', html)}
                                                         placeholder="Hook....."
                                                         className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-4 text-sm text-white focus:border-orange-500 focus:outline-none min-h-[100px]"
+                                                    />
+                                                    <HeadlineLineBreakEditor
+                                                        headlineHtml={p.headline}
+                                                        onChange={(html) => updateIndividualText(p.id, 'headline', html)}
                                                     />
                                                 </div>
 
