@@ -10,6 +10,8 @@ import {
   cleanHeadlineHtml,
   layoutHeadlineLines,
   layoutNewsTickerTokenLines,
+  getHookVideoGap,
+  getEffectiveLineSpacing,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -345,9 +347,9 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
 
   const hookColor = preset.color || '#7F53FF';
   const fontSize = Math.round(38 * (fontScale || 1));
-  const lineHeight = fontSize * 1.35;
+  const lineHeight = fontSize * getEffectiveLineSpacing(preset);
   const maxTextW = 620;
-  const textToVideoGap = 25;
+  const textToVideoGap = getHookVideoGap(preset);
 
   // Resolve preset type early so measurement uses the same font as drawing.
   const _presetNameLower = (preset.name || '').toLowerCase();
@@ -538,7 +540,7 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
   const textStartX = 50;
   const maxTextW = 620;
   const fontSize = Math.round(38 * (fontScale || 1));
-  const lineHeight = fontSize * 1.35;
+  const lineHeight = fontSize * getEffectiveLineSpacing(preset);
 
   // --- Video frame ---
   const sidePad = getArollVideoSidePad(preset.ratio, preset.rules);
@@ -1150,7 +1152,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   // Use preset headline when set (Per Brand edits, including bold) so export matches preview; else fall back to global
   const rawHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
   const fontSize = (stripHTML(rawHeadline).length < 25 ? 50 : (stripHTML(rawHeadline).length < 50 ? 40 : 32)) * (fontScale || 1);
-  const lineHeight = fontSize * (preset.lineSpacing || 1.25);
+  const lineHeight = fontSize * getEffectiveLineSpacing(preset);
   const adjSpacing = isAllBoldWhite ? 0.2 : wordSpacingMultiplier;
 
   // For presets with narrower video (600px), limit text width to stay within video frame
@@ -1206,13 +1208,8 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     : 0;
 
   const isHookCentered = ['The Rising Founder', 'The Real Founder', 'Inspiring Founder', 'Business Cracked', 'The Founders Show', 'founders cracked'].includes(name);
-  // Exclude CEO Mindset India, Founders God, The Founders Show, and Entrepreneurial India from zero gap to match Life Wealth Lessons spacing
   const shouldUseGap = name === 'CEO Mindset India' || name === 'Founders God' || name === 'The Founders Show' || name === 'Entrepreneurial India';
-  // For startupcoded, Dhandha India, Finding Good AI/Tech, keep hook sitting closer to the video (smaller gap)
-  const isTightGapPreset = name === 'startupcoded' || name === 'Dhandha India' || name === 'kwazyfounders' || name === 'Finding Good AI' || name === 'Finding Good Tech';
-  // Same gap logic as 101xfounders for theprimefounder, aicracked, theevolvinggpt (headline on canvas = gap baked in)
-  const textToVideoGapBase = (shouldUseGap || !(isAllBoldWhite || isHookCentered)) ? GAP : 0;
-  const textToVideoGap = isFoundersIndia ? 0 : (isTightGapPreset ? Math.round(textToVideoGapBase * 0.4) : textToVideoGapBase);
+  const textToVideoGap = getHookVideoGap(preset);
   // For these three presets, use standard GAP like Life Wealth Lessons
   const logoToTextGap = (preset.layout === 'watermark') ? 0 : ((name === 'Business Cracked') ? GAP : (shouldUseGap ? GAP : (isAllBoldWhite ? (GAP + 15) : (isHookCentered ? (GAP + 20) : (isFoundersIndia ? (GAP + 20) : GAP)))));
   const logoToVideoGap_NoHook = (isBestFounderClips || isBestBusinessClips || isAdsByMarketer) ? (GAP * 2) : (isStartupMadness ? (GAP * 3) : GAP);

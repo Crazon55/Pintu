@@ -256,3 +256,29 @@ export function getExportMaxTextWidth(preset, canvasW = CANVAS_REF_W) {
 export function getExportNewsMaxLineWidth() {
   return 660;
 }
+
+/** Gap between hook text block and video (px at 720×1280 export canvas). */
+export function getHookVideoGap(preset) {
+  if (Number.isFinite(preset?.hookVideoGap)) return Math.round(preset.hookVideoGap);
+
+  if (preset?.layout === 'hook_video') return 25;
+
+  const name = preset?.name || '';
+  const nameLower = name.toLowerCase();
+  const GAP = 20;
+  const isAllBoldWhite = name === 'Founders God' || name === 'CEO Mindset India';
+  const isHookCentered = ['The Rising Founder', 'The Real Founder', 'Inspiring Founder', 'Business Cracked', 'The Founders Show', 'founders cracked'].includes(name);
+  const shouldUseGap = name === 'CEO Mindset India' || name === 'Founders God' || name === 'The Founders Show' || name === 'Entrepreneurial India';
+  const isTightGapPreset = name === 'startupcoded' || name === 'Dhandha India' || name === 'kwazyfounders' || name === 'Finding Good AI' || name === 'Finding Good Tech';
+  const isFoundersIndia = nameLower === 'founders.india';
+
+  const base = (shouldUseGap || !(isAllBoldWhite || isHookCentered)) ? GAP : 0;
+  if (isFoundersIndia) return 0;
+  if (isTightGapPreset) return Math.round(base * 0.4);
+  return base;
+}
+
+export function getEffectiveLineSpacing(preset) {
+  const v = Number(preset?.lineSpacing);
+  return Number.isFinite(v) && v > 0 ? v : 1.25;
+}
