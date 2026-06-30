@@ -10,6 +10,8 @@ import {
     getExportEyebrowFontSize,
     getExportMaxTextWidth,
     getExportNewsMaxLineWidth,
+    getHookVideoGap,
+    getEffectiveLineSpacing,
     headlineHtmlToPlainLines,
     plainLinesToHeadlineHtml,
 } from './shared/headlineLayout.js';
@@ -801,6 +803,8 @@ const PreviewCard = memo(({
     const previewFontSize = Math.max(10, exportFontSize * previewScale);
     const exportMaxTextW = getExportMaxTextWidth(preset) * previewScale;
     const exportNewsMaxLineW = getExportNewsMaxLineWidth() * previewScale;
+    const hookVideoGapPx = getHookVideoGap(preset) * previewScale;
+    const effectiveLineSpacing = getEffectiveLineSpacing(preset);
 
     // Alignment Logic - Use preset.alignment property
     const isCenterAligned = preset.alignment === 'center';
@@ -911,12 +915,8 @@ const PreviewCard = memo(({
                 {/* 1a. HOOK_VIDEO HEADER: optional line above hook, then hook text centered on black */}
                 {preset.layout === 'hook_video' && (
                     <div
-                        className="w-full px-4 pt-4 pb-2 z-10 shrink-0"
-                        style={{
-                            marginBottom: ['indiabusinesscom', 'indianfoundercore', 'indian-founders-co'].includes(preset.name)
-                                ? '1rem'
-                                : undefined,
-                        }}
+                        className="w-full px-4 pt-4 z-10 shrink-0"
+                        style={{ marginBottom: `${hookVideoGapPx}px` }}
                     >
                         {showEyebrowInPreview && (
                             <div
@@ -937,7 +937,7 @@ const PreviewCard = memo(({
                             className={`w-full ${isCenterAligned ? 'text-center' : 'text-left'}`}
                             style={{
                                 fontSize: `${previewFontSize}px`,
-                                lineHeight: 1.35,
+                                lineHeight: effectiveLineSpacing,
                                 fontFamily: "'Inter', sans-serif",
                                 letterSpacing: preset.name === 'indiabusinesscom'
                                     ? '-0.05em'
@@ -1119,7 +1119,7 @@ const PreviewCard = memo(({
                             <div className="pb-2" style={{
                                 fontFamily: hookFontFamily,
                                 fontSize: `${previewFontSize}px`,
-                                lineHeight: 1.35,
+                                lineHeight: effectiveLineSpacing,
                                 fontWeight: isLogoSocial ? 400 : 700,
                             }}>
                                 {lines.map((line, li) => (
@@ -1256,9 +1256,9 @@ const PreviewCard = memo(({
                         className={`w-full z-10 leading-tight drop-shadow-lg ${preset.name === 'indian-founders-co' ? 'tracking-normal' : 'tracking-tighter'} relative ${isRepositioningHeadline ? 'cursor-move ring-2 ring-yellow-500' : ''} ${isCenterAligned ? 'flex flex-col items-center' : 'flex flex-col items-start'} ${isCenteredLeftAlign ? 'px-14' : (preset.name === 'wealth lessons india' ? 'px-4' : '')}`}
                         style={{
                             fontSize: `${previewFontSize}px`,
-                            lineHeight: preset.lineSpacing || 1.25,
+                            lineHeight: effectiveLineSpacing,
                             marginTop: preset.name === 'Best Founder Clips' ? '0.5rem' : (preset.name === 'The Founders Show' || preset.name === 'Life Wealth Lessons' || preset.name === 'Business India Lessons' || preset.name === 'Billionaires of Bharat' || preset.name === 'startupcoded' || preset.name === 'kwazyfounders' || preset.name === 'founders-in-india' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf' || preset.name === 'wealth lessons india' || preset.name === 'Daily Tech India' ? '1rem' : '0'),
-                            marginBottom: (isAllBoldWhite || preset.name === 'The Rising Founder' || preset.name === 'The Real Founder' || preset.name === 'Inspiring Founder' || preset.name === 'Business Cracked' || preset.name === 'The Founders Show' || preset.name === 'Life Wealth Lessons' || preset.name === 'Business India Lessons' || preset.name === 'Billionaires of Bharat' || preset.name === 'startupcoded' || preset.name === 'kwazyfounders' || preset.name === 'founders-in-india' || preset.name === 'founders cracked' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf' || preset.name === 'Entrepreneurial India') ? '0' : '0.25rem',
+                            marginBottom: `${hookVideoGapPx}px`,
                             ...(localHeadlinePos.x !== 0 && localHeadlinePos.x ? {
                                 left: `${localHeadlinePos.x}%`,
                                 transform: 'translateX(0)'
@@ -2319,6 +2319,39 @@ export default function App() {
                                     </div>
                                 )}
 
+                                {/* HOOK → VIDEO GAP - global */}
+                                {editMode === 'global' && (
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-neutral-300">Hook → Video Gap</label>
+                                        <p className="text-[10px] text-neutral-500">Space between hook text and the video frame</p>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="80"
+                                                step="1"
+                                                value={getHookVideoGap(presets[0])}
+                                                onChange={(e) => {
+                                                    const val = parseInt(e.target.value, 10);
+                                                    setPresets(prev => prev.map(p => ({ ...p, hookVideoGap: val })));
+                                                }}
+                                                className="flex-1 h-1 bg-neutral-600 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                                            />
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="80"
+                                                value={getHookVideoGap(presets[0])}
+                                                onChange={(e) => {
+                                                    const val = Math.max(0, Math.min(80, parseInt(e.target.value, 10) || 0));
+                                                    setPresets(prev => prev.map(p => ({ ...p, hookVideoGap: val })));
+                                                }}
+                                                className="w-12 px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* EDIT MODE: GLOBAL */}
                                 {editMode === 'global' && (
                                     <>
@@ -2667,6 +2700,41 @@ export default function App() {
                                                             step="0.05"
                                                             min="0.8"
                                                             max="2.0"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Hook → Video Gap */}
+                                                <div className="space-y-2">
+                                                    <label className="text-xs text-neutral-400 font-medium">Hook → Video Gap</label>
+                                                    <p className="text-[10px] text-neutral-500">Space between hook text and the video</p>
+                                                    <div className="flex items-center gap-3">
+                                                        <input
+                                                            type="range"
+                                                            min="0"
+                                                            max="80"
+                                                            step="1"
+                                                            value={getHookVideoGap(p)}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value, 10);
+                                                                setPresets(prev => prev.map(item =>
+                                                                    item.id === p.id ? { ...item, hookVideoGap: val } : item
+                                                                ));
+                                                            }}
+                                                            className="flex-1 h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="80"
+                                                            value={getHookVideoGap(p)}
+                                                            onChange={(e) => {
+                                                                const val = Math.max(0, Math.min(80, parseInt(e.target.value, 10) || 0));
+                                                                setPresets(prev => prev.map(item =>
+                                                                    item.id === p.id ? { ...item, hookVideoGap: val } : item
+                                                                ));
+                                                            }}
+                                                            className="w-12 px-2 py-1.5 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
                                                         />
                                                     </div>
                                                 </div>
