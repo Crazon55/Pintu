@@ -68,19 +68,17 @@ export function wrapTokensToLines(tokens, measureWord, maxWidth, spacing) {
   return lines;
 }
 
-/** Manual line breaks first; soft-wrap only when there are no explicit line breaks. */
+/**
+ * Manual line breaks force a new on-screen line; each logical line is still soft-wrapped
+ * so a long forced line cannot overflow the frame.
+ */
 export function layoutHeadlineLines(cleanedHtml, measureWord, maxWidth, spacing) {
   const allLines = [];
   const logicalLines = cleanedHtml.split('\n').map((s) => s.trim()).filter(Boolean);
-  const manual = hasManualLineBreaks(cleanedHtml);
   for (const lineHtml of logicalLines) {
     const tokens = tokensFromLineHtml(lineHtml);
     if (!tokens.length) continue;
-    if (manual) {
-      allLines.push(tokensToSingleLine(tokens, measureWord, spacing));
-    } else {
-      allLines.push(...wrapTokensToLines(tokens, measureWord, maxWidth, spacing));
-    }
+    allLines.push(...wrapTokensToLines(tokens, measureWord, maxWidth, spacing));
   }
   return allLines;
 }
@@ -89,14 +87,9 @@ export function layoutHeadlineLines(cleanedHtml, measureWord, maxWidth, spacing)
 export function layoutNewsTickerTokenLines(cleanedHtml, measureWord, maxWidth) {
   const allLines = [];
   const logicalLines = cleanedHtml.split('\n').map((s) => s.trim()).filter(Boolean);
-  const manual = hasManualLineBreaks(cleanedHtml);
   for (const lineHtml of logicalLines) {
     const tokens = tokensFromLineHtml(lineHtml);
     if (!tokens.length) continue;
-    if (manual) {
-      allLines.push(tokens.map((t) => ({ ...t })));
-      continue;
-    }
     let cur = [];
     let curW = 0;
     for (const t of tokens) {
@@ -253,8 +246,116 @@ export function getExportMaxTextWidth(preset, canvasW = CANVAS_REF_W) {
   return 620;
 }
 
-export function getExportNewsMaxLineWidth() {
-  return 660;
+/**
+ * Max news-ticker wrap width at 720px canvas.
+ * Must leave room for left inset + bold bar padding (+4px/side) so lines never clip.
+ */
+export function getExportNewsMaxLineWidth(preset) {
+  const name = (preset?.name || '').toLowerCase();
+  // Leave room for left/right inset + bold bar padding (±4px) so lines never clip the frame.
+  if (name === 'indiastartupstory-news') return 560; // startX 56 + right pad + bar padding
+  return 600; // centered brands ~60px side margins + bar padding
+}
+
+/** Left inset (px at 720) for left-aligned news tickers. */
+export function getNewsTickerLineStartX(preset, totalLineW, canvasW = CANVAS_REF_W) {
+  const name = (preset?.name || '').toLowerCase();
+  if (name === 'indiabusinesscom-news' || name === 'ifc-news' || name === 'ifc2-news') {
+    return Math.round((canvasW - totalLineW) / 2);
+  }
+  if (name === 'indiastartupstory-news') return 56;
+  return 28;
+}
+
+/** Target bar line-height multiplier used by news ticker export + preview. */
+export const NEWS_TICKER_BAR_LINE_HEIGHT = 1.45;
+
+/**
+ * Vertical gap between highlight pills (as a fraction of fontSize).
+ * Matches preview paddingTop/Bottom (0.12 + 0.12) so export doesn't fuse bars into one block.
+ */
+export const NEWS_TICKER_LINE_GAP = 0.24;
+
+/** Highlight pill height as a fraction of fontSize (shorter than line box → visible gaps). */
+export const NEWS_TICKER_HIGHLIGHT_HEIGHT = 1.12;
+
+/**
+ * Largest font that keeps the news ticker compact like Canva:
+ * soft-wrap within maxLineW, prefer ≤ maxLines, and keep total bar stack ≤ maxTotalBarsH.
+ * measureWordAtSize(text, fontSize) must use the same face as render.
+ */
+export function fitNewsTickerFontSize({
+  cleanedHtml,
+  measureWordAtSize,
+  maxLineW,
+  baseFontSize = 54,
+  minFontSize = 28,
+  maxLines = 3,
+  maxTotalBarsH = Infinity,
+  barLineHeight = NEWS_TICKER_BAR_LINE_HEIGHT,
+  lineGapRatio = NEWS_TICKER_LINE_GAP,
+  highlightHeightRatio = NEWS_TICKER_HIGHLIGHT_HEIGHT,
+}) {
+  const minFs = Math.max(12, Math.round(minFontSize));
+  const maxFs = Math.max(minFs, Math.round(baseFontSize));
+
+  const layoutAt = (fontSize) => {
+    const measure = (text) => measureWordAtSize(text, fontSize);
+    const lines = layoutNewsTickerTokenLines(cleanedHtml, measure, maxLineW);
+    const highlightH = Math.round(fontSize * highlightHeightRatio);
+    const lineGap = Math.round(fontSize * lineGapRatio);
+    const lineAdvance = highlightH + lineGap;
+    const totalH = lines.length === 0
+      ? 0
+      : lines.length * highlightH + Math.max(0, lines.length - 1) * lineGap;
+    let maxMeasured = 0;
+    for (const line of lines) {
+      let w = 0;
+      for (let i = 0; i < line.length; i++) {
+        w += measure(line[i].text) + (i ? measure(' ') : 0);
+      }
+      if (w > maxMeasured) maxMeasured = w;
+    }
+    return { lines, barH: highlightH, lineGap, lineAdvance, totalH, maxMeasured };
+  };
+
+  const fits = (fontSize, enforceMaxLines) => {
+    const { lines, totalH, maxMeasured } = layoutAt(fontSize);
+    if (maxMeasured > maxLineW + 0.5) return false;
+    if (totalH > maxTotalBarsH) return false;
+    if (enforceMaxLines && lines.length > maxLines) return false;
+    return true;
+  };
+
+  const search = (enforceMaxLines) => {
+    let lo = minFs;
+    let hi = maxFs;
+    let best = minFs;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (fits(mid, enforceMaxLines)) {
+        best = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return best;
+  };
+
+  // Prefer Canva-like ≤3 lines; if the hook is too long even at min size, fall back to height-only.
+  let fontSize = search(true);
+  if (!fits(fontSize, true)) {
+    fontSize = search(false);
+  }
+
+  // Hard guarantee: keep shrinking until every line fits maxLineW (handles odd glyphs / padding).
+  while (fontSize > 12 && !fits(fontSize, false)) {
+    fontSize -= 1;
+  }
+
+  const { lines } = layoutAt(fontSize);
+  return { fontSize, lines };
 }
 
 /** Gap between hook text block and video (px at 720×1280 export canvas). */
