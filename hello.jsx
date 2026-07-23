@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, memo, useMemo } from 'react';
-import { Upload, Monitor, Layout, Download, Play, Pause, RotateCcw, Loader, Grid, Maximize, CheckSquare, Square, Edit2, Save, BadgeCheck, Image as ImageIcon, Type, Sliders, Users, Globe, Move, Volume2, VolumeX, Bold, X, Video } from 'lucide-react';
+import { Upload, Monitor, Layout, Download, Play, Pause, RotateCcw, Grid, Maximize, CheckSquare, Square, Edit2, Save, BadgeCheck, Image as ImageIcon, Type, Sliders, Users, Globe, Move, Volume2, VolumeX, X, Video, ChevronDown } from 'lucide-react';
 import {
     cleanHeadlineHtml,
     layoutHeadlineLines,
@@ -12,8 +12,10 @@ import {
     getExportNewsMaxLineWidth,
     getHookVideoGap,
     getEffectiveLineSpacing,
-    headlineHtmlToPlainLines,
-    plainLinesToHeadlineHtml,
+    fitNewsTickerFontSize,
+    NEWS_TICKER_BAR_LINE_HEIGHT,
+    NEWS_TICKER_LINE_GAP,
+    NEWS_TICKER_HIGHLIGHT_HEIGHT,
 } from './shared/headlineLayout.js';
 // Inter is loaded globally via public/fonts/*.woff2 (see index.css)
 
@@ -135,10 +137,10 @@ const INITIAL_PRESETS_RAW = [
     { id: 81, name: 'startupbydog', handle: '@startupbydog', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'startupbydog.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 82, name: 'Entrepreneursindia.co', handle: '@entrepreneursindia.co', ratio: '4:3', color: '#6500D1', active: true, layout: 'social', logo: 'Entrepreneursindia.co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 92, name: 'indiabusinesscom', handle: '@indiabusinesscom', ratio: '4:3', color: '#FF5F07', active: true, layout: 'hook_video', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 22, logoPadY: 12 } },
-    { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '4:5', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 46, logoPadY: 41 } },
+    { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '4:5', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 46, logoPadY: 41 } },
     { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55 } },
-    { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 50, textLogo: 'IFC.' } },
-    { id: 97, name: 'indianfounderbrief-news', handle: '@indianfounderbrief', ratio: '9:16', color: '#1565C0', active: true, layout: 'news_ticker', logo: 'indianfounderbrief.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 150 } },
+    { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 38, textLogo: 'IFC.', logoPadX: 30, logoPadY: 56 } },
+    { id: 97, name: 'ifc2-news', handle: '@indianfoundercore', ratio: '4:5', color: '#ffd412', active: true, layout: 'news_ticker', logo: 'FoundersCORE-white.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 160, logoPadX: 28, logoPadY: 36 } },
     { id: 98, name: '101xtechnology-aroll', handle: '@101xtechnology', ratio: '16:9', color: '#4898ab', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: '101xt.', highlightColors: ['#4898ab', '#90d46c'], topGlow: true } },
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
@@ -158,7 +160,14 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
 }));
 
 // Presets configured during the "Experiment X" pass — surfaced in their own quick-pick section
-const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'indiastartupstory-news', 'ifc-news', 'indianfounderbrief-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
+const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'indiastartupstory-news', 'ifc-news', 'ifc2-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
+// Archived out of Bizz India Playbook for now — tech pages + news-ticker formats. Kept here so they're easy to bring back.
+const ARCHIVED_PRESET_NAMES = ['101xtechnology-aroll', 'indiantechdaily-aroll', 'indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'ifc2-news'];
+const BIZZINDIA_PLAYBOOK_PRESET_NAMES = EXPERIMENT_X_PRESET_NAMES.filter(n => !ARCHIVED_PRESET_NAMES.includes(n));
+// Bizz India Playbook format switch (inside the playbook header): "A-roll" is the
+// original 4-preset default set above; "News formats" is the archived news-ticker group.
+// The archived tech/aroll-layout pages stay unused.
+const BIZZINDIA_NEWS_PRESET_NAMES = ['indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'ifc2-news'];
 
 // Helper to get logo URL (handles both data URIs and filenames)
 const getLogoUrl = (logo) => {
@@ -173,7 +182,11 @@ const getLogoUrl = (logo) => {
     const base = (host === 'localhost' || host === '127.0.0.1' || window.location.origin.includes('ngrok'))
         ? window.location.origin
         : `http://${host}:3002`;
-    return `${base}/assets/logos/${logo}`;
+    // Cache-bust so preset previews pick up logo color edits immediately
+    const bust = (logo === 'FoundersCORE-white.png' || logo === 'FoundersCORE-removebg-preview.png')
+        ? `?v=ifc2-white-ffd412`
+        : '';
+    return `${base}/assets/logos/${logo}${bust}`;
 };
 
 // Helper to strip HTML tags for length calculations
@@ -276,6 +289,13 @@ function getMeasureCtx() {
     }
     return _measureCanvas?.getContext('2d') || null;
 }
+// This canvas is reused for every text measurement for the app's whole lifetime. If any
+// measurement ever ran against a custom font before that font finished loading, some browsers
+// keep resolving that font on this exact context to its fallback from then on — recreating the
+// canvas guarantees a clean slate once a font is confirmed ready, regardless of what ran before.
+function resetMeasureCtx() {
+    _measureCanvas = null;
+}
 
 /** Match export line-wrap at preview scale (720px reference canvas). */
 function buildPreviewLines(headline, { fontSize, maxWidth, wordSpacing, fontFamily, boldWeight = 700 }) {
@@ -289,7 +309,7 @@ function buildPreviewLines(headline, { fontSize, maxWidth, wordSpacing, fontFami
     }, maxWidth, spacing);
 }
 
-function buildNewsTickerPreviewLines(headline, { fontSize, maxWidth, fontFamily, boldWeight = 800 }) {
+function buildNewsTickerPreviewLines(headline, { fontSize, maxWidth, fontFamily, boldWeight = 700 }) {
     const ctx = getMeasureCtx();
     if (!ctx || !headline) return [];
     const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
@@ -297,6 +317,26 @@ function buildNewsTickerPreviewLines(headline, { fontSize, maxWidth, fontFamily,
         ctx.font = `${boldWeight} ${fontSize}px ${fontFamily}`;
         return ctx.measureText(text).width;
     }, maxWidth);
+}
+
+/** Auto-fit news ticker like Canva/export: same min size + wrap budget as server. */
+function fitNewsTickerPreview(headline, { baseFontSize, maxWidth, fontFamily, boldWeight = 700, maxTotalBarsH }) {
+    const ctx = getMeasureCtx();
+    if (!ctx || !headline) return { fontSize: baseFontSize, lines: [] };
+    const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
+    return fitNewsTickerFontSize({
+        cleanedHtml: cleaned,
+        measureWordAtSize: (text, fs) => {
+            ctx.font = `${boldWeight} ${fs}px ${fontFamily}`;
+            return ctx.measureText(text).width;
+        },
+        maxLineW: maxWidth,
+        baseFontSize,
+        minFontSize: 22, // match server generateNewsTickerOverlay
+        maxLines: 3,
+        maxTotalBarsH,
+        barLineHeight: NEWS_TICKER_BAR_LINE_HEIGHT,
+    });
 }
 
 // Helper to calculate font size (uses text length without HTML tags)
@@ -385,21 +425,6 @@ const RichTextEditor = ({ value, onChange, placeholder, className }) => {
 
     return (
         <div className="relative">
-            <div className="flex items-center gap-1 mb-1">
-                <button
-                    type="button"
-                    onClick={handleBold}
-                    className={`px-2 py-1 text-xs rounded border transition-all flex items-center gap-1 ${isFocused && window.getSelection().toString()
-                        ? 'bg-yellow-500 text-black border-yellow-500'
-                        : 'bg-neutral-800 text-neutral-400 border-neutral-600 hover:border-neutral-400'
-                        }`}
-                    title="Bold (B or Ctrl+B)"
-                >
-                    <Bold size={14} />
-                    <span className="text-[10px]">B</span>
-                </button>
-                <span className="text-[10px] text-neutral-500">Bold: select text + B · New line: <kbd className="px-1 bg-neutral-700 rounded">Shift+Enter</kbd> · Paragraph: Enter</span>
-            </div>
             <div
                 ref={editorRef}
                 contentEditable
@@ -415,46 +440,162 @@ const RichTextEditor = ({ value, onChange, placeholder, className }) => {
     );
 };
 
-/** Manual line layout — one textarea row = one line on preview/export (no auto word-wrap). */
-const HeadlineLineBreakEditor = ({ headlineHtml, onChange, className }) => {
-    const [localText, setLocalText] = useState('');
-    const [isFocused, setIsFocused] = useState(false);
-
-    useEffect(() => {
-        if (!isFocused) {
-            const lines = headlineHtmlToPlainLines(normalizeBoldHTML(headlineHtml || ''));
-            setLocalText(lines.join('\n'));
-        }
-    }, [headlineHtml, isFocused]);
-
-    const handleChange = (e) => {
-        const text = e.target.value;
-        setLocalText(text);
-        const rows = text.split('\n');
-        onChange(plainLinesToHeadlineHtml(rows, headlineHtml || ''));
-    };
-
-    const lineCount = localText ? localText.split('\n').length : 1;
-
-    return (
-        <div className="space-y-2 pt-2 border-t border-neutral-700">
-            <div>
-                <label className="text-xs text-neutral-300 font-medium">Line Layout</label>
-                <p className="text-[10px] text-neutral-500 mt-0.5">
-                    Arrange where each line sits — one row = one line on the video. Press <kbd className="px-1 bg-neutral-700 rounded">Enter</kbd> for a new line. Bold from the hook editor above is kept.
-                </p>
+// --- SUB-COMPONENT: Collapsible dropdown-style section wrapper ---
+const CollapsibleSection = ({ title, defaultOpen = true, children, flat = false, collapsible = true }) => {
+    const [open, setOpen] = useState(defaultOpen);
+    if (flat) {
+        return (
+            <div className="border-t border-[var(--pintu-card-header-border)] pt-4 mt-4">
+                {collapsible ? (
+                    <button
+                        type="button"
+                        onClick={() => setOpen(v => !v)}
+                        className="w-full flex items-center justify-between text-left mb-2"
+                    >
+                        <span className="text-xs font-medium text-[var(--pintu-text-secondary)]">{title}</span>
+                        <ChevronDown className={`w-4 h-4 text-[var(--pintu-text-muted)] transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+                    </button>
+                ) : (
+                    <div className="mb-2">
+                        <span className="text-xs font-medium text-[var(--pintu-text-secondary)]">{title}</span>
+                    </div>
+                )}
+                {(!collapsible || open) && (
+                    <div className="space-y-2 pb-2">
+                        {children}
+                    </div>
+                )}
             </div>
-            <textarea
-                value={localText}
-                onChange={handleChange}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                rows={Math.max(3, Math.min(lineCount + 1, 8))}
-                spellCheck={false}
-                placeholder={'HELLO, GOODMORNING\nGANG\nDOG HERE'}
-                className={className || 'w-full bg-neutral-900 border border-neutral-700 rounded p-3 text-sm text-white placeholder-neutral-600 focus:border-orange-500 focus:outline-none font-mono leading-relaxed resize-y min-h-[88px]'}
-            />
-            <p className="text-[10px] text-neutral-500">{lineCount} line{lineCount === 1 ? '' : 's'} — preview and export use this layout exactly</p>
+        );
+    }
+    return (
+        <div className="bg-[var(--pintu-card-header-bg)] backdrop-blur-xl rounded-xl border border-[var(--pintu-card-header-border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] overflow-hidden">
+            <button
+                type="button"
+                onClick={() => setOpen(v => !v)}
+                className="w-full flex items-center justify-between p-4 text-left"
+            >
+                <span className="text-xs font-medium text-[var(--pintu-text-secondary)]">{title}</span>
+                <ChevronDown className={`w-4 h-4 text-[var(--pintu-text-muted)] transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+                <div className="px-4 pb-4 space-y-2">
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- SUB-COMPONENT: Per-brand preset editing card (one collapse toggle per preset, not per section) ---
+const PerBrandPresetCard = ({ p, fontScale, wordSpacing, setPresets, updateIndividualText }) => {
+    const [cardOpen, setCardOpen] = useState(false);
+    return (
+        <div className="p-5 bg-[var(--pintu-card-bg)] backdrop-blur-2xl rounded-xl border border-[var(--pintu-card-border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_32px_rgba(0,0,0,0.5)]">
+            <button
+                type="button"
+                onClick={() => setCardOpen(v => !v)}
+                className="w-full flex items-center justify-between text-left"
+            >
+                <span className="text-sm font-bold text-[var(--pintu-text-primary)]">{p.name}</span>
+                <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full">{p.ratio}</span>
+                    <ChevronDown className={`w-4 h-4 text-[var(--pintu-text-muted)] transition-transform duration-200 ${cardOpen ? 'rotate-180' : ''}`} />
+                </div>
+            </button>
+
+            {/* Hook Text — always visible, even while collapsed (edited most often) */}
+            <CollapsibleSection title="Hook Text (Bold)" flat collapsible={false}>
+                <RichTextEditor
+                    value={p.headline}
+                    onChange={(html) => updateIndividualText(p.id, 'headline', html)}
+                    placeholder="Hook....."
+                    className="w-full bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded-lg p-4 text-sm text-[var(--pintu-text-primary)] focus:border-violet-500 focus:outline-none min-h-[100px]"
+                />
+            </CollapsibleSection>
+
+            {cardOpen && (
+                <>
+                    {/* Ratio + Alignment */}
+                    <CollapsibleSection title="Ratio & Alignment" flat collapsible={false}>
+                        <div className="flex items-center gap-4 flex-wrap text-xs">
+                            <div className="flex gap-1.5">
+                                {(p.layout === 'aroll' ? ['16:9', '6:5', '2:3'] : ['16:9', '4:3', '3:4', '1:1']).map(r => (
+                                    <button
+                                        key={r}
+                                        onClick={() => {
+                                            setPresets(prev => prev.map(item =>
+                                                item.id === p.id ? { ...item, ratio: r } : item
+                                            ));
+                                        }}
+                                        className={`px-2.5 py-1 rounded-md border transition-all ${p.ratio === r ? 'bg-violet-500 text-black border-violet-500 font-semibold' : 'bg-transparent text-[var(--pintu-text-muted)] border-[var(--pintu-input-border)] hover:border-[var(--pintu-text-muted)]'}`}
+                                    >
+                                        {r}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex gap-1.5">
+                                {['left', 'center'].map(align => (
+                                    <button
+                                        key={align}
+                                        onClick={() => {
+                                            setPresets(prev => prev.map(item =>
+                                                item.id === p.id ? { ...item, alignment: align } : item
+                                            ));
+                                        }}
+                                        className={`px-2.5 py-1 rounded-md border transition-all ${(p.alignment || 'left') === align ? 'bg-violet-500 text-black border-violet-500 font-semibold' : 'bg-transparent text-[var(--pintu-text-muted)] border-[var(--pintu-input-border)] hover:border-[var(--pintu-text-muted)]'}`}
+                                        title={align === 'left' ? 'Left Aligned' : 'Center Aligned'}
+                                    >
+                                        {align === 'left' ? 'Left' : 'Center'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </CollapsibleSection>
+
+                    {/* Typography: Text Size / Letter Spacing */}
+                    <CollapsibleSection title="Typography" flat collapsible={false}>
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Text Size</label>
+                                <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round((p.fontScale ?? fontScale) * 100)}%</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0.5"
+                                max="1.5"
+                                step="0.1"
+                                value={p.fontScale ?? fontScale}
+                                onChange={(e) => {
+                                    setPresets(prev => prev.map(item =>
+                                        item.id === p.id ? { ...item, fontScale: parseFloat(e.target.value) } : item
+                                    ));
+                                }}
+                                className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Letter Spacing</label>
+                                <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round((p.wordSpacing ?? wordSpacing) * 100)}%</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0.1"
+                                max="1.5"
+                                step="0.05"
+                                value={p.wordSpacing ?? wordSpacing}
+                                onChange={(e) => {
+                                    setPresets(prev => prev.map(item =>
+                                        item.id === p.id ? { ...item, wordSpacing: parseFloat(e.target.value) } : item
+                                    ));
+                                }}
+                                className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                            />
+                        </div>
+                    </CollapsibleSection>
+                </>
+            )}
         </div>
     );
 };
@@ -477,7 +618,8 @@ const PreviewCard = memo(({
     onHeadlinePositionChange,
     onVideoScaleChange,
     isMuted,
-    wordSpacing = 0.25
+    wordSpacing = 0.25,
+    newsFontReady = true
 }) => {
     const [isRepositioning, setIsRepositioning] = useState(false);
     const [isRepositioningCredit, setIsRepositioningCredit] = useState(false);
@@ -489,6 +631,11 @@ const PreviewCard = memo(({
     const [localWatermarkPos, setLocalWatermarkPos] = useState(preset.watermarkPosition || { x: 50, y: 16 });
     const [localHeadlinePos, setLocalHeadlinePos] = useState(preset.headlinePosition || { x: 0, y: 0 });
     const [localVideoScale, setLocalVideoScale] = useState(videoScale || 100);
+
+    useEffect(() => {
+        setLocalVideoScale(videoScale || 100);
+    }, [videoScale]);
+
     const [ifcFontInfo, setIfcFontInfo] = useState(null);
     const containerRef = useRef(null);
     const cardRef = useRef(null);
@@ -536,22 +683,19 @@ const PreviewCard = memo(({
         return () => { cancelled = true; window.clearInterval(id); };
     }, [preset.name, preset.headline]);
 
-    // CRITICAL: Control video playback based on preset.active and isPlaying
-    // Only active presets should play video to reduce resource usage and prevent lag
+    // Every preset preview plays in sync with the global play/pause, regardless of export-selection state
     useEffect(() => {
         const video = videoElementRef.current;
         if (!video || !videoSrc) return;
 
-        if (preset.active && isPlaying) {
-            // Active preset and play button is on - play video
+        if (isPlaying) {
             video.play().catch(() => { });
             video.loop = true;
         } else {
-            // Inactive preset or play button is off - pause video
             video.pause();
             video.loop = false;
         }
-    }, [preset.active, isPlaying, videoSrc]);
+    }, [isPlaying, videoSrc]);
 
     useEffect(() => {
         setLocalPos(preset.position || { x: 50, y: 50 });
@@ -590,7 +734,9 @@ const PreviewCard = memo(({
     const arollHasSidePad = preset.layout === 'aroll' && preset.ratio === '2:3';
 
     const handleMouseDown = (e) => {
-        if (!isRepositioning) return;
+        // News RE-SIZE mode: drag pans (like Canva). Other layouts need Move toggle.
+        const canPan = isRepositioning || (isResizingVideo && preset.layout === 'news_ticker');
+        if (!canPan) return;
         e.preventDefault();
         const startX = e.clientX;
         const startY = e.clientY;
@@ -602,9 +748,10 @@ const PreviewCard = memo(({
             const rect = containerRef.current.getBoundingClientRect();
             const dX = evt.clientX - startX;
             const dY = evt.clientY - startY;
-            const sens = 0.2;
-            let nX = startPosX - (dX / rect.width * 100 * sens * 2);
-            let nY = startPosY - (dY / rect.height * 100 * sens * 2);
+            // Higher sensitivity when zoomed so pan feels natural
+            const sens = 0.35 * Math.max(1, (localVideoScale || 100) / 100);
+            let nX = startPosX - (dX / rect.width * 100 * sens);
+            let nY = startPosY - (dY / rect.height * 100 * sens);
             nX = Math.max(0, Math.min(100, nX));
             nY = Math.max(0, Math.min(100, nY));
             setLocalPos({ x: nX, y: nY });
@@ -620,6 +767,66 @@ const PreviewCard = memo(({
                     x: parseFloat(containerRef.current.dataset.tempX),
                     y: parseFloat(containerRef.current.dataset.tempY)
                 });
+            }
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+
+    const handleResizeStart = (e, corner) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startScale = localVideoScale;
+        let currentScale = startScale;
+        let currentPosX = localPos.x;
+        let currentPosY = localPos.y;
+        const isNews = preset.layout === 'news_ticker';
+        const isIfc = (preset.name || '').toLowerCase() === 'ifc-news';
+        // ifc is full-bleed 9:16 — cap zoom so face doesn't disappear before captions are covered
+        const maxZoom = isIfc ? 220 : 300;
+        const rect0 = containerRef.current?.getBoundingClientRect();
+        const startDistance = Math.sqrt(
+            Math.pow(e.clientX - ((rect0?.left || 0) + (rect0?.width || 0) / 2), 2) +
+            Math.pow(e.clientY - ((rect0?.top || 0) + (rect0?.height || 0) / 2), 2)
+        );
+
+        const onMove = (evt) => {
+            if (!containerRef.current) return;
+            const rect = containerRef.current.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            const currentDistance = Math.sqrt(
+                Math.pow(evt.clientX - centerX, 2) +
+                Math.pow(evt.clientY - centerY, 2)
+            );
+
+            // Calculate scale change based on distance from center
+            const scaleChange = ((currentDistance - startDistance) / Math.min(rect.width, rect.height)) * 200;
+
+            let newScale = startScale + scaleChange;
+            newScale = Math.max(100, Math.min(maxZoom, newScale));
+            currentScale = newScale;
+            setLocalVideoScale(newScale);
+
+            // News RE-SIZE: bias crop toward the TOP as you zoom so competitor
+            // bottom captions leave the frame first (Canva-style cover), not the face.
+            if (isNews && newScale > 100) {
+                const t = (newScale - 100) / (maxZoom - 100);
+                currentPosY = Math.max(isIfc ? 8 : 5, 50 * (1 - t * 0.85));
+                setLocalPos(prev => ({ ...prev, y: currentPosY }));
+            }
+        };
+
+        const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            const next = Math.round(currentScale);
+            setLocalVideoScale(next);
+            if (onVideoScaleChange) onVideoScaleChange(next);
+            if (isNews && onPositionChange) {
+                onPositionChange(preset.id, { x: currentPosX, y: currentPosY });
             }
         };
 
@@ -705,48 +912,6 @@ const PreviewCard = memo(({
         document.addEventListener('mouseup', onUp);
     };
 
-    const handleResizeStart = (e, corner) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const startScale = localVideoScale;
-        const startDistance = Math.sqrt(
-            Math.pow(e.clientX - (containerRef.current?.getBoundingClientRect().left + containerRef.current?.getBoundingClientRect().width / 2) || 0, 2) +
-            Math.pow(e.clientY - (containerRef.current?.getBoundingClientRect().top + containerRef.current?.getBoundingClientRect().height / 2) || 0, 2)
-        );
-
-        const onMove = (evt) => {
-            if (!containerRef.current) return;
-            const rect = containerRef.current.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-
-            const currentDistance = Math.sqrt(
-                Math.pow(evt.clientX - centerX, 2) +
-                Math.pow(evt.clientY - centerY, 2)
-            );
-
-            // Calculate scale change based on distance from center
-            const scaleChange = ((currentDistance - startDistance) / Math.min(rect.width, rect.height)) * 200;
-
-            let newScale = startScale + scaleChange;
-            newScale = Math.max(50, Math.min(200, newScale));
-            setLocalVideoScale(newScale);
-        };
-
-        const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-            if (onVideoScaleChange && localVideoScale !== videoScale) {
-                onVideoScaleChange(localVideoScale);
-            }
-        };
-
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-    };
-
     const handleHeadlineMouseDown = (e) => {
         if (!isRepositioningHeadline) return;
         e.preventDefault();
@@ -757,35 +922,53 @@ const PreviewCard = memo(({
         const startPosY = localHeadlinePos.y || 0;
         let lastX = startPosX;
         let lastY = startPosY;
+        const isNewsHook = preset.layout === 'news_ticker';
 
         const onMove = (evt) => {
-            if (!headlineRef.current) return;
+            const measureEl = isNewsHook ? containerRef.current : headlineRef.current;
+            if (!measureEl) return;
             evt.preventDefault();
-            const rect = headlineRef.current.getBoundingClientRect();
+            const rect = measureEl.getBoundingClientRect();
             const dX = evt.clientX - startX;
             const dY = evt.clientY - startY;
+            if (isNewsHook) {
+                // Drag up → raise hook stack (gradient + black + text) together
+                const sens = 1.1;
+                let nY = startPosY - (dY / rect.height * 100 * sens);
+                nY = Math.max(0, Math.min(48, nY));
+                if (Math.abs(nY - lastY) > 0.1) {
+                    lastY = nY;
+                    setLocalHeadlinePos({ x: 0, y: nY });
+                    if (headlineRef.current) {
+                        headlineRef.current.dataset.tempX = '0';
+                        headlineRef.current.dataset.tempY = String(nY);
+                    }
+                }
+                return;
+            }
             const sens = 0.2;
             let nX = startPosX + (dX / rect.width * 100 * sens * 2);
             let nY = startPosY + (dY / rect.height * 100 * sens * 2);
             nX = Math.max(-100, Math.min(200, nX));
             nY = Math.max(-100, Math.min(200, nY));
 
-            // Only update if position changed significantly to reduce re-renders
             if (Math.abs(nX - lastX) > 0.1 || Math.abs(nY - lastY) > 0.1) {
                 lastX = nX;
                 lastY = nY;
                 setLocalHeadlinePos({ x: nX, y: nY });
-                headlineRef.current.dataset.tempX = nX;
-                headlineRef.current.dataset.tempY = nY;
+                if (headlineRef.current) {
+                    headlineRef.current.dataset.tempX = nX;
+                    headlineRef.current.dataset.tempY = nY;
+                }
             }
         };
 
         const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
-            if (headlineRef.current && headlineRef.current.dataset.tempX !== undefined) {
+            if (headlineRef.current && headlineRef.current.dataset.tempY !== undefined) {
                 onHeadlinePositionChange(preset.id, {
-                    x: parseFloat(headlineRef.current.dataset.tempX),
+                    x: parseFloat(headlineRef.current.dataset.tempX || '0'),
                     y: parseFloat(headlineRef.current.dataset.tempY)
                 });
             }
@@ -802,7 +985,7 @@ const PreviewCard = memo(({
     const exportFontSize = getExportFontSize(preset, preset.headline, effectiveFontScale);
     const previewFontSize = Math.max(10, exportFontSize * previewScale);
     const exportMaxTextW = getExportMaxTextWidth(preset) * previewScale;
-    const exportNewsMaxLineW = getExportNewsMaxLineWidth() * previewScale;
+    const exportNewsMaxLineW = getExportNewsMaxLineWidth(preset) * previewScale;
     const hookVideoGapPx = getHookVideoGap(preset) * previewScale;
     const effectiveLineSpacing = getEffectiveLineSpacing(preset);
 
@@ -881,6 +1064,8 @@ const PreviewCard = memo(({
     // Ensure preview video is always clearly visible by clamping scale
     const clampedVideoScale = Math.max(localVideoScale || 100, 60);
     const previewVideoScale = clampedVideoScale / 100;
+    const isNewsFormat = preset.layout === 'news_ticker';
+    const newsResizeActive = isNewsFormat && isResizingVideo;
 
     const mainHookLines = useMemo(() => {
         const fontFamily = isPoppinsFont ? "'Poppins', sans-serif" : "'Inter', sans-serif";
@@ -896,7 +1081,7 @@ const PreviewCard = memo(({
     return (
         <div
             ref={cardRef}
-            className={`group relative ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : 'bg-black'} flex flex-col items-center select-none border-2 ${preset.active ? 'border-orange-500 ring-2 ring-orange-500/60 shadow-lg shadow-orange-500/20' : 'border-orange-500/50 opacity-70 hover:opacity-90 hover:border-orange-500/80'}`}
+            className={`group relative ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : 'bg-black'} flex flex-col items-center select-none border-2 ${preset.active ? 'border-violet-500 ring-2 ring-violet-500/60 shadow-lg shadow-violet-500/20' : 'border-violet-500/50 opacity-70 hover:opacity-90 hover:border-violet-500/80'}`}
             data-preset-name={preset.name}
             style={{
                 width: '100%',
@@ -1007,92 +1192,7 @@ const PreviewCard = memo(({
                     </div>
                 )}
 
-                {/* 1b-news. NEWS-TICKER LAYOUT: logo top-left, gradient bars at bottom */}
-                {preset.layout === 'news_ticker' && (
-                    <>
-                        {/* Logo — text logo top-left, image logo top-left or bottom-left per rules */}
-                        {preset.rules?.textLogo ? (
-                            <div className="absolute z-50 text-white font-black leading-tight" style={{ fontFamily: "'Inter', sans-serif", whiteSpace: 'pre-line', fontSize: `${Math.round((preset.rules?.logoSize || 42) * 0.9 * previewScale)}px`, lineHeight: 1.1, top: canvasPxToPercent(preset.name === 'ifc-news' ? 97 : 45), left: canvasPxToPercent(preset.name === 'ifc-news' ? 30 : 20) }}>
-                                {preset.rules.textLogo}
-                            </div>
-                        ) : getLogoUrl(preset.logo) ? (
-                            <div className="absolute z-50" style={preset.rules?.logoPosition === 'bottom-left'
-                                ? { bottom: canvasPxToPercent(12), left: canvasPxToPercent(preset.rules?.logoPadX ?? 59) }
-                                : { top: canvasPxToPercent(preset.rules?.logoPadY ?? (preset.name === 'indianfounderbrief-news' ? 82 : 41)), left: canvasPxToPercent(preset.rules?.logoPadX ?? (preset.name === 'indianfounderbrief-news' ? 72 : 46)) }}>
-                                <img src={getLogoUrl(preset.logo)} style={{ width: canvasPxToPercent(preset.rules?.logoSize || 48), height: canvasPxToPercent(preset.rules?.logoSize || 48), objectFit: 'contain', opacity: preset.rules?.logoOpacity ?? 1 }} />
-                            </div>
-                        ) : null}
-                        {/* Social strip top-right — indiabusinesscom-news only */}
-                        {preset.name === 'indiabusinesscom-news' && (
-                            <div className="absolute z-50" style={{ top: canvasPxToPercent(15), right: canvasPxToPercent(5) }}>
-                                <img src={getLogoUrl('IndianBusinessCom NewsStatic Format (1).png')} style={{ width: canvasPxToPercent(32), objectFit: 'contain' }} />
-                            </div>
-                        )}
-                        {/* Gradient fade from video into black — all news_ticker presets */}
-                        <div className="absolute left-0 w-full z-10" style={{ bottom: '13%', height: '30%', background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)' }} />
-                        {/* Sub hook (footer) text below the bars */}
-                        {preset.footer && String(preset.footer).trim() && (
-                            <div className="absolute left-0 z-20 w-full" style={{ bottom: '3%', paddingLeft: '12px', paddingRight: '12px' }}>
-                                <div style={{ color: 'rgba(255,255,255,0.85)', fontFamily: "'Inter', sans-serif", fontSize: `${previewFontSize * 0.42}px`, lineHeight: 1.4, fontWeight: 500, textAlign: preset.name === 'ifc-news' ? 'center' : 'left' }}>
-                                    {String(preset.footer).trim()}
-                                </div>
-                            </div>
-                        )}
-                        {/* Gradient bars at the bottom — only bold lines get highlighted */}
-                        <div className="absolute left-0 z-20 flex flex-col gap-0" style={{ bottom: '13%', paddingLeft: (preset.name === 'indiastartupstory-news' || preset.name === 'indianfounderbrief-news') ? '10%' : '0', ...(preset.name === 'ifc-news' ? { right: '0', alignItems: 'center' } : {}) }}>
-                            {(() => {
-                                const isIBC = preset.name === 'indiabusinesscom-news';
-                                const isISS = preset.name === 'indiastartupstory-news';
-                                const isIFC = preset.name === 'ifc-news';
-                                const isIFB = preset.name === 'indianfounderbrief-news';
-                                const ntFontSize = previewFontSize;
-                                const ntFontFamily = isISS ? "'Poppins', sans-serif" : "'Inter', sans-serif";
-                                const lines = buildNewsTickerPreviewLines(preset.headline, {
-                                    fontSize: ntFontSize,
-                                    maxWidth: exportNewsMaxLineW,
-                                    fontFamily: ntFontFamily,
-                                    boldWeight: 800,
-                                });
-                                return (
-                                    <div style={{ background: '#000000', display: isIFC ? 'flex' : 'inline-flex', flexDirection: 'column', gap: 0, ...(isIFC ? { width: '100%' } : {}) }}>
-                                        {lines.map((lineTokens, i) => {
-                                            const runs = [];
-                                            for (const t of lineTokens) {
-                                                if (!runs.length || runs[runs.length - 1].bold !== t.bold)
-                                                    runs.push({ bold: t.bold, words: [t.text] });
-                                                else
-                                                    runs[runs.length - 1].words.push(t.text);
-                                            }
-                                            return (
-                                                <div key={i} className="py-1" style={{
-                                                    display: 'flex', alignItems: 'stretch',
-                                                    justifyContent: (isIBC || isIFC) ? 'center' : 'flex-start',
-                                                    fontFamily: ntFontFamily,
-                                                    fontWeight: 800,
-                                                    fontSize: `${ntFontSize}px`,
-                                                    lineHeight: 1.4,
-                                                    whiteSpace: 'nowrap',
-                                                    paddingLeft: isIBC ? '0' : ((isISS || isIFB) ? '0' : canvasPxToPercent(12)),
-                                                }}>
-                                                    {runs.map((run, j) => (
-                                                        <span key={j} style={{
-                                                            background: run.bold ? (isIFB ? 'transparent' : (isIBC ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : preset.color)) : 'transparent',
-                                                            color: isIFB ? (run.bold ? preset.color : '#ffffff') : ((isIBC || isIFC) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff'),
-                                                            padding: run.bold ? '0 4px' : '0 2px',
-                                                            borderRadius: (isISS && run.bold) ? '6px' : undefined,
-                                                        }}>
-                                                            {run.words.join(' ')}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                    </>
-                )}
+                {/* 1b-news overlays render inside the video frame (see video container) */}
 
                 {/* 1b-aroll. AROLL LAYOUT: in-flow black header band ("101xt." + badge + handle + hook)
                     above the embedded video band. Output stays a 9:16 reel — only the video frame
@@ -1366,53 +1466,82 @@ const PreviewCard = memo(({
                 {/* 3. VIDEO CONTAINER (aroll: inset with left/right padding to match export) */}
                 <div
                     ref={containerRef}
-                    className={`relative bg-black shrink-0 group overflow-hidden ${preset.layout === 'aroll' ? 'mx-auto' : 'w-full'} ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : isResizingVideo ? 'ring-2 ring-blue-500 z-50' : 'cursor-pointer'} ''}`}
+                    className={`relative bg-black shrink-0 group overflow-hidden ${preset.layout === 'aroll' ? 'mx-auto' : 'w-full'} ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : newsResizeActive ? 'cursor-move ring-2 ring-violet-500 z-50' : isResizingVideo ? 'ring-2 ring-blue-500 z-50' : 'cursor-pointer'} ''}`}
                     style={{
                         ...(preset.layout === 'aroll' ? { width: arollHasSidePad ? '87.8%' : '100%' } : {}),
-                        ...getAspectRatioStyle(preset.ratio)
+                        // Video band ratio only — outer card stays 9:16 for every preset.
+                        ...getAspectRatioStyle(preset.ratio),
                     }}
-                    onDoubleClick={() => setIsRepositioning(!isRepositioning)}
+                    onDoubleClick={() => {
+                        if (isNewsFormat) {
+                            setIsResizingVideo(v => !v);
+                            setIsRepositioning(false);
+                        } else {
+                            setIsRepositioning(!isRepositioning);
+                        }
+                    }}
                     onMouseDown={handleMouseDown}
                 >
                     {isRepositioning && (
-                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 pointer-events-none">
-                            <div className="bg-black/70 text-white text-[10px] px-2 py-1 rounded backdrop-blur flex items-center gap-1">
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                            <div className="bg-black/70 text-white text-[10px] px-2 py-1 rounded backdrop-blur flex items-center gap-1 whitespace-nowrap">
                                 <Move size={10} /> Drag to Reposition
                             </div>
                         </div>
                     )}
 
                     {isResizingVideo && (
-                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 pointer-events-none">
-                            <div className="bg-black/70 text-white text-[10px] px-2 py-1 rounded backdrop-blur flex items-center gap-1">
-                                <Move size={10} /> Drag corners to resize
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                            <div className="bg-violet-600/90 text-white text-[10px] px-2 py-1 rounded backdrop-blur flex items-center gap-1 whitespace-nowrap">
+                                <Maximize size={10} /> {isNewsFormat ? 'RE-SIZE — drag to move · handles to zoom' : 'Drag corners to resize'}
                             </div>
                         </div>
                     )}
 
-                    {/* Resize Handles */}
+                    {/* Resize Handles — Canva-style corners + edges for news RE-SIZE */}
                     {isResizingVideo && (
                         <>
                             {/* Corner handles */}
                             <div
-                                className="absolute w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-nwse-resize z-50"
-                                style={{ top: '-8px', left: '-8px' }}
+                                className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nwse-resize z-[60]"
+                                style={{ top: '-7px', left: '-7px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'nw')}
                             />
                             <div
-                                className="absolute w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-nesw-resize z-50"
-                                style={{ top: '-8px', right: '-8px' }}
+                                className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nesw-resize z-[60]"
+                                style={{ top: '-7px', right: '-7px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'ne')}
                             />
                             <div
-                                className="absolute w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-nwse-resize z-50"
-                                style={{ bottom: '-8px', left: '-8px' }}
+                                className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nwse-resize z-[60]"
+                                style={{ bottom: '-7px', left: '-7px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'sw')}
                             />
                             <div
-                                className="absolute w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-nesw-resize z-50"
-                                style={{ bottom: '-8px', right: '-8px' }}
+                                className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nesw-resize z-[60]"
+                                style={{ bottom: '-7px', right: '-7px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'se')}
+                            />
+                            {/* Edge handles (Canva-style) */}
+                            <div
+                                className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ns-resize z-[60]"
+                                style={{ top: '-7px', left: '50%', transform: 'translateX(-50%)' }}
+                                onMouseDown={(e) => handleResizeStart(e, 'n')}
+                            />
+                            <div
+                                className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ns-resize z-[60]"
+                                style={{ bottom: '-7px', left: '50%', transform: 'translateX(-50%)' }}
+                                onMouseDown={(e) => handleResizeStart(e, 's')}
+                            />
+                            <div
+                                className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ew-resize z-[60]"
+                                style={{ left: '-7px', top: '50%', transform: 'translateY(-50%)' }}
+                                onMouseDown={(e) => handleResizeStart(e, 'w')}
+                            />
+                            <div
+                                className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ew-resize z-[60]"
+                                style={{ right: '-7px', top: '50%', transform: 'translateY(-50%)' }}
+                                onMouseDown={(e) => handleResizeStart(e, 'e')}
                             />
                         </>
                     )}
@@ -1449,8 +1578,198 @@ const PreviewCard = memo(({
                                 data-preset-id={preset.id}
                             />
                         ) : (
-                            <div className={`w-full h-full flex items-center justify-center ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-neutral-200' : 'bg-neutral-800'} ${preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co-old' ? 'rounded-2xl' : ''}`}>
-                                <span className="text-sm text-neutral-500 font-mono">{preset.ratio}</span>
+                            <div className={`w-full h-full flex flex-col items-center justify-center gap-2 ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-neutral-200' : 'bg-neutral-800'} ${preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co-old' ? 'rounded-2xl' : ''}`}>
+                                <Video className="w-6 h-6 text-neutral-500" />
+                                <span className="text-xs text-neutral-500 text-center px-4">Upload a video to preview</span>
+                            </div>
+                        )}
+
+                        {/* NEWS-TICKER: match export — full-bleed gradient + solid black footer + ticker */}
+                        {preset.layout === 'news_ticker' && (
+                            <div
+                                className="absolute inset-0 z-30"
+                                style={{ pointerEvents: isRepositioningHeadline ? 'auto' : 'none' }}
+                            >
+                                {preset.rules?.textLogo ? (
+                                    <div
+                                        className="absolute z-50 text-white font-black leading-tight"
+                                        style={{
+                                            fontFamily: "'Inter', sans-serif",
+                                            whiteSpace: 'pre-line',
+                                            fontSize: `${Math.round((preset.rules?.logoSize || 42) * 0.9 * previewScale)}px`,
+                                            lineHeight: 1.1,
+                                            // Vertical pad must use canvas HEIGHT (9:16 ≠ square) — width-based % sat too low vs Canva
+                                            top: (() => {
+                                                const [rw, rh] = (preset.ratio || '9:16').split(':').map(Number);
+                                                const canvasH = Math.round(720 * (rh / rw));
+                                                const padY = preset.name === 'ifc-news'
+                                                    ? (preset.rules?.logoPadY ?? 56)
+                                                    : (preset.rules?.logoPadY ?? 45);
+                                                return `${(padY / canvasH) * 100}%`;
+                                            })(),
+                                            left: canvasPxToPercent(
+                                                preset.name === 'ifc-news'
+                                                    ? (preset.rules?.logoPadX ?? 30)
+                                                    : (preset.rules?.logoPadX ?? 20)
+                                            ),
+                                        }}
+                                    >
+                                        {preset.rules.textLogo}
+                                    </div>
+                                ) : getLogoUrl(preset.logo) ? (
+                                    <div className="absolute z-50" style={preset.rules?.logoPosition === 'bottom-left'
+                                        ? { bottom: `${Math.round(12 * previewScale)}px`, left: canvasPxToPercent(preset.rules?.logoPadX ?? 59) }
+                                        : { top: canvasPxToPercent(preset.rules?.logoPadY ?? 41), left: canvasPxToPercent(preset.rules?.logoPadX ?? 46) }}>
+                                        {/* Export locks ISS by height (55px @720); others by width. Use previewScale px so % height never collapses to intrinsic size. */}
+                                        <img
+                                            src={getLogoUrl(preset.logo)}
+                                            alt=""
+                                            style={
+                                                preset.rules?.logoPosition === 'bottom-left'
+                                                    ? { height: `${Math.round((preset.rules?.logoSize || 55) * previewScale)}px`, width: 'auto', maxWidth: '70%', objectFit: 'contain', display: 'block', opacity: preset.rules?.logoOpacity ?? 1 }
+                                                    : { width: canvasPxToPercent(preset.rules?.logoSize || 48), height: 'auto', objectFit: 'contain', display: 'block', opacity: preset.rules?.logoOpacity ?? 1 }
+                                            }
+                                        />
+                                    </div>
+                                ) : null}
+                                {preset.name === 'indiabusinesscom-news' && (
+                                    <div className="absolute z-50" style={{ top: canvasPxToPercent(15), right: canvasPxToPercent(5) }}>
+                                        <img src={getLogoUrl('IndianBusinessCom NewsStatic Format (1).png')} style={{ width: canvasPxToPercent(32), height: 'auto', objectFit: 'contain' }} />
+                                    </div>
+                                )}
+                                {(() => {
+                                    if (!newsFontReady) return null;
+                                    const isIBC = preset.name === 'indiabusinesscom-news';
+                                    const isISS = preset.name === 'indiastartupstory-news';
+                                    const isIFC = preset.name === 'ifc-news';
+                                    const isIFC2 = preset.name === 'ifc2-news';
+                                    const ntFontWeight = 700;
+                                    const ntFontFamily = "'ITC Avant Garde Gothic', sans-serif";
+                                    const [rw, rh] = (preset.ratio || '9:16').split(':').map(Number);
+                                    const exportCanvasH = Math.round(720 * (rh / rw));
+                                    // Same wrap budget as export (getExportNewsMaxLineWidth already leaves pad room)
+                                    const { fontSize: fittedExportFs, lines } = fitNewsTickerPreview(preset.headline, {
+                                        baseFontSize: Math.round(54 * effectiveFontScale),
+                                        maxWidth: getExportNewsMaxLineWidth(preset),
+                                        fontFamily: ntFontFamily,
+                                        boldWeight: ntFontWeight,
+                                        maxTotalBarsH: Math.round(exportCanvasH * 0.28),
+                                    });
+                                    const ntFontSize = Math.max(8, fittedExportFs * previewScale);
+                                    // Mirror generateNewsTickerOverlay geometry (percent of frame height)
+                                    const highlightH = Math.round(fittedExportFs * NEWS_TICKER_HIGHLIGHT_HEIGHT);
+                                    const lineGap = Math.round(fittedExportFs * NEWS_TICKER_LINE_GAP);
+                                    const totalBarsH = lines.length === 0
+                                        ? 0
+                                        : lines.length * highlightH + Math.max(0, lines.length - 1) * lineGap;
+                                    // IFC Canva-style: tight bottom margin, black hugs the hook (no empty slab)
+                                    const bottomMarginPct = isIFC ? 5.5 : 10;
+                                    const blackBandHPct = bottomMarginPct + (totalBarsH / exportCanvasH) * 100;
+                                    const gradientHPx = Math.min(
+                                        isIFC ? 280 : 160,
+                                        Math.round(exportCanvasH * (isIFC ? 0.26 : 0.18)),
+                                    );
+                                    const gradientHPct = (gradientHPx / exportCanvasH) * 100;
+                                    const lineGapPx = Math.round(ntFontSize * NEWS_TICKER_LINE_GAP);
+                                    // headlinePosition.y = % to raise hook text + gradient
+                                    const shiftUpPct = Math.max(0, Math.min(48, localHeadlinePos?.y || 0));
+                                    // Match export: solid pad above first line + black always to frame bottom
+                                    const blackPadPct = (fittedExportFs * (isIFC ? 0.35 : 0.12) / exportCanvasH) * 100;
+                                    const solidBlackHPct = blackBandHPct + shiftUpPct + blackPadPct;
+                                    const gradientBottomPct = solidBlackHPct; // gradient sits on top of solid cover
+
+                                    return (
+                                        <>
+                                            {/* Gradient — steep fade so competitor captions don't read through */}
+                                            <div
+                                                className="absolute left-0 w-full z-10 pointer-events-none"
+                                                style={{
+                                                    bottom: `${gradientBottomPct}%`,
+                                                    height: `${gradientHPct}%`,
+                                                    background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.92) 75%, rgba(0,0,0,1) 100%)',
+                                                }}
+                                            />
+                                            {/* Solid black ALWAYS to frame bottom (covers competitor lower-third) */}
+                                            <div
+                                                className="absolute left-0 w-full z-[11] pointer-events-none"
+                                                style={{
+                                                    bottom: 0,
+                                                    height: `${solidBlackHPct}%`,
+                                                    background: '#000000',
+                                                }}
+                                            />
+                                            {/* Ticker text */}
+                                            <div
+                                                className="absolute left-0 right-0 z-20 flex flex-col pointer-events-none"
+                                                style={{
+                                                    bottom: `${bottomMarginPct + shiftUpPct}%`,
+                                                    gap: `${lineGapPx}px`,
+                                                    paddingLeft: isISS ? canvasPxToPercent(56) : canvasPxToPercent(16),
+                                                    paddingRight: canvasPxToPercent(16),
+                                                    boxSizing: 'border-box',
+                                                    alignItems: (isIBC || isIFC || isIFC2) ? 'center' : 'flex-start',
+                                                }}
+                                            >
+                                                {lines.map((lineTokens, i) => {
+                                                    const runs = [];
+                                                    for (const t of lineTokens) {
+                                                        if (!runs.length || runs[runs.length - 1].bold !== t.bold)
+                                                            runs.push({ bold: t.bold, words: [t.text] });
+                                                        else
+                                                            runs[runs.length - 1].words.push(t.text);
+                                                    }
+                                                    return (
+                                                        <div key={i} style={{
+                                                            display: 'flex', alignItems: 'stretch',
+                                                            justifyContent: (isIBC || isIFC || isIFC2) ? 'center' : 'flex-start',
+                                                            fontFamily: ntFontFamily,
+                                                            fontWeight: ntFontWeight,
+                                                            fontSize: `${ntFontSize}px`,
+                                                            lineHeight: NEWS_TICKER_HIGHLIGHT_HEIGHT,
+                                                            whiteSpace: 'nowrap',
+                                                            maxWidth: '100%',
+                                                            boxSizing: 'border-box',
+                                                        }}>
+                                                            {runs.map((run, j) => (
+                                                                <span key={j} style={{
+                                                                    background: run.bold ? (isIBC ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : preset.color) : 'transparent',
+                                                                    color: (isIBC || isIFC || isIFC2) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff',
+                                                                    padding: run.bold ? '0 4px' : '0 2px',
+                                                                    borderRadius: ((isISS || isIFC2) && run.bold) ? '6px' : undefined,
+                                                                    flexShrink: 1,
+                                                                    minWidth: 0,
+                                                                }}>
+                                                                    {run.words.join(' ')}{j < runs.length - 1 ? ' ' : ''}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            {/* Drag hit-area for MOVE HOOK — must sit above dismiss layers */}
+                                            {isRepositioningHeadline && (
+                                                <div
+                                                    ref={headlineRef}
+                                                    className="absolute left-0 right-0 z-[90] cursor-ns-resize"
+                                                    style={{
+                                                        bottom: 0,
+                                                        height: `${Math.max(solidBlackHPct + gradientHPct, 18)}%`,
+                                                        pointerEvents: 'auto',
+                                                        touchAction: 'none',
+                                                        background: 'rgba(139, 92, 246, 0.12)',
+                                                        boxShadow: 'inset 0 0 0 2px rgba(167, 139, 250, 0.9)',
+                                                    }}
+                                                    onMouseDown={handleHeadlineMouseDown}
+                                                    title="Drag up/down to move hook"
+                                                >
+                                                    <div className="absolute top-1.5 left-1/2 -translate-x-1/2 pointer-events-none bg-violet-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap">
+                                                        Drag hook
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </div>
                         )}
 
@@ -1584,30 +1903,63 @@ const PreviewCard = memo(({
             <button
                 onClick={() => onToggle(preset.id)}
                 title="Select preset for export"
-                className={`absolute top-2 left-2 z-[100] flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium shadow-lg border-2 transition-all min-w-[88px] justify-center ${preset.active ? 'bg-orange-500 text-black border-orange-400 ring-1 ring-orange-300' : 'bg-neutral-800/95 text-neutral-300 border-orange-500/60 hover:border-orange-500 hover:bg-orange-500/20 backdrop-blur-sm'}`}
+                className={`absolute top-2 left-2 z-[100] flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium shadow-lg border-2 transition-all min-w-[88px] justify-center ${preset.active ? 'bg-violet-500 text-black border-violet-400 ring-1 ring-violet-300' : 'bg-neutral-800/95 text-neutral-300 border-violet-500/60 hover:border-violet-500 hover:bg-violet-500/20 backdrop-blur-sm'}`}
             >
-                {preset.active ? <CheckSquare size={14} className="shrink-0" /> : <Square size={14} className="shrink-0 text-orange-400" />}
+                {preset.active ? <CheckSquare size={14} className="shrink-0" /> : <Square size={14} className="shrink-0 text-violet-400" />}
                 <span>{preset.active ? 'Selected' : 'Select'}</span>
             </button>
 
-            <div className="absolute top-2 right-2 flex gap-1 z-[100] opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                    onClick={(e) => { e.stopPropagation(); setIsRepositioning(!isRepositioning); setIsResizingVideo(false); }}
-                    className={`w-5 h-5 flex items-center justify-center rounded text-xs ${isRepositioning ? 'bg-blue-500 text-white' : 'bg-neutral-800/90 text-neutral-400 backdrop-blur-sm'} hover:bg-blue-600`}
-                    title="Reposition Video"
-                >
-                    <Move size={12} />
-                </button>
+            <div className={`absolute top-2 right-2 flex gap-1 z-[100] transition-opacity ${isNewsFormat || isResizingVideo || isRepositioning || isRepositioningHeadline ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                {isNewsFormat ? (
+                    <>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsResizingVideo(!isResizingVideo);
+                                setIsRepositioning(false);
+                                setIsRepositioningHeadline(false);
+                            }}
+                            className={`px-2 h-6 flex items-center justify-center gap-1 rounded text-[10px] font-semibold uppercase tracking-wide ${isResizingVideo ? 'bg-violet-500 text-white' : 'bg-neutral-800/90 text-neutral-200 backdrop-blur-sm'} hover:bg-violet-600`}
+                            title="RE-SIZE video — cover competitor captions with your hook"
+                        >
+                            <Maximize size={12} />
+                            RE-SIZE
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsRepositioningHeadline(!isRepositioningHeadline);
+                                setIsResizingVideo(false);
+                                setIsRepositioning(false);
+                            }}
+                            className={`px-2 h-6 flex items-center justify-center gap-1 rounded text-[10px] font-semibold uppercase tracking-wide ${isRepositioningHeadline ? 'bg-violet-500 text-white' : 'bg-neutral-800/90 text-neutral-200 backdrop-blur-sm'} hover:bg-violet-600`}
+                            title="Move hook — text, black bar & gradient together"
+                        >
+                            <Move size={12} />
+                            HOOK
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setIsRepositioning(!isRepositioning); setIsResizingVideo(false); }}
+                            className={`w-5 h-5 flex items-center justify-center rounded text-xs ${isRepositioning ? 'bg-blue-500 text-white' : 'bg-neutral-800/90 text-neutral-400 backdrop-blur-sm'} hover:bg-blue-600`}
+                            title="Reposition Video"
+                        >
+                            <Move size={12} />
+                        </button>
 
-                <button
-                    onClick={(e) => { e.stopPropagation(); setIsResizingVideo(!isResizingVideo); setIsRepositioning(false); }}
-                    className={`w-5 h-5 flex items-center justify-center rounded text-xs ${isResizingVideo ? 'bg-blue-500 text-white' : 'bg-neutral-800/90 text-neutral-400 backdrop-blur-sm'} hover:bg-blue-600`}
-                    title="Resize Video"
-                >
-                    <Maximize size={12} />
-                </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setIsResizingVideo(!isResizingVideo); setIsRepositioning(false); }}
+                            className={`w-5 h-5 flex items-center justify-center rounded text-xs ${isResizingVideo ? 'bg-blue-500 text-white' : 'bg-neutral-800/90 text-neutral-400 backdrop-blur-sm'} hover:bg-blue-600`}
+                            title="Resize Video"
+                        >
+                            <Maximize size={12} />
+                        </button>
+                    </>
+                )}
 
-                {preset.layout === 'watermark' && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && !isAicrackedOrEvolvingPreset && (
+                {!isNewsFormat && preset.layout === 'watermark' && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && !isAicrackedOrEvolvingPreset && (
                     <button
                         onClick={(e) => { e.stopPropagation(); setIsRepositioningWatermark(!isRepositioningWatermark); }}
                         className={`w-5 h-5 flex items-center justify-center rounded text-xs ${isRepositioningWatermark ? 'bg-green-500 text-white' : 'bg-neutral-800/90 text-neutral-400 backdrop-blur-sm'} hover:bg-green-600`}
@@ -1617,50 +1969,413 @@ const PreviewCard = memo(({
                     </button>
                 )}
 
-                <button
-                    onClick={(e) => { e.stopPropagation(); setIsRepositioningCredit(!isRepositioningCredit); }}
-                    className={`w-5 h-5 flex items-center justify-center rounded text-xs ${isRepositioningCredit ? 'bg-purple-500 text-white' : 'bg-neutral-800/90 text-neutral-400 backdrop-blur-sm'} hover:bg-purple-600`}
-                    title="Reposition Credit"
-                >
-                    <Edit2 size={12} />
-                </button>
+                {!isNewsFormat && (
+                    <>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setIsRepositioningCredit(!isRepositioningCredit); }}
+                            className={`w-5 h-5 flex items-center justify-center rounded text-xs ${isRepositioningCredit ? 'bg-purple-500 text-white' : 'bg-neutral-800/90 text-neutral-400 backdrop-blur-sm'} hover:bg-purple-600`}
+                            title="Reposition Credit"
+                        >
+                            <Edit2 size={12} />
+                        </button>
 
-                <button
-                    onClick={(e) => { e.stopPropagation(); setIsRepositioningHeadline(!isRepositioningHeadline); }}
-                    className={`w-5 h-5 flex items-center justify-center rounded text-xs ${isRepositioningHeadline ? 'bg-orange-500 text-white' : 'bg-neutral-800/90 text-neutral-400 backdrop-blur-sm'} hover:bg-orange-600`}
-                    title="Reposition Headline"
-                >
-                    <Type size={12} />
-                </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setIsRepositioningHeadline(!isRepositioningHeadline); }}
+                            className={`w-5 h-5 flex items-center justify-center rounded text-xs ${isRepositioningHeadline ? 'bg-violet-500 text-white' : 'bg-neutral-800/90 text-neutral-400 backdrop-blur-sm'} hover:bg-violet-600`}
+                            title="Reposition Headline"
+                        >
+                            <Type size={12} />
+                        </button>
+                    </>
+                )}
             </div>
-
-            {preset.name === 'indian-founders-co' && ifcFontInfo && (
-                <div className="absolute bottom-2 left-2 right-2 z-30 bg-black/80 text-white text-[10px] px-2 py-1 rounded pointer-events-none">
-                    <div>computed family: {ifcFontInfo.family}</div>
-                    <div>computed weight: {ifcFontInfo.weight}</div>
-                    <div>Inter loaded: any {String(ifcFontInfo.interAny)} | 400 {String(ifcFontInfo.inter400)} | 700 {String(ifcFontInfo.inter700)} | 800 {String(ifcFontInfo.inter800)} | 900 {String(ifcFontInfo.inter900)}</div>
-                </div>
-            )}
 
             {isRepositioning && (
                 <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsRepositioning(false)} />
             )}
-            {isResizingVideo && (
+            {/* Don't cover the card with a dismiss layer while editing news RE-SIZE / HOOK —
+                it stole all mouse events and blocked dragging. Exit via the toggle buttons. */}
+            {isResizingVideo && !isNewsFormat && (
                 <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsResizingVideo(false)} />
             )}
-            {isRepositioningHeadline && (
+            {isRepositioningHeadline && !isNewsFormat && (
                 <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsRepositioningHeadline(false)} />
             )}
         </div>
     );
 });
 
+const XP_FONT = "Tahoma, Geneva, 'Segoe UI', sans-serif";
+
+const GRAIN_DATA_URI = `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`
+)}")`;
+
+const PLAYBOOKS = [
+    {
+        id: 'bizzindia', title: 'Bizz India Playbook', accent: '#E31D38', enabled: true,
+        formats: [
+            { key: 'aroll', label: 'A-roll' },
+            { key: 'news', label: 'News formats' },
+        ],
+    },
+    { id: 'news', title: 'News Playbook', accent: '#3B82F6', enabled: false },
+    { id: '101xf', title: '101xf Playbook', accent: '#8B5CF6', enabled: false },
+];
+
+function RetroPopup({ title, icon, children, style }) {
+    const [closed, setClosed] = useState(false);
+    if (closed) return null;
+    return (
+        <div className="absolute z-10 w-72 shadow-2xl" style={style}>
+            <div
+                className="flex items-center justify-between px-2 py-1 text-white text-xs font-bold rounded-t-sm"
+                style={{ background: 'linear-gradient(#3a93ff, #0058ee)', fontFamily: XP_FONT }}
+            >
+                <span>{title}</span>
+                <button
+                    onClick={() => setClosed(true)}
+                    className="w-4 h-4 flex items-center justify-center bg-red-500 hover:bg-red-400 rounded-sm text-[9px] leading-none border border-red-700"
+                >
+                    ✕
+                </button>
+            </div>
+            <div
+                className="border border-t-0 border-neutral-400 p-3 rounded-b-sm text-black flex items-start gap-2 text-xs"
+                style={{ background: '#ece9d8', fontFamily: XP_FONT }}
+            >
+                {icon && <span className="text-xl leading-none">{icon}</span>}
+                <div className="flex-1">{children}</div>
+            </div>
+        </div>
+    );
+}
+
+function DiscIcon({ accent, enabled }) {
+    return (
+        <div
+            className={`relative w-12 h-12 rounded-full flex items-center justify-center shadow-md overflow-hidden ${!enabled ? 'grayscale opacity-60' : ''}`}
+            style={{
+                background: 'conic-gradient(from 200deg, #e6e6e6, #ffffff, #c9c9c9, #ffffff, #d8d8d8, #ffffff, #e6e6e6)',
+                border: '1px solid rgba(0,0,0,0.35)',
+            }}
+        >
+            <div className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 30%)' }} />
+            <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: accent, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.3)' }}>
+                <div className="w-1.5 h-1.5 rounded-full bg-neutral-900" />
+            </div>
+        </div>
+    );
+}
+
+function StartMenu({ onSelect, onClose }) {
+    return (
+        <div
+            className="fixed bottom-10 left-0 z-30 w-72 rounded-t-md overflow-hidden shadow-2xl border border-black/30"
+            style={{ fontFamily: XP_FONT }}
+            onClick={(e) => e.stopPropagation()}
+        >
+            {/* header banner */}
+            <div className="flex items-center gap-2 px-3 py-2" style={{ background: 'linear-gradient(#3a93ff, #0058ee)' }}>
+                <span className="text-white font-bold text-sm">PINTU</span>
+            </div>
+            {/* items */}
+            <div className="bg-white py-1">
+                {PLAYBOOKS.map((pb) => (
+                    <button
+                        key={pb.id}
+                        type="button"
+                        disabled={!pb.enabled}
+                        onClick={() => { if (pb.enabled) { onSelect(pb.id, pb.title); onClose(); } }}
+                        className={`w-full flex items-center gap-3 px-3 py-2 text-left text-sm ${pb.enabled ? 'hover:bg-[#316ac5] hover:text-white text-black cursor-pointer' : 'text-neutral-400 cursor-not-allowed'}`}
+                    >
+                        <span className="flex-1 font-medium">{pb.title}</span>
+                        {!pb.enabled && <span className="text-[10px] uppercase tracking-wide">Coming soon</span>}
+                    </button>
+                ))}
+            </div>
+            <div className="border-t border-neutral-300" style={{ background: '#ece9d8' }}>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full text-right px-3 py-1.5 text-xs text-neutral-600 hover:text-black"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function PlaybookCard({ pb, onOpen, isDark, isActive }) {
+    return (
+        <button
+            type="button"
+            disabled={!pb.enabled}
+            onClick={(e) => { e.stopPropagation(); pb.enabled && onOpen(pb.id, pb.title); }}
+            className={`group relative w-48 sm:w-52 rounded-2xl p-6 flex flex-col items-center gap-4 overflow-hidden isolate transition-all duration-300 ${isDark
+                    ? 'bg-white/[0.06] border border-white/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_8px_32px_rgba(0,0,0,0.4)] hover:bg-white/[0.09] hover:border-white/25'
+                    : 'bg-white/80 backdrop-blur-md border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:shadow-[0_16px_40px_rgba(0,0,0,0.12)]'
+                } ${isActive ? '-translate-y-1 !border-violet-500 ring-2 ring-violet-500/50' : ''} ${pb.enabled ? 'cursor-pointer hover:-translate-y-1' : 'opacity-60 grayscale cursor-not-allowed'}`}
+        >
+            <div className="scale-125">
+                <DiscIcon accent={pb.accent} enabled={pb.enabled} />
+            </div>
+            <span className={`text-base font-semibold text-center leading-tight ${isDark ? 'text-white' : 'text-neutral-800'}`}>{pb.title}</span>
+            {!pb.enabled && (
+                <span className={`text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full ${isDark ? 'bg-white/10 text-neutral-400' : 'bg-neutral-200 text-neutral-500'}`}>Coming soon</span>
+            )}
+        </button>
+    );
+}
+
+function MacWindow({ isDark }) {
+    return (
+        <div className={`w-full max-w-2xl rounded-xl overflow-hidden shadow-[0_30px_70px_rgba(0,0,0,0.2)] backdrop-blur-xl ${isDark ? 'border border-white/10 bg-neutral-900/90' : 'border border-black/10 bg-white/90'}`}>
+            {/* title bar */}
+            <div className={`grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 border-b ${isDark ? 'bg-gradient-to-b from-neutral-800 to-neutral-900 border-white/10' : 'bg-gradient-to-b from-neutral-100 to-neutral-200 border-black/10'}`}>
+                <div className="flex gap-2">
+                    <span className="w-3 h-3 rounded-full bg-[#ff5f57] border border-black/10" />
+                    <span className="w-3 h-3 rounded-full bg-[#febc2e] border border-black/10" />
+                    <span className="w-3 h-3 rounded-full bg-[#28c840] border border-black/10" />
+                </div>
+                <span className={`text-center text-xs font-medium truncate ${isDark ? 'text-neutral-400' : 'text-neutral-500'}`}>FS.app</span>
+                <div className="w-12" />
+            </div>
+            {/* body */}
+            <div className={`relative h-[440px] flex items-center justify-center overflow-hidden ${isDark ? 'bg-gradient-to-b from-neutral-900 to-black' : 'bg-gradient-to-b from-neutral-50 to-neutral-100'}`}>
+                <div className="absolute w-80 h-80 rounded-full bg-orange-400/30 blur-[70px] pintu-logo-glow" />
+                <img
+                    src="/images/FS%20without%20bg.png"
+                    alt="FS"
+                    className="relative w-72 h-72 drop-shadow-xl"
+                />
+            </div>
+        </div>
+    );
+}
+
+function XPDesktop({ onSelect, theme = 'light', onToggleTheme }) {
+    const isDark = theme === 'dark';
+
+    // Enter playbook directly — A-roll / News switch lives in the playbook header.
+    const handleOpen = (playbookId, label) => {
+        onSelect(playbookId, label);
+    };
+
+    return (
+        <div className="relative min-h-screen w-full overflow-hidden select-none" style={{ fontFamily: XP_FONT }}>
+            <style>
+                {`
+                @keyframes pintuLogoSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes pintuLogoGlow { 0%, 100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.08); } }
+                .pintu-logo-spin { animation: pintuLogoSpin 18s linear infinite; }
+                .pintu-logo-glow { animation: pintuLogoGlow 4s ease-in-out infinite; }
+                `}
+            </style>
+
+            {onToggleTheme && (
+                <button
+                    type="button"
+                    onClick={onToggleTheme}
+                    title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                    className={`fixed top-6 right-6 z-20 w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-colors ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/80 hover:bg-white'}`}
+                >
+                    <span className="text-base leading-none">{isDark ? '☀️' : '🌙'}</span>
+                </button>
+            )}
+
+            {isDark ? (
+                <>
+                    {/* true black background, just a whisper of color */}
+                    <div className="absolute inset-0 bg-black" />
+                    <div className="absolute inset-0 overflow-hidden">
+                        <div className="absolute -top-32 -left-20 w-[420px] h-[420px] rounded-full bg-purple-600/10 blur-[110px]" />
+                        <div className="absolute top-1/3 -right-24 w-[380px] h-[380px] rounded-full bg-blue-600/8 blur-[110px]" />
+                        <div className="absolute -bottom-32 left-1/4 w-[440px] h-[440px] rounded-full bg-orange-600/10 blur-[110px]" />
+                    </div>
+
+                    {/* subtle black mist for depth */}
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                        <div className="absolute top-1/4 left-0 w-[700px] h-[550px] rounded-full bg-white/[0.02] blur-[120px]" />
+                        <div className="absolute bottom-0 right-0 w-[750px] h-[550px] rounded-full bg-white/[0.02] blur-[130px]" />
+                    </div>
+
+                    {/* misty film grain texture */}
+                    <div
+                        className="absolute inset-0 pointer-events-none mix-blend-overlay opacity-[0.1]"
+                        style={{ backgroundImage: GRAIN_DATA_URI, backgroundSize: '90px 90px' }}
+                    />
+                </>
+            ) : (
+                <>
+                    {/* dreamy white background */}
+                    <div className="absolute inset-0 bg-white" />
+                    <div className="absolute inset-0 overflow-hidden">
+                        <div className="absolute -top-32 -left-20 w-[420px] h-[420px] rounded-full bg-purple-200/50 blur-[100px]" />
+                        <div className="absolute top-1/3 -right-24 w-[380px] h-[380px] rounded-full bg-blue-200/50 blur-[100px]" />
+                        <div className="absolute -bottom-32 left-1/4 w-[440px] h-[440px] rounded-full bg-pink-200/40 blur-[100px]" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-amber-100/30 blur-[120px]" />
+                    </div>
+
+                    {/* white mist (dominant) + a touch of black */}
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                        <div className="absolute top-1/4 left-0 w-[700px] h-[550px] rounded-full bg-neutral-300/50 blur-[110px]" />
+                        <div className="absolute bottom-0 right-0 w-[750px] h-[550px] rounded-full bg-neutral-300/45 blur-[120px]" />
+                        <div className="absolute top-0 right-1/4 w-[600px] h-[450px] rounded-full bg-neutral-200/50 blur-[110px]" />
+                        <div className="absolute bottom-1/4 left-1/3 w-[600px] h-[450px] rounded-full bg-neutral-200/45 blur-[120px]" />
+                        <div className="absolute top-10 left-1/3 w-[350px] h-[250px] rounded-full bg-black/[0.06] blur-[100px]" />
+                        <div className="absolute bottom-10 right-1/3 w-[300px] h-[220px] rounded-full bg-black/[0.05] blur-[110px]" />
+                    </div>
+
+                    {/* misty film grain texture */}
+                    <div
+                        className="absolute inset-0 pointer-events-none mix-blend-multiply opacity-[0.12]"
+                        style={{ backgroundImage: GRAIN_DATA_URI, backgroundSize: '90px 90px' }}
+                    />
+                </>
+            )}
+
+            {/* playbooks (left, gallery row) + animated logo window (right) */}
+            <div className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16 overflow-y-auto">
+                <div className="w-full max-w-[1400px] flex flex-col xl:flex-row items-center gap-10 xl:gap-16">
+                    <div className="shrink-0 flex flex-col gap-8 items-center">
+                        <div className="text-center">
+                            <p className={`text-sm font-semibold tracking-[0.4em] uppercase mb-2 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>PINTU</p>
+                            <h1 className={`text-3xl font-semibold ${isDark ? 'text-white' : 'text-neutral-800'}`}>Pick your playbook</h1>
+                        </div>
+                        <div className="flex flex-row flex-wrap justify-center gap-4">
+                            {PLAYBOOKS.map((pb) => (
+                                <PlaybookCard key={pb.id} pb={pb} onOpen={handleOpen} isDark={isDark} isActive={false} />
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex-1 flex justify-center w-full min-w-0">
+                        <MacWindow isDark={isDark} />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function DvdLoadingScreen({ label }) {
+    return (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center text-white" style={{ fontFamily: XP_FONT }}>
+            <style>
+                {`
+                @keyframes dvdSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes dvdLoadBar { from { width: 0%; } to { width: 100%; } }
+                `}
+            </style>
+            <img
+                src="/images/FS%20without%20bg.png"
+                alt="FS"
+                className="w-28 h-28 rounded-full mb-6 grayscale"
+                style={{ animation: 'dvdSpin 1s linear infinite' }}
+            />
+            <p className="text-sm tracking-wide text-neutral-400">Reading disc…</p>
+            <p className="text-lg font-semibold mt-1">{label}</p>
+            <div className="w-64 h-2 bg-neutral-800 rounded-full mt-6 overflow-hidden">
+                <div className="h-full bg-blue-500" style={{ animation: 'dvdLoadBar 1.4s ease-in-out forwards' }} />
+            </div>
+        </div>
+    );
+}
 
 export default function App() {
+    const [screen, setScreen] = useState('desktop'); // 'desktop' | 'loading' | 'app'
+    const [loadingLabel, setLoadingLabel] = useState('');
+    // Bizz India format set — switched inside the playbook (not on the desktop picker)
+    const [playbookFormat, setPlaybookFormat] = useState('aroll'); // 'aroll' | 'news'
+    const [activeTool, setActiveTool] = useState('video'); // 'video' | 'text'
     const [videoSrc, setVideoSrc] = useState(null);
     const videoFileRef = useRef(null); // Store original file for server upload
     const [presets, setPresets] = useState(INITIAL_PRESETS);
     const [isDraggingVideo, setIsDraggingVideo] = useState(false);
+
+    // --- THEME (light default; dark keeps the original black/misty look) ---
+    const [theme, setTheme] = useState(() => {
+        if (typeof window === 'undefined') return 'light';
+        return window.localStorage.getItem('pintu-theme') || 'light';
+    });
+    useEffect(() => {
+        window.localStorage.setItem('pintu-theme', theme);
+    }, [theme]);
+    const isDark = theme === 'dark';
+    const themeVars = {
+        '--pintu-bg': isDark ? '#000000' : '#d9dade',
+        '--pintu-header-bg': isDark ? '#000000' : '#ffffff',
+        '--pintu-header-border': isDark ? '#262626' : '#c8cacd',
+        '--pintu-rail-bg': isDark ? '#000000' : '#ffffff',
+        '--pintu-panel-bg': isDark ? '#000000' : '#d9dade',
+        '--pintu-card-bg': isDark ? 'rgba(255,255,255,0.03)' : '#f7f6f3',
+        '--pintu-card-border': isDark ? 'rgba(255,255,255,0.2)' : '#c8cacd',
+        '--pintu-card-header-bg': isDark ? 'rgba(255,255,255,0.05)' : '#eceef0',
+        '--pintu-card-header-border': isDark ? 'rgba(255,255,255,0.1)' : '#c8cacd',
+        '--pintu-text-primary': isDark ? '#ffffff' : '#171717',
+        '--pintu-text-secondary': isDark ? '#d4d4d4' : '#262626',
+        '--pintu-text-muted': isDark ? '#a3a3a3' : '#525252',
+        '--pintu-text-faint': isDark ? '#737373' : '#6b6b6b',
+        '--pintu-accent': isDark ? '#a78bfa' : '#7c3aed',
+        '--pintu-input-bg': isDark ? '#171717' : '#ffffff',
+        '--pintu-input-border': isDark ? '#404040' : '#b8bac0',
+        '--pintu-track-bg': isDark ? '#404040' : '#b8bac0',
+        '--pintu-toggle-bg': isDark ? 'rgba(255,255,255,0.05)' : '#e0e1e5',
+        '--pintu-toggle-border': isDark ? 'rgba(255,255,255,0.1)' : '#c8cacd',
+        '--pintu-icon-inactive': isDark ? '#a3a3a3' : '#525252',
+        '--pintu-icon-hover-bg': isDark ? '#262626' : '#c8cacd',
+        '--pintu-right-bg': isDark ? '#0a0a0a' : '#c7c9cd',
+        '--pintu-scrollbar-thumb': isDark ? '#52525b' : '#a9abb0',
+    };
+
+    const buildBizzIndiaPresets = (format, textState = {}) => {
+        const names = format === 'news' ? BIZZINDIA_NEWS_PRESET_NAMES : BIZZINDIA_PLAYBOOK_PRESET_NAMES;
+        const {
+            headline = DEFAULT_HEADLINE,
+            footer = DEFAULT_FOOTER,
+            hookEyebrow = '',
+            showHookEyebrow = false,
+            hookEyebrowAlignment = 'left',
+            hookEyebrowSizeScale = 1.1,
+            hookEyebrowGapScale = 7.0,
+        } = textState;
+        // Always rehydrate from INITIAL_PRESETS so news ratios stay correct
+        // (ifc 9:16, others 4:5) even after HMR / stale state.
+        return INITIAL_PRESETS.filter(p => names.includes(p.name)).map(p => ({
+            ...p,
+            headline,
+            // News / hook_video / aroll never use credits
+            footer: (format === 'news' || p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
+                ? ''
+                : footer,
+            hookEyebrow,
+            showHookEyebrow,
+            hookEyebrowAlignment,
+            hookEyebrowSizeScale,
+            hookEyebrowGapScale,
+        }));
+    };
+
+    const enterPlaybook = (playbookId, label, format) => {
+        const fmt = format || 'aroll';
+        if (playbookId === 'bizzindia') {
+            setPlaybookFormat(fmt);
+            setPresets(buildBizzIndiaPresets(fmt));
+            const pb = PLAYBOOKS.find(x => x.id === 'bizzindia');
+            const formatLabel = pb?.formats?.find(f => f.key === fmt)?.label;
+            setLoadingLabel(formatLabel ? `${pb.title} — ${formatLabel}` : (label || pb?.title || 'Bizz India Playbook'));
+        } else {
+            setLoadingLabel(label);
+        }
+        setScreen('loading');
+    };
+
+    useEffect(() => {
+        if (screen !== 'loading') return;
+        const t = setTimeout(() => setScreen('app'), 1500);
+        return () => clearTimeout(t);
+    }, [screen]);
 
     // Config
     const [viewMode, setViewMode] = useState('grid');
@@ -1668,7 +2383,7 @@ export default function App() {
     const [fontScale, setFontScale] = useState(1);
     const [editMode, setEditMode] = useState('global');
     const [videoScale, setVideoScale] = useState(100); // Video scale in percentage (100 = 100%)
-    const [showCredit, setShowCredit] = useState(true); // Toggle credit visibility
+    const [showCredit, setShowCredit] = useState(false); // Credit UI removed; keep hidden by default
     const [wordSpacing, setWordSpacing] = useState(0.25); // Word spacing multiplier (0.25 = 25% of normal space width for very tight, natural spacing)
 
     // Global Text State
@@ -1681,19 +2396,123 @@ export default function App() {
     const [globalHookEyebrowGapScale, setGlobalHookEyebrowGapScale] = useState(7.0);
     const [ideaName, setIdeaName] = useState('');
 
+    // In-playbook format switch — swaps preset cards only. Video, export job,
+    // headlines, and other session state stay put (Canva-style background switch).
+    const switchPlaybookFormat = (format) => {
+        if (format === playbookFormat) return;
+        setPlaybookFormat(format);
+        const pb = PLAYBOOKS.find(x => x.id === 'bizzindia');
+        const formatLabel = pb?.formats?.find(f => f.key === format)?.label;
+        if (pb && formatLabel) setLoadingLabel(`${pb.title} — ${formatLabel}`);
+        setPresets(buildBizzIndiaPresets(format, {
+            headline: globalHeadline,
+            footer: globalFooter,
+            hookEyebrow: globalHookEyebrow,
+            showHookEyebrow: globalShowHookEyebrow,
+            hookEyebrowAlignment: globalHookEyebrowAlignment,
+            hookEyebrowSizeScale: globalHookEyebrowSizeScale,
+            hookEyebrowGapScale: globalHookEyebrowGapScale,
+        }));
+    };
+
     // System
     const videoRef = useRef(null);
-    const exportAbortControllerRef = useRef(null);
-    const serverPollIntervalRef = useRef(null);
+    // Per-job abort + poll handles (not stored in React state)
+    const exportJobControllersRef = useRef(new Map());
+    const exportJobIdCounterRef = useRef(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay compatibility
-    const [isExporting, setIsExporting] = useState(false);
-    const [exportStatus, setExportStatus] = useState('');
-    const [cloudLinks, setCloudLinks] = useState([]);
-    const [driveLinks, setDriveLinks] = useState([]);
-    const [exportProgress, setExportProgress] = useState(0);
+    // Pipeline: up to 5 export jobs run in a tray while the editor stays free
+    const MAX_PIPELINE_JOBS = 5;
+    const [exportJobs, setExportJobs] = useState([]);
+    // status: 'uploading' | 'processing' | 'completed' | 'failed' | 'stopped'
     const [showKoushikPopup, setShowKoushikPopup] = useState(false);
     const [presetSearch, setPresetSearch] = useState('');
+
+    const pipelineFull = exportJobs.length >= MAX_PIPELINE_JOBS;
+    const updateExportJob = useCallback((localId, patch) => {
+        setExportJobs(prev => prev.map(j => j.id === localId ? { ...j, ...patch } : j));
+    }, []);
+
+    const clearExportJobController = useCallback((localId) => {
+        const entry = exportJobControllersRef.current.get(localId);
+        if (!entry) return;
+        if (entry.pollInterval) clearInterval(entry.pollInterval);
+        exportJobControllersRef.current.delete(localId);
+    }, []);
+
+    const stopExportJob = useCallback((localId) => {
+        const entry = exportJobControllersRef.current.get(localId);
+        if (entry?.abortController) {
+            entry.abortController.abort();
+        }
+        clearExportJobController(localId);
+        updateExportJob(localId, { status: 'stopped', statusText: 'Stopped', progress: 0 });
+    }, [clearExportJobController, updateExportJob]);
+
+    const dismissExportJob = useCallback((localId) => {
+        const entry = exportJobControllersRef.current.get(localId);
+        if (entry?.abortController) {
+            entry.abortController.abort();
+        }
+        clearExportJobController(localId);
+        setExportJobs(prev => prev.filter(j => j.id !== localId));
+    }, [clearExportJobController]);
+
+    // Cleanup polls on unmount
+    useEffect(() => {
+        return () => {
+            for (const [, entry] of exportJobControllersRef.current) {
+                if (entry.pollInterval) clearInterval(entry.pollInterval);
+                if (entry.abortController) entry.abortController.abort();
+            }
+            exportJobControllersRef.current.clear();
+        };
+    }, []);
+
+    // News-ticker headlines measure/wrap using this custom font. Custom @font-face fonts load
+    // asynchronously, so canvas measurement done before the font is ready silently falls back to
+    // a generic font's (narrower) metrics — wrapping the text wrong and clipping it. The news
+    // ticker text is not rendered at all until this flips true, so it's never shown mis-wrapped.
+    const [newsFontReady, setNewsFontReady] = useState(false);
+    useEffect(() => {
+        if (!document.fonts) { setNewsFontReady(true); return; }
+        document.fonts.load("700 54px 'ITC Avant Garde Gothic'")
+            .catch(() => {})
+            .then(() => document.fonts.ready)
+            .then(() => {
+                resetMeasureCtx();
+                setNewsFontReady(true);
+            });
+    }, []);
+
+  // Keep news-ticker output ratios in sync (ifc → 9:16, others → 4:5).
+  // Also strip any leftover credits stamped by global footer sync,
+  // and refresh logo path so white+highlight Founders CORE asset shows in preview.
+  useEffect(() => {
+        setPresets(prev => {
+            let changed = false;
+            const next = prev.map(p => {
+                if (p.layout !== 'news_ticker') return p;
+                const src = INITIAL_PRESETS.find(x => x.name === p.name);
+                let nextP = p;
+                if (src && p.ratio !== src.ratio) {
+                    changed = true;
+                    nextP = { ...nextP, ratio: src.ratio };
+                }
+                if (src && src.logo && p.logo !== src.logo) {
+                    changed = true;
+                    nextP = { ...nextP, logo: src.logo };
+                }
+                if (nextP.footer) {
+                    changed = true;
+                    nextP = { ...nextP, footer: '' };
+                }
+                return nextP;
+            });
+            return changed ? next : prev;
+        });
+    }, []);
 
     const searchQuery = (presetSearch || '').trim().toLowerCase();
 
@@ -1705,10 +2524,12 @@ export default function App() {
                 if (item.kind === 'file') {
                     const blob = item.getAsFile();
                     if (blob.type.startsWith('video/')) {
-                        // Convert blob to File for server upload
                         const file = new File([blob], 'pasted-video.mp4', { type: blob.type });
                         videoFileRef.current = file;
-                        setVideoSrc(URL.createObjectURL(blob));
+                        setVideoSrc(prev => {
+                            if (prev && typeof prev === 'string' && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                            return URL.createObjectURL(blob);
+                        });
                         setIsPlaying(true);
                     }
                 }
@@ -1722,8 +2543,11 @@ export default function App() {
     const handleVideoUpload = useCallback((e) => {
         const file = e.target.files[0];
         if (file) {
-            videoFileRef.current = file; // Store original file for server upload
-            setVideoSrc(URL.createObjectURL(file));
+            videoFileRef.current = file;
+            setVideoSrc(prev => {
+                if (prev && typeof prev === 'string' && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                return URL.createObjectURL(file);
+            });
             setIsPlaying(true);
         }
     }, []);
@@ -1734,8 +2558,11 @@ export default function App() {
         e.preventDefault(); setIsDraggingVideo(false);
         const file = e.dataTransfer.files[0];
         if (file && file.type.startsWith('video/')) {
-            videoFileRef.current = file; // Store original file for server upload
-            setVideoSrc(URL.createObjectURL(file));
+            videoFileRef.current = file;
+            setVideoSrc(prev => {
+                if (prev && typeof prev === 'string' && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                return URL.createObjectURL(file);
+            });
             setIsPlaying(true);
         }
     };
@@ -1763,10 +2590,13 @@ export default function App() {
     const updateGlobalText = (headline, footer) => {
         setGlobalHeadline(headline);
         setGlobalFooter(footer);
+        // News / hook_video / aroll never use credits — don't stamp DEFAULT_FOOTER onto them.
         setPresets(prev => prev.map(p => ({
             ...p,
             headline: headline,
-            footer: footer
+            footer: (p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
+                ? ''
+                : footer,
         })));
     };
 
@@ -1821,61 +2651,47 @@ export default function App() {
     }, []);
 
     const handleVideoScaleChange = useCallback((scale) => {
-        setVideoScale(scale);
-    }, []);
+        const next = Math.max(100, Math.min(300, Math.round(scale)));
+        setVideoScale(next);
+        // News RE-SIZE via sidebar: same top-bias as card handles so captions
+        // drop under the hook without needing extreme zoom (esp. full-bleed ifc).
+        if (playbookFormat === 'news' && next > 100) {
+            const t = (next - 100) / 200;
+            setPresets(prev => prev.map(p => {
+                if (p.layout !== 'news_ticker') return p;
+                const isIfc = (p.name || '').toLowerCase() === 'ifc-news';
+                const maxZ = isIfc ? 220 : 300;
+                const tt = Math.min(1, (next - 100) / (maxZ - 100));
+                const y = Math.max(isIfc ? 8 : 5, 50 * (1 - tt * 0.85));
+                return { ...p, position: { ...(p.position || { x: 50, y: 50 }), y } };
+            }));
+        }
+    }, [playbookFormat]);
 
     const togglePlay = useCallback(() => {
-        // Only play/pause videos for ACTIVE presets to reduce resource usage
-        const activePresetIds = presets.filter(p => p.active).map(p => p.id);
+        // Play/pause every preset preview, regardless of export-selection state
         const videos = document.querySelectorAll('video[data-preset-id]');
         videos.forEach(v => {
-            const presetId = parseInt(v.getAttribute('data-preset-id'));
-            if (activePresetIds.includes(presetId)) {
-                // Only control videos for active presets
-                if (isPlaying) {
-                    v.pause();
-                } else {
-                    v.play().catch(() => { });
-                }
-            } else {
-                // Always pause inactive preset videos
+            if (isPlaying) {
                 v.pause();
+            } else {
+                v.play().catch(() => { });
             }
         });
         setIsPlaying(!isPlaying);
-    }, [isPlaying, presets]);
+    }, [isPlaying]);
 
     const toggleMute = useCallback(() => {
-        // Only mute/unmute videos for ACTIVE presets
-        const activePresetIds = presets.filter(p => p.active).map(p => p.id);
         const videos = document.querySelectorAll('video[data-preset-id]');
         videos.forEach(v => {
-            const presetId = parseInt(v.getAttribute('data-preset-id'));
-            if (activePresetIds.includes(presetId)) {
-                v.muted = !isMuted;
-            }
+            v.muted = !isMuted;
         });
         setIsMuted(!isMuted);
-    }, [isMuted, presets]);
+    }, [isMuted]);
 
     const togglePresetActive = useCallback((id) => {
-        setPresets(prev => {
-            const updated = prev.map(p => p.id === id ? { ...p, active: !p.active } : p);
-            // Immediately pause/play videos based on new active state
-            const video = document.querySelector(`video[data-preset-id="${id}"]`);
-            if (video) {
-                const newPreset = updated.find(p => p.id === id);
-                if (newPreset && newPreset.active && isPlaying) {
-                    video.play().catch(() => { });
-                    video.loop = true;
-                } else {
-                    video.pause();
-                    video.loop = false;
-                }
-            }
-            return updated;
-        });
-    }, [isPlaying]);
+        setPresets(prev => prev.map(p => p.id === id ? { ...p, active: !p.active } : p));
+    }, []);
 
 
     // Server API URL: use the same hostname but on port 3002 (backend).
@@ -1890,83 +2706,213 @@ export default function App() {
                 : `http://${window.location.hostname}:3002`)  // EC2/remote: talk to backend directly
         : ((import.meta.env.VITE_SERVER_URL && import.meta.env.VITE_SERVER_URL.trim()) || '');
 
-    // --- SERVER-SIDE EXPORT LOGIC ---
-    const processServerExport = async () => {
-        const activePresets = presets.filter(p => p.active);
-        if (!videoSrc || activePresets.length === 0) return;
+    // Free the editor so the next video can be uploaded/edited while exports continue
+    const clearEditorForNextVideo = useCallback(() => {
+        setVideoSrc(prev => {
+            if (prev && typeof prev === 'string' && prev.startsWith('blob:')) {
+                URL.revokeObjectURL(prev);
+            }
+            return null;
+        });
+        videoFileRef.current = null;
+        setIsPlaying(false);
+        setGlobalHeadline(DEFAULT_HEADLINE);
+        setGlobalFooter(DEFAULT_FOOTER);
+        setGlobalHookEyebrow('');
+        setGlobalShowHookEyebrow(false);
+        setGlobalHookEyebrowAlignment('left');
+        setGlobalHookEyebrowSizeScale(1.1);
+        setGlobalHookEyebrowGapScale(7.0);
+        setIdeaName('');
+        setFontScale(1);
+        setWordSpacing(0.25);
+        setVideoScale(100);
+        setFitMode('cover');
+        setShowCredit(false);
+        setPresets(prev => prev.map(p => ({
+            ...p,
+            active: false,
+            headline: DEFAULT_HEADLINE,
+            footer: (p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
+                ? ''
+                : DEFAULT_FOOTER,
+            hookEyebrow: '',
+            showHookEyebrow: false,
+            hookEyebrowAlignment: 'left',
+            hookEyebrowSizeScale: 1.1,
+            hookEyebrowGapScale: 7.0,
+        })));
+    }, []);
 
-        // Abort any previous export and clear polling
-        if (exportAbortControllerRef.current) exportAbortControllerRef.current.abort();
-        if (serverPollIntervalRef.current) {
-            clearInterval(serverPollIntervalRef.current);
-            serverPollIntervalRef.current = null;
-        }
-        const abortController = new AbortController();
-        exportAbortControllerRef.current = abortController;
-        const signal = abortController.signal;
-
-        setIsExporting(true);
-        setExportStatus('Uploading video to server...');
-        setExportProgress(0);
-
+    const pollExportJob = useCallback(async (localId, jobId, signal) => {
+        if (signal.aborted) return;
         try {
-            // Get video file - use stored file reference
-            let videoFile = videoFileRef.current;
+            const statusResponse = await fetch(`${SERVER_URL}/api/job/${jobId}`, { signal });
+            if (signal.aborted) return;
+            if (!statusResponse.ok) throw new Error('Failed to get job status');
 
-            // If no file reference, try to get it from blob URL
-            if (!videoFile && videoSrc) {
-                if (videoSrc.startsWith('blob:')) {
+            const jobStatus = await statusResponse.json();
+            if (signal.aborted) return;
+
+            if (jobStatus.state === 'completed') {
+                clearExportJobController(localId);
+                updateExportJob(localId, { progress: 100, statusText: 'Export complete!' });
+
+                const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+                if (isLocalhost) {
+                    updateExportJob(localId, { statusText: 'Export complete! Downloading ZIP...' });
+                    const a = document.createElement('a');
+                    a.href = `${SERVER_URL}/api/download/${jobId}`;
+                    a.download = '';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    updateExportJob(localId, { status: 'completed', statusText: 'Done — ZIP downloaded', progress: 100 });
+                } else {
+                    updateExportJob(localId, { statusText: 'Export complete! Uploading to Drive...' });
                     try {
-                        const response = await fetch(videoSrc, { signal });
-                        const blob = await response.blob();
-                        videoFile = new File([blob], 'video.mp4', { type: blob.type || 'video/mp4' });
+                        const driveRes = await fetch(`${SERVER_URL}/api/upload-to-drive`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ jobId }),
+                            signal,
+                        });
+                        if (!driveRes.ok) {
+                            const j = await driveRes.json().catch(() => ({}));
+                            throw new Error(j.error || `HTTP ${driveRes.status}`);
+                        }
+                        const data = await driveRes.json();
+                        const links = data.files ? data.files.map(f => f.webViewLink).filter(Boolean) : [];
+                        updateExportJob(localId, {
+                            status: 'completed',
+                            statusText: links.length ? 'Uploaded to Google Drive' : 'Done',
+                            progress: 100,
+                            driveLinks: links,
+                        });
                     } catch (err) {
                         if (err.name === 'AbortError') return;
-                        console.error('Error fetching blob:', err);
-                        setExportStatus('Error: Could not access video file. Please re-upload the video.');
-                        setIsExporting(false);
-                        return;
+                        console.error('Drive upload error:', err);
+                        updateExportJob(localId, {
+                            status: 'failed',
+                            statusText: `Drive upload failed: ${err.message}`,
+                        });
                     }
+                }
+            } else if (jobStatus.state === 'failed') {
+                clearExportJobController(localId);
+                const reason = jobStatus.failedReason || 'Unknown error. Check server console.';
+                updateExportJob(localId, { status: 'failed', statusText: `Export failed: ${reason}` });
+            } else {
+                if (jobStatus.progress && typeof jobStatus.progress === 'object') {
+                    const { current, total } = jobStatus.progress;
+                    const progress = total > 0 ? (current / total) * 100 : 0;
+                    updateExportJob(localId, {
+                        status: 'processing',
+                        progress,
+                        statusText: `Processing: ${jobStatus.progress.preset || ''} (${current}/${total})`,
+                    });
                 } else {
-                    setExportStatus('Error: Please re-upload the video file.');
-                    setIsExporting(false);
-                    return;
+                    updateExportJob(localId, {
+                        status: 'processing',
+                        statusText: `Processing on server... (${jobId})`,
+                    });
                 }
             }
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            console.error('Error polling job status:', err);
+            clearExportJobController(localId);
+            updateExportJob(localId, { status: 'failed', statusText: 'Error checking status' });
+        }
+    }, [SERVER_URL, clearExportJobController, updateExportJob]);
 
-            if (!videoFile) {
-                setExportStatus('Error: No video file available. Please upload a video first.');
-                setIsExporting(false);
+    // --- SERVER-SIDE EXPORT LOGIC (pipeline: non-blocking, up to 5 jobs) ---
+    const startExportJob = async () => {
+        const activePresets = presets
+            .filter(p => p.active)
+            .map(p => p.layout === 'news_ticker' ? { ...p, footer: '' } : p);
+        if (!videoSrc || activePresets.length === 0) return;
+        if (exportJobs.length >= MAX_PIPELINE_JOBS) return;
+
+        // Resolve video file BEFORE clearing editor (clear revokes the blob URL)
+        let videoFile = videoFileRef.current;
+        const snapshotSrc = videoSrc;
+        if (!videoFile && snapshotSrc?.startsWith('blob:')) {
+            try {
+                const response = await fetch(snapshotSrc);
+                const blob = await response.blob();
+                videoFile = new File([blob], 'video.mp4', { type: blob.type || 'video/mp4' });
+            } catch (err) {
+                console.error('Error fetching blob:', err);
                 return;
             }
+        }
+        if (!videoFile) return;
 
-            // Append small fields FIRST so proxies (ngrok/Vite) don't truncate preset data
+        const snapshotHeadline = globalHeadline;
+        const snapshotFontScale = fontScale;
+        const snapshotWordSpacing = wordSpacing;
+        const snapshotVideoScale = videoScale;
+        const snapshotFitMode = fitMode;
+        const snapshotShowCredit = showCredit;
+        const snapshotIdeaName = ideaName || '';
+        const snapshotPresets = activePresets;
+        const label = snapshotIdeaName
+            || (videoFile?.name)
+            || `Export ${exportJobIdCounterRef.current + 1}`;
+
+        const localId = `local-${++exportJobIdCounterRef.current}`;
+        const abortController = new AbortController();
+        const signal = abortController.signal;
+
+        exportJobControllersRef.current.set(localId, { abortController, pollInterval: null });
+        setExportJobs(prev => [...prev, {
+            id: localId,
+            label,
+            jobId: null,
+            status: 'uploading',
+            progress: 0,
+            statusText: 'Uploading video to server...',
+            driveLinks: [],
+            cloudLinks: [],
+        }]);
+
+        // Free editor immediately so the next video can be set up
+        clearEditorForNextVideo();
+
+        try {
             const formData = new FormData();
-            formData.append('presets', JSON.stringify(activePresets));
-            formData.append('headline', globalHeadline);
-            formData.append('fontScale', fontScale.toString());
-            formData.append('wordSpacing', wordSpacing.toString());
-            formData.append('videoScale', videoScale.toString());
-            formData.append('fitMode', fitMode);
-            formData.append('showCredit', showCredit.toString());
-            formData.append('ideaName', ideaName || '');
+            formData.append('presets', JSON.stringify(snapshotPresets));
+            formData.append('headline', snapshotHeadline);
+            formData.append('fontScale', snapshotFontScale.toString());
+            formData.append('wordSpacing', snapshotWordSpacing.toString());
+            formData.append('videoScale', snapshotVideoScale.toString());
+            formData.append('fitMode', snapshotFitMode);
+            formData.append('showCredit', snapshotShowCredit.toString());
+            formData.append('ideaName', snapshotIdeaName);
             formData.append('video', videoFile);
 
             console.log('Uploading video to server...', {
+                localId,
                 fileName: videoFile.name,
                 fileSize: (videoFile.size / 1024 / 1024).toFixed(2) + ' MB',
                 fileType: videoFile.type,
-                presetCount: activePresets.length
+                presetCount: snapshotPresets.length
             });
 
-            setExportStatus('Uploading video file...');
+            updateExportJob(localId, { statusText: 'Uploading video file...' });
             const uploadResponse = await fetch(`${SERVER_URL}/api/export`, {
                 method: 'POST',
                 body: formData,
                 signal
             });
 
-            if (signal.aborted) return;
+            if (signal.aborted) {
+                updateExportJob(localId, { status: 'stopped', statusText: 'Stopped' });
+                clearExportJobController(localId);
+                return;
+            }
 
             if (!uploadResponse.ok) {
                 let errorText;
@@ -1980,119 +2926,49 @@ export default function App() {
             }
 
             const { jobId } = await uploadResponse.json();
-            if (signal.aborted) return;
+            if (signal.aborted) {
+                updateExportJob(localId, { status: 'stopped', statusText: 'Stopped' });
+                clearExportJobController(localId);
+                return;
+            }
 
-            setExportStatus(`Processing on server... (Job: ${jobId})`);
+            updateExportJob(localId, {
+                jobId,
+                status: 'processing',
+                statusText: `Processing on server... (${jobId})`,
+            });
 
-            const poll = async () => {
-                if (signal.aborted) return;
-                try {
-                    const statusResponse = await fetch(`${SERVER_URL}/api/job/${jobId}`, { signal });
-                    if (signal.aborted) return;
-                    if (!statusResponse.ok) throw new Error('Failed to get job status');
-
-                    const jobStatus = await statusResponse.json();
-                    if (signal.aborted) return;
-
-                    if (jobStatus.state === 'completed') {
-                        if (serverPollIntervalRef.current) {
-                            clearInterval(serverPollIntervalRef.current);
-                            serverPollIntervalRef.current = null;
-                        }
-                        setExportProgress(100);
-
-                        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-                        if (isLocalhost) {
-                            setExportStatus('Export complete! Starting ZIP download...');
-                            const a = document.createElement('a');
-                            a.href = `${SERVER_URL}/api/download/${jobId}`;
-                            a.download = '';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            setIsExporting(false);
-                            setTimeout(() => { setExportStatus(''); setExportProgress(0); }, 2000);
-                        } else {
-                            setExportStatus('Export complete! Uploading to Drive...');
-                            try {
-                                const driveRes = await fetch(`${SERVER_URL}/api/upload-to-drive`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ jobId }),
-                                    signal,
-                                });
-                                if (!driveRes.ok) {
-                                    const j = await driveRes.json().catch(() => ({}));
-                                    throw new Error(j.error || `HTTP ${driveRes.status}`);
-                                }
-                                const data = await driveRes.json();
-                                if (data.files) {
-                                    setDriveLinks(data.files.map(f => f.webViewLink).filter(Boolean));
-                                }
-
-                                setIsExporting(false);
-                                setExportStatus('');
-                                setExportProgress(0);
-                            } catch (err) {
-                                if (err.name === 'AbortError') return;
-                                console.error('Drive upload error:', err);
-                                setExportStatus(`Drive upload failed: ${err.message}`);
-                                setIsExporting(false);
-                                setTimeout(() => { setExportStatus(''); setExportProgress(0); }, 5000);
-                            }
-                        }
-                    } else if (jobStatus.state === 'failed') {
-                        if (serverPollIntervalRef.current) {
-                            clearInterval(serverPollIntervalRef.current);
-                            serverPollIntervalRef.current = null;
-                        }
-                        const reason = jobStatus.failedReason || 'Unknown error. Check server console.';
-                        setExportStatus(`Export failed: ${reason}`);
-                        setIsExporting(false);
-                        setTimeout(() => { setExportStatus(''); setExportProgress(0); }, 8000);
-                    } else {
-                        if (jobStatus.progress && typeof jobStatus.progress === 'object') {
-                            const { current, total } = jobStatus.progress;
-                            const progress = total > 0 ? (current / total) * 100 : 0;
-                            setExportProgress(progress);
-                            setExportStatus(`Processing: ${jobStatus.progress.preset || ''} (${current}/${total})`);
-                        }
-                    }
-                } catch (err) {
-                    if (err.name === 'AbortError') return;
-                    console.error('Error polling job status:', err);
-                    if (serverPollIntervalRef.current) {
-                        clearInterval(serverPollIntervalRef.current);
-                        serverPollIntervalRef.current = null;
-                    }
-                    setExportStatus('Error checking status');
-                    setIsExporting(false);
-                }
-            };
-
-            serverPollIntervalRef.current = setInterval(poll, 2000);
-            poll(); // run once immediately
+            const poll = () => pollExportJob(localId, jobId, signal);
+            const pollInterval = setInterval(poll, 2000);
+            const entry = exportJobControllersRef.current.get(localId);
+            if (entry) entry.pollInterval = pollInterval;
+            poll();
         } catch (error) {
             if (error.name === 'AbortError') {
-                setExportStatus('Stopped');
-                setExportProgress(0);
-                setIsExporting(false);
-                setTimeout(() => setExportStatus(''), 1500);
+                updateExportJob(localId, { status: 'stopped', statusText: 'Stopped', progress: 0 });
+                clearExportJobController(localId);
                 return;
             }
             console.error('Server export error:', error);
-            setExportStatus(`Error: ${error.message}`);
-            setIsExporting(false);
-            setTimeout(() => {
-                setExportStatus('');
-                setExportProgress(0);
-            }, 3000);
+            updateExportJob(localId, { status: 'failed', statusText: `Error: ${error.message}` });
+            clearExportJobController(localId);
         }
     };
 
+    if (screen === 'desktop') {
+        return <XPDesktop onSelect={enterPlaybook} theme={theme} onToggleTheme={() => setTheme(t => (t === 'light' ? 'dark' : 'light'))} />;
+    }
+
+    if (screen === 'loading') {
+        return <DvdLoadingScreen label={loadingLabel} />;
+    }
+
     return (
-        <div className="min-h-screen bg-neutral-900 text-white flex flex-col h-full overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <div
+            className="min-h-screen bg-[var(--pintu-bg)] text-[var(--pintu-text-primary)] flex flex-col h-full overflow-hidden"
+            data-theme={theme}
+            style={{ fontFamily: "'Inter', sans-serif", ...themeVars }}
+        >
 
             <style>
                 {`
@@ -2118,29 +2994,72 @@ export default function App() {
                     font-display: swap;
                     src: url('/fonts/Poppins-Thin.ttf') format('truetype');
                 }
+                /* ITC Avant Garde Gothic Bold for the 4 "News formats" presets (served from public/fonts/) */
+                @font-face {
+                    font-family: 'ITC Avant Garde Gothic';
+                    font-style: normal;
+                    font-weight: 700;
+                    font-display: swap;
+                    src: url('/fonts/ITCAvantGardeGothic-Bold.otf') format('opentype');
+                }
+                .pintu-scroll::-webkit-scrollbar {
+                    width: 8px;
+                    height: 8px;
+                }
+                .pintu-scroll::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .pintu-scroll::-webkit-scrollbar-thumb {
+                    background-color: var(--pintu-scrollbar-thumb);
+                    border-radius: 9999px;
+                }
+                .pintu-scroll::-webkit-scrollbar-thumb:hover {
+                    background-color: #f97316;
+                }
+                .pintu-scroll {
+                    scrollbar-width: thin;
+                    scrollbar-color: var(--pintu-scrollbar-thumb) transparent;
+                }
                 `}
             </style>
 
-            {/* --- PINNED HEADER --- */}
-            <div className="fixed top-0 left-0 right-0 bg-neutral-800 border-b border-neutral-700 z-50 shadow-lg">
-                <div className="p-4">
-                    <div className="flex items-center justify-between">
-                        <div className="w-24" />
-                        <h1
-                            className="text-2xl font-bold text-center text-orange-500 cursor-pointer select-none"
-                            onDoubleClick={() => setShowKoushikPopup(true)}
-                        >
-                            PINTU
-                        </h1>
-                        <div className="flex items-center gap-3">
-                            <a href="/silence-remover.html" className="text-xs text-orange-500 hover:text-orange-400 transition-colors">
-                                Silence Remover
-                            </a>
-                            <a href="/transcribe.html" className="text-xs text-orange-500 hover:text-orange-400 transition-colors">
-                                Transcribe
-                            </a>
-                        </div>
+            {/* --- HEADER --- */}
+            <div className="fixed top-0 left-0 right-0 h-14 z-50 bg-[var(--pintu-header-bg)] border-b border-[var(--pintu-header-border)] flex items-center justify-between px-4">
+                <button
+                    onClick={() => setScreen('desktop')}
+                    className="text-sm text-[var(--pintu-text-muted)] hover:text-[var(--pintu-text-primary)] transition-colors"
+                >
+                    ← Back
+                </button>
+                <span className="text-sm font-semibold text-[var(--pintu-text-secondary)]">{loadingLabel || 'Bizz India Playbook'}</span>
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                        {(PLAYBOOKS.find(p => p.id === 'bizzindia')?.formats || []).map((f) => {
+                            const isActive = playbookFormat === f.key;
+                            return (
+                                <button
+                                    key={f.key}
+                                    type="button"
+                                    onClick={() => switchPlaybookFormat(f.key)}
+                                    className={`px-3 py-1.5 rounded-lg border-2 text-xs font-semibold transition-colors whitespace-nowrap ${
+                                        isActive
+                                            ? 'border-violet-500 bg-violet-500 text-white'
+                                            : 'border-violet-500 text-violet-500 hover:bg-violet-500/15'
+                                    }`}
+                                >
+                                    {f.label}
+                                </button>
+                            );
+                        })}
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setTheme(t => (t === 'light' ? 'dark' : 'light'))}
+                        title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                        className="w-10 flex justify-end text-[var(--pintu-text-muted)] hover:text-[var(--pintu-text-primary)] transition-colors"
+                    >
+                        {isDark ? <span className="text-base leading-none">☀️</span> : <span className="text-base leading-none">🌙</span>}
+                    </button>
                 </div>
             </div>
 
@@ -2151,16 +3070,16 @@ export default function App() {
                     onClick={() => setShowKoushikPopup(false)}
                 >
                     <div
-                        className="bg-neutral-800 border-2 border-orange-500 rounded-xl p-8 shadow-2xl max-w-md w-full mx-4"
+                        className="bg-neutral-800 border-2 border-violet-500 rounded-xl p-8 shadow-2xl max-w-md w-full mx-4"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="text-center space-y-3">
-                            <h2 className="text-3xl font-bold text-orange-500">PROGRAMMED BY KOUSHIK</h2>
-                            <h3 className="text-2xl font-bold text-orange-400">DESIGNED BY RJOE</h3>
+                            <h2 className="text-3xl font-bold text-violet-500">PROGRAMMED BY KOUSHIK</h2>
+                            <h3 className="text-2xl font-bold text-violet-400">DESIGNED BY RJOE</h3>
                             <p className="text-xl text-neutral-300 italic">MADE USING POWER OF FRIENDSHIP</p>
                             <button
                                 onClick={() => setShowKoushikPopup(false)}
-                                className="mt-6 px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors"
+                                className="mt-6 px-6 py-2 bg-violet-500 hover:bg-violet-600 text-white font-semibold rounded-lg transition-colors"
                             >
                                 Close
                             </button>
@@ -2169,651 +3088,235 @@ export default function App() {
                 </div>
             )}
 
-            {/* --- MAIN CONTENT WRAPPER --- */}
-            <div className="flex flex-col md:flex-row h-full pt-16">
-                {/* --- LEFT PANEL --- */}
-                <div className="w-full md:w-[500px] bg-neutral-800 border-r border-neutral-700 flex flex-col h-full overflow-y-auto z-20 shadow-xl shrink-0">
+            {/* --- MAIN CONTENT WRAPPER: LEFT = Video + Options, RIGHT = preset grid --- */}
+            <div className="flex flex-col md:flex-row h-full pt-14">
 
-                    <div className="p-6 space-y-6 pb-32">
+                {/* --- LEFT COLUMN: icon rail + tool panel --- */}
+                <div className={`w-full ${activeTool === 'text' && editMode === 'individual' ? 'md:w-[560px]' : 'md:w-[440px]'} shrink-0 h-full flex flex-row border-r border-neutral-800 transition-all duration-200`}>
 
-                        {/* UPLOAD */}
-                        <div className="bg-neutral-800/50 rounded-xl overflow-hidden border border-neutral-700/50">
-                            <div className="bg-neutral-700/50 px-6 py-3 border-b border-neutral-700/50">
-                                <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-300">UPLOAD AN ANIMATED VIDEO</h2>
+                    {/* --- ICON RAIL --- */}
+                    <div className="w-16 shrink-0 h-full bg-[var(--pintu-rail-bg)] border-r border-[var(--pintu-header-border)] flex flex-col items-center py-4 gap-2">
+                        <button
+                            onClick={() => setActiveTool('video')}
+                            title="Video"
+                            className={`w-11 h-11 rounded-lg flex items-center justify-center transition-colors ${activeTool === 'video' ? 'bg-violet-500 text-white' : 'text-[var(--pintu-icon-inactive)] hover:bg-[var(--pintu-icon-hover-bg)] hover:text-[var(--pintu-text-primary)]'}`}
+                        >
+                            <Video className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={() => setActiveTool('text')}
+                            title="Text & Layout"
+                            className={`w-11 h-11 rounded-lg flex items-center justify-center transition-colors ${activeTool === 'text' ? 'bg-violet-500 text-white' : 'text-[var(--pintu-icon-inactive)] hover:bg-[var(--pintu-icon-hover-bg)] hover:text-[var(--pintu-text-primary)]'}`}
+                        >
+                            <Type className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* --- TOOL PANEL --- */}
+                    <div className="relative flex-1 h-full overflow-hidden bg-[var(--pintu-panel-bg)]">
+                    {/* ambient color blobs behind the glass cards */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute -top-16 -left-10 w-72 h-72 rounded-full bg-violet-600/10 blur-[100px]" />
+                        <div className="absolute top-1/3 -right-16 w-64 h-64 rounded-full bg-purple-600/10 blur-[100px]" />
+                        <div className="absolute bottom-0 left-1/4 w-72 h-72 rounded-full bg-blue-600/8 blur-[110px]" />
+                    </div>
+                    <div className="relative h-full overflow-y-auto pintu-scroll">
+
+                    {activeTool === 'video' && (
+                        <div className="p-4 space-y-3">
+                            <div
+                                className={`border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-all duration-200 relative cursor-pointer group ${isDraggingVideo ? 'border-violet-500 bg-violet-500/10 scale-105' : 'border-[var(--pintu-input-border)] bg-[var(--pintu-card-header-bg)] hover:border-violet-500 hover:bg-violet-500/10 hover:scale-[1.02]'}`}
+                                onDragOver={onDragOverVideo}
+                                onDragLeave={onDragLeaveVideo}
+                                onDrop={onDropVideo}
+                            >
+                                <span className={`text-sm transition-colors duration-200 ${isDraggingVideo ? 'text-violet-500' : 'text-[var(--pintu-text-muted)] group-hover:text-violet-500'}`}>{videoSrc ? 'Replace Video' : 'upload or browse video'}</span>
+                                <input type="file" accept="video/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleVideoUpload} />
                             </div>
-                            <div className="p-6 space-y-4">
-                                <div
-                                    className={`border-2 border-dashed rounded-lg p-12 flex flex-col items-center justify-center gap-4 transition-all duration-200 relative cursor-pointer group ${isDraggingVideo ? 'border-orange-500 bg-orange-500/10 scale-105' : 'border-neutral-500 bg-neutral-800/30 hover:border-orange-500 hover:bg-orange-500/10 hover:scale-[1.02]'}`}
-                                    onDragOver={onDragOverVideo}
-                                    onDragLeave={onDragLeaveVideo}
-                                    onDrop={onDropVideo}
-                                >
-                                    <span className={`text-sm transition-colors duration-200 ${isDraggingVideo ? 'text-orange-500' : 'text-neutral-400 group-hover:text-orange-500'}`}>{videoSrc ? 'Replace Video' : 'upload or browse video'}</span>
-                                    <input type="file" accept="video/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleVideoUpload} />
-                                </div>
-                            </div>
+                            {videoSrc && (
+                                <>
+                                    <div className="w-full max-h-[210px] aspect-video rounded-lg border border-[var(--pintu-input-border)] bg-black overflow-hidden">
+                                        <video
+                                            src={videoSrc}
+                                            className="w-full h-full object-cover"
+                                            style={{ transform: `scale(${videoScale / 100})`, transformOrigin: 'center' }}
+                                            muted
+                                            loop
+                                            autoPlay
+                                            playsInline
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs text-[var(--pintu-text-secondary)] font-semibold tracking-wide">
+                                                {playbookFormat === 'news' ? 'RE-SIZE' : 'Zoom'}
+                                            </label>
+                                            <span className="text-xs text-[var(--pintu-text-muted)]">{videoScale}%</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="100"
+                                            max="300"
+                                            step="1"
+                                            value={videoScale}
+                                            onChange={(e) => handleVideoScaleChange(parseInt(e.target.value, 10))}
+                                            className="w-full h-1 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                        />
+                                        <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">
+                                            {playbookFormat === 'news'
+                                                ? 'Scale & drag the video so competitor captions sit under your hook — same idea as Canva. Double-click a card or hit RE-SIZE.'
+                                                : 'Zooms the video across every preset preview.'}
+                                        </p>
+                                    </div>
+                                </>
+                            )}
                         </div>
+                    )}
+
+                    {activeTool === 'text' && (
+                    <div className="p-6 space-y-6 pb-8">
 
                         {/* IDEA NAME (GLOBAL) */}
-                        <div className="bg-neutral-800/50 rounded-xl overflow-hidden border border-neutral-700/50">
-                            <div className="bg-neutral-700/50 px-6 py-3 border-b border-neutral-700/50">
-                                <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-300 text-center">IDEA NAME</h2>
+                        <div className="bg-[var(--pintu-card-bg)] backdrop-blur-2xl rounded-xl overflow-hidden border border-[var(--pintu-card-border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_32px_rgba(0,0,0,0.5)]">
+                            <div className="flex items-center gap-2 bg-[var(--pintu-card-header-bg)] px-6 py-3 border-b border-[var(--pintu-card-header-border)]">
+                                <Edit2 className="w-4 h-4 text-[var(--pintu-accent)]" />
+                                <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--pintu-text-secondary)]">Idea Name</h2>
+                                <span className="text-[10px] normal-case font-normal tracking-normal text-[var(--pintu-text-faint)]">(as written on FSOS)</span>
                             </div>
                             <div className="p-6 space-y-2">
-                                <label className="text-xs text-neutral-300">Name of the idea</label>
+                                <label className="text-xs text-[var(--pintu-text-muted)]">What's this video about?</label>
                                 <input
                                     type="text"
                                     value={ideaName}
                                     onChange={(e) => setIdeaName(e.target.value)}
                                     placeholder="e.g. The trick to making your employees loyal"
-                                    className="w-full px-3 py-2 text-sm text-white bg-neutral-900 border border-neutral-700 rounded-md focus:outline-none focus:border-orange-500 placeholder:text-neutral-500"
+                                    className="w-full px-4 py-3 text-sm text-[var(--pintu-text-primary)] bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 placeholder:text-[var(--pintu-text-faint)] transition-all"
                                 />
                             </div>
                         </div>
 
+                        {/* APPLY CHANGES TO: All Brands / Per Brand — sits above the Text & Layout card */}
+                        <div className="flex items-center justify-between px-1">
+                            <span className="text-xs text-[var(--pintu-text-muted)]">Apply changes to</span>
+                            <div className="flex bg-[var(--pintu-toggle-bg)] backdrop-blur-md rounded-lg p-1 border border-[var(--pintu-toggle-border)]">
+                                <button
+                                    onClick={() => setEditMode('global')}
+                                    className={`px-3 py-1.5 text-xs rounded-md transition-all ${editMode === 'global' ? 'bg-violet-500 text-white font-semibold' : 'text-[var(--pintu-text-muted)] hover:text-[var(--pintu-text-secondary)]'}`}
+                                >
+                                    All Brands
+                                </button>
+                                <button
+                                    onClick={() => setEditMode('individual')}
+                                    className={`px-3 py-1.5 text-xs rounded-md transition-all ${editMode === 'individual' ? 'bg-violet-500 text-white font-semibold' : 'text-[var(--pintu-text-muted)] hover:text-[var(--pintu-text-secondary)]'}`}
+                                >
+                                    Per Brand
+                                </button>
+                            </div>
+                        </div>
+
                         {/* TEXT EDIT */}
-                        <div className="bg-neutral-800/50 rounded-xl overflow-hidden border border-neutral-700/50">
-                            <div className="bg-neutral-700/50 px-6 py-3 border-b border-neutral-700/50">
-                                <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-300 text-center">TEXT AND LAYOUT</h2>
+                        <div className="bg-[var(--pintu-card-bg)] backdrop-blur-2xl rounded-xl overflow-hidden border border-[var(--pintu-card-border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_32px_rgba(0,0,0,0.5)]">
+                            <div className="flex items-center gap-2 bg-[var(--pintu-card-header-bg)] px-6 py-3 border-b border-[var(--pintu-card-header-border)]">
+                                <Type className="w-4 h-4 text-[var(--pintu-accent)]" />
+                                <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--pintu-text-secondary)]">Text &amp; Layout</h2>
                             </div>
                             <div className="p-6 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-neutral-300">Text Settings</span>
-                                    <div className="flex bg-neutral-700 rounded p-0.5">
-                                        <button
-                                            onClick={() => setEditMode('global')}
-                                            className={`px-3 py-1.5 text-xs rounded transition-all ${editMode === 'global' ? 'bg-neutral-600 text-neutral-300' : 'text-neutral-400 hover:text-neutral-300'}`}
-                                        >
-                                            All
-                                        </button>
-                                        <button
-                                            onClick={() => setEditMode('individual')}
-                                            className={`px-3 py-1.5 text-xs rounded transition-all font-semibold ${editMode === 'individual' ? 'bg-orange-500 text-white' : 'text-neutral-400 hover:text-neutral-300'}`}
-                                        >
-                                            Per Brand
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* TEXT SIZE & LETTER SPACING - only in All (global) mode; per-brand has its own below */}
-                                {editMode === 'global' && (
-                                    <>
-                                        <div className="space-y-2">
-                                            <label className="text-xs text-neutral-300">Text Size</label>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="range"
-                                                    min="0.5"
-                                                    max="1.5"
-                                                    step="0.1"
-                                                    value={fontScale}
-                                                    onChange={(e) => setFontScale(parseFloat(e.target.value))}
-                                                    className="flex-1 h-1 bg-neutral-600 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                                                />
-                                                <input
-                                                    type="number"
-                                                    value={Math.round(fontScale * 10)}
-                                                    onChange={(e) => {
-                                                        const val = Math.max(5, Math.min(15, parseInt(e.target.value) || 10));
-                                                        setFontScale(val / 10);
-                                                    }}
-                                                    className="w-12 px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-xs text-neutral-300">Letter Spacing</label>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="range"
-                                                    min="0.1"
-                                                    max="1.5"
-                                                    step="0.05"
-                                                    value={wordSpacing}
-                                                    onChange={(e) => setWordSpacing(parseFloat(e.target.value))}
-                                                    className="flex-1 h-1 bg-neutral-600 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                                                />
-                                                <input
-                                                    type="number"
-                                                    value={Math.round(wordSpacing * 10)}
-                                                    onChange={(e) => {
-                                                        const val = Math.max(1, Math.min(15, parseInt(e.target.value) || 10));
-                                                        setWordSpacing(val / 10);
-                                                    }}
-                                                    className="w-12 px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                                />
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-
-                                {/* LINE SPACING SLIDER - applies to all presets when in global mode */}
-                                {editMode === 'global' && (
-                                    <div className="space-y-2">
-                                        <label className="text-xs text-neutral-300">Line Spacing</label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="range"
-                                                min="0.8"
-                                                max="2.0"
-                                                step="0.05"
-                                                value={presets[0]?.lineSpacing ?? 1.25}
-                                                onChange={(e) => {
-                                                    const val = parseFloat(e.target.value);
-                                                    setPresets(prev => prev.map(p => ({ ...p, lineSpacing: val })));
-                                                }}
-                                                className="flex-1 h-1 bg-neutral-600 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                                            />
-                                            <input
-                                                type="number"
-                                                min="8"
-                                                max="20"
-                                                value={Math.round((presets[0]?.lineSpacing ?? 1.25) * 10)}
-                                                onChange={(e) => {
-                                                    const val = Math.max(8, Math.min(20, parseInt(e.target.value) || 10));
-                                                    setPresets(prev => prev.map(p => ({ ...p, lineSpacing: val / 10 })));
-                                                }}
-                                                className="w-12 px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* HOOK → VIDEO GAP - global */}
-                                {editMode === 'global' && (
-                                    <div className="space-y-2">
-                                        <label className="text-xs text-neutral-300">Hook → Video Gap</label>
-                                        <p className="text-[10px] text-neutral-500">Space between hook text and the video frame</p>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max="80"
-                                                step="1"
-                                                value={getHookVideoGap(presets[0])}
-                                                onChange={(e) => {
-                                                    const val = parseInt(e.target.value, 10);
-                                                    setPresets(prev => prev.map(p => ({ ...p, hookVideoGap: val })));
-                                                }}
-                                                className="flex-1 h-1 bg-neutral-600 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                                            />
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="80"
-                                                value={getHookVideoGap(presets[0])}
-                                                onChange={(e) => {
-                                                    const val = Math.max(0, Math.min(80, parseInt(e.target.value, 10) || 0));
-                                                    setPresets(prev => prev.map(p => ({ ...p, hookVideoGap: val })));
-                                                }}
-                                                className="w-12 px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
 
                                 {/* EDIT MODE: GLOBAL */}
                                 {editMode === 'global' && (
                                     <>
-                                        <RichTextEditor
-                                            value={globalHeadline}
-                                            onChange={(html) => updateGlobalText(html, globalFooter)}
-                                            placeholder="Hook....."
-                                            className="w-full bg-neutral-900 border border-neutral-700 rounded p-3 text-sm text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none font-medium min-h-[80px]"
-                                        />
-
-                                        <HeadlineLineBreakEditor
-                                            headlineHtml={globalHeadline}
-                                            onChange={(html) => updateGlobalText(html, globalFooter)}
-                                        />
-
-                                        <input
-                                            type="text"
-                                            value={globalFooter}
-                                            onChange={(e) => updateGlobalText(globalHeadline, e.target.value)}
-                                            className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-xs text-neutral-400 font-medium placeholder-neutral-600 focus:border-yellow-500 focus:outline-none"
-                                            placeholder="Credit for ALL videos"
-                                        />
-                                        <div className="space-y-2 pt-1 border-t border-neutral-700">
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    id="show-hook-eyebrow-global"
-                                                    checked={globalShowHookEyebrow}
-                                                    onChange={(e) => updateGlobalHookEyebrow(globalHookEyebrow, e.target.checked)}
-                                                    className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-orange-500 focus:ring-orange-500 accent-orange-500"
-                                                />
-                                                <label htmlFor="show-hook-eyebrow-global" className="text-xs text-neutral-300 cursor-pointer">
-                                                    Line above hook (series / day line)
-                                                </label>
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={globalHookEyebrow}
-                                                onChange={(e) => updateGlobalHookEyebrow(e.target.value, globalShowHookEyebrow)}
-                                                disabled={!globalShowHookEyebrow}
-                                                className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-xs text-white placeholder-neutral-600 focus:border-orange-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                                                placeholder="e.g. Day 23 of Founder series to help you grow in life"
+                                        <CollapsibleSection title="Hook Text (Bold)">
+                                            <RichTextEditor
+                                                value={globalHeadline}
+                                                onChange={(html) => updateGlobalText(html, globalFooter)}
+                                                placeholder="Hook....."
+                                                className="w-full bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded p-3 text-sm text-[var(--pintu-text-primary)] placeholder-[var(--pintu-text-faint)] focus:border-violet-500 focus:outline-none font-medium min-h-[80px]"
                                             />
-                                            <div className="grid grid-cols-3 gap-2">
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] text-neutral-400">Series Size</label>
-                                                    <input
-                                                        type="number"
-                                                        min="8"
-                                                        max="20"
-                                                        value={Math.round(globalHookEyebrowSizeScale * 10)}
-                                                        onChange={(e) => {
-                                                            const val = Math.max(8, Math.min(20, parseInt(e.target.value, 10) || 11)) / 10;
-                                                            updateGlobalHookEyebrowStyle('hookEyebrowSizeScale', val);
-                                                        }}
-                                                        className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] text-neutral-400">Series Gap</label>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        max="70"
-                                                        value={Math.round(globalHookEyebrowGapScale * 10)}
-                                                        onChange={(e) => {
-                                                            const val = Math.max(0, Math.min(70, parseInt(e.target.value, 10) || 70)) / 10;
-                                                            updateGlobalHookEyebrowStyle('hookEyebrowGapScale', val);
-                                                        }}
-                                                        className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] text-neutral-400">Series Align</label>
-                                                    <div className="flex gap-1">
-                                                        {['left', 'center'].map((align) => (
-                                                            <button
-                                                                key={align}
-                                                                type="button"
-                                                                onClick={() => updateGlobalHookEyebrowStyle('hookEyebrowAlignment', align)}
-                                                                className={`flex-1 px-2 py-1 text-[10px] rounded border ${globalHookEyebrowAlignment === align ? 'bg-orange-500 text-black border-orange-500 font-semibold' : 'bg-transparent text-neutral-300 border-neutral-600 hover:border-neutral-400'}`}
-                                                            >
-                                                                {align === 'left' ? 'Left' : 'Center'}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="checkbox"
-                                                id="show-credit-toggle"
-                                                checked={showCredit}
-                                                onChange={(e) => setShowCredit(e.target.checked)}
-                                                className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-orange-500 focus:ring-orange-500 accent-orange-500"
-                                            />
-                                            <label htmlFor="show-credit-toggle" className="text-xs text-neutral-400 cursor-pointer">
-                                                Credit
-                                            </label>
-                                        </div>
-                                        <p className="text-[10px] text-neutral-500">Updating this overwrites all brands.</p>
+                                        </CollapsibleSection>
+                                        <p className="text-[10px] text-[var(--pintu-text-faint)] px-1">Updating this overwrites all brands.</p>
                                     </>
+                                )}
+
+                                {/* TYPOGRAPHY: Text Size, Letter Spacing — only in All (global) mode; per-brand has its own below */}
+                                {editMode === 'global' && (
+                                    <CollapsibleSection title="Typography">
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Text Size</label>
+                                                <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round(fontScale * 100)}%</span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min="0.5"
+                                                max="1.5"
+                                                step="0.1"
+                                                value={fontScale}
+                                                onChange={(e) => setFontScale(parseFloat(e.target.value))}
+                                                className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                            />
+                                            <p className="text-[10px] text-[var(--pintu-text-faint)]">How big the headline text is on the video.</p>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Letter Spacing</label>
+                                                <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round(wordSpacing * 100)}%</span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min="0.1"
+                                                max="1.5"
+                                                step="0.05"
+                                                value={wordSpacing}
+                                                onChange={(e) => setWordSpacing(parseFloat(e.target.value))}
+                                                className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                            />
+                                            <p className="text-[10px] text-[var(--pintu-text-faint)]">How much space sits between words.</p>
+                                        </div>
+                                    </CollapsibleSection>
                                 )}
 
                                 {/* EDIT MODE: INDIVIDUAL - only show presets the user has selected for export */}
                                 {editMode === 'individual' && (
-                                    <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                                    <div className="space-y-4">
                                         {presets.filter(p => p.active).map(p => (
-                                            <div key={p.id} className="p-4 bg-neutral-800 rounded-lg border border-neutral-700 space-y-4">
-                                                {/* Top Bar with Preset Name and Controls */}
-                                                <div className="flex items-center gap-3 flex-wrap">
-                                                    <span className="text-sm font-bold text-white">{p.name}</span>
-                                                    {/* Aspect Ratio Selector */}
-                                                    <div className="flex gap-2">
-                                                        {(p.layout === 'aroll' ? ['16:9', '6:5', '2:3'] : ['16:9', '4:3', '3:4', '1:1']).map(r => (
-                                                            <button
-                                                                key={r}
-                                                                onClick={() => {
-                                                                    setPresets(prev => prev.map(item =>
-                                                                        item.id === p.id ? { ...item, ratio: r } : item
-                                                                    ));
-                                                                }}
-                                                                className={`px-3 py-1.5 text-xs rounded border transition-all ${p.ratio === r ? 'bg-orange-500 text-black border-orange-500 font-semibold' : 'bg-transparent text-neutral-400 border-neutral-600 hover:border-neutral-400'}`}
-                                                            >
-                                                                {r}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                    {/* Text Alignment Selector */}
-                                                    <div className="flex gap-2 ml-auto">
-                                                        {['left', 'center'].map(align => (
-                                                            <button
-                                                                key={align}
-                                                                onClick={() => {
-                                                                    setPresets(prev => prev.map(item =>
-                                                                        item.id === p.id ? { ...item, alignment: align } : item
-                                                                    ));
-                                                                }}
-                                                                className={`px-3 py-1.5 text-xs rounded border transition-all ${(p.alignment || 'left') === align ? 'bg-orange-500 text-black border-orange-500 font-semibold' : 'bg-transparent text-neutral-400 border-neutral-600 hover:border-neutral-400'}`}
-                                                                title={align === 'left' ? 'Left Aligned' : 'Center Aligned'}
-                                                            >
-                                                                {align === 'left' ? 'Left' : 'Center'}
-                                                            </button>
-                                                        ))}
-                                                        <button
-                                                            className="px-3 py-1.5 text-xs rounded border bg-transparent text-neutral-400 border-neutral-600 hover:border-neutral-400 transition-all"
-                                                            title="Bold"
-                                                        >
-                                                            <Bold className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {/* Bold Instructions */}
-                                                <div className="flex items-center gap-2 text-xs text-neutral-400">
-                                                    <Bold className="w-4 h-4" />
-                                                    <span>Select text and press B or click Bold</span>
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <label className="text-xs text-neutral-400">Hook text (bold)</label>
-                                                    <RichTextEditor
-                                                        value={p.headline}
-                                                        onChange={(html) => updateIndividualText(p.id, 'headline', html)}
-                                                        placeholder="Hook....."
-                                                        className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-4 text-sm text-white focus:border-orange-500 focus:outline-none min-h-[100px]"
-                                                    />
-                                                    <HeadlineLineBreakEditor
-                                                        headlineHtml={p.headline}
-                                                        onChange={(html) => updateIndividualText(p.id, 'headline', html)}
-                                                    />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <input
-                                                            type="checkbox"
-                                                            id={`show-hook-eyebrow-${p.id}`}
-                                                            checked={!!p.showHookEyebrow}
-                                                            onChange={(e) => updateIndividualText(p.id, 'showHookEyebrow', e.target.checked)}
-                                                            className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-orange-500 focus:ring-orange-500 accent-orange-500"
-                                                        />
-                                                        <label htmlFor={`show-hook-eyebrow-${p.id}`} className="text-xs text-neutral-300 cursor-pointer">
-                                                            Line above hook
-                                                        </label>
-                                                    </div>
-                                                    <input
-                                                        type="text"
-                                                        value={p.hookEyebrow ?? ''}
-                                                        onChange={(e) => updateIndividualText(p.id, 'hookEyebrow', e.target.value)}
-                                                        disabled={!p.showHookEyebrow}
-                                                        className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm text-white placeholder-neutral-600 focus:border-orange-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                                                        placeholder="e.g. Day 23 of Founder series…"
-                                                    />
-                                                    <div className="grid grid-cols-3 gap-2">
-                                                        <div className="space-y-1">
-                                                            <label className="text-[10px] text-neutral-400">Series Size</label>
-                                                            <input
-                                                                type="number"
-                                                                min="8"
-                                                                max="20"
-                                                                value={Math.round((p.hookEyebrowSizeScale ?? 1.1) * 10)}
-                                                                onChange={(e) => {
-                                                                    const val = Math.max(8, Math.min(20, parseInt(e.target.value, 10) || 11)) / 10;
-                                                                    updateIndividualText(p.id, 'hookEyebrowSizeScale', val);
-                                                                }}
-                                                                className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <label className="text-[10px] text-neutral-400">Series Gap</label>
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                max="70"
-                                                                value={Math.round((p.hookEyebrowGapScale ?? 7.0) * 10)}
-                                                                onChange={(e) => {
-                                                                    const val = Math.max(0, Math.min(70, parseInt(e.target.value, 10) || 70)) / 10;
-                                                                    updateIndividualText(p.id, 'hookEyebrowGapScale', val);
-                                                                }}
-                                                                className="w-full px-2 py-1 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <label className="text-[10px] text-neutral-400">Series Align</label>
-                                                            <div className="flex gap-1">
-                                                                {['left', 'center'].map((align) => (
-                                                                    <button
-                                                                        key={align}
-                                                                        type="button"
-                                                                        onClick={() => updateIndividualText(p.id, 'hookEyebrowAlignment', align)}
-                                                                        className={`flex-1 px-2 py-1 text-[10px] rounded border ${(p.hookEyebrowAlignment ?? 'left') === align ? 'bg-orange-500 text-black border-orange-500 font-semibold' : 'bg-transparent text-neutral-300 border-neutral-600 hover:border-neutral-400'}`}
-                                                                    >
-                                                                        {align === 'left' ? 'Left' : 'Center'}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Sub Hook / Credit Text Input */}
-                                                <div className="space-y-2">
-                                                    {p.layout === 'news_ticker' && (
-                                                        <label className="text-xs text-neutral-400 font-medium">Sub Hook</label>
-                                                    )}
-                                                    <input
-                                                        type="text"
-                                                        value={p.footer}
-                                                        onChange={(e) => updateIndividualText(p.id, 'footer', e.target.value)}
-                                                        className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm text-neutral-400 focus:border-orange-500 focus:outline-none"
-                                                        placeholder={p.layout === 'news_ticker' ? 'Sub hook text...' : 'Credit: The Founders Show'}
-                                                    />
-                                                </div>
-
-                                                {/* Per-brand Text Size */}
-                                                <div className="space-y-2">
-                                                    <label className="text-xs text-neutral-400 font-medium">Text Size</label>
-                                                    <div className="flex items-center gap-3">
-                                                        <input
-                                                            type="range"
-                                                            min="0.5"
-                                                            max="1.5"
-                                                            step="0.1"
-                                                            value={p.fontScale ?? fontScale}
-                                                            onChange={(e) => {
-                                                                setPresets(prev => prev.map(item =>
-                                                                    item.id === p.id ? { ...item, fontScale: parseFloat(e.target.value) } : item
-                                                                ));
-                                                            }}
-                                                            className="flex-1 h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                                                        />
-                                                        <input
-                                                            type="number"
-                                                            value={Math.round((p.fontScale ?? fontScale) * 10)}
-                                                            onChange={(e) => {
-                                                                const val = Math.max(5, Math.min(15, parseInt(e.target.value) || 10)) / 10;
-                                                                setPresets(prev => prev.map(item =>
-                                                                    item.id === p.id ? { ...item, fontScale: val } : item
-                                                                ));
-                                                            }}
-                                                            className="w-12 px-2 py-1.5 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {/* Per-brand Letter Spacing */}
-                                                <div className="space-y-2">
-                                                    <label className="text-xs text-neutral-400 font-medium">Letter Spacing</label>
-                                                    <div className="flex items-center gap-3">
-                                                        <input
-                                                            type="range"
-                                                            min="0.1"
-                                                            max="1.5"
-                                                            step="0.05"
-                                                            value={p.wordSpacing ?? wordSpacing}
-                                                            onChange={(e) => {
-                                                                setPresets(prev => prev.map(item =>
-                                                                    item.id === p.id ? { ...item, wordSpacing: parseFloat(e.target.value) } : item
-                                                                ));
-                                                            }}
-                                                            className="flex-1 h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                                                        />
-                                                        <input
-                                                            type="number"
-                                                            value={Math.round((p.wordSpacing ?? wordSpacing) * 10)}
-                                                            onChange={(e) => {
-                                                                const val = Math.max(1, Math.min(15, parseInt(e.target.value) || 10)) / 10;
-                                                                setPresets(prev => prev.map(item =>
-                                                                    item.id === p.id ? { ...item, wordSpacing: val } : item
-                                                                ));
-                                                            }}
-                                                            className="w-12 px-2 py-1.5 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {/* Line Spacing Control */}
-                                                <div className="space-y-2">
-                                                    <label className="text-xs text-neutral-400 font-medium">Line Spacing</label>
-                                                    <div className="flex items-center gap-3">
-                                                        <input
-                                                            type="range"
-                                                            min="0.8"
-                                                            max="2.0"
-                                                            step="0.05"
-                                                            value={p.lineSpacing || 1.25}
-                                                            onChange={(e) => {
-                                                                setPresets(prev => prev.map(item =>
-                                                                    item.id === p.id ? { ...item, lineSpacing: parseFloat(e.target.value) } : item
-                                                                ));
-                                                            }}
-                                                            className="flex-1 h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                                                        />
-                                                        <input
-                                                            type="number"
-                                                            value={(p.lineSpacing || 1.25).toFixed(2)}
-                                                            onChange={(e) => {
-                                                                const val = Math.max(0.8, Math.min(2.0, parseFloat(e.target.value) || 1.25));
-                                                                setPresets(prev => prev.map(item =>
-                                                                    item.id === p.id ? { ...item, lineSpacing: val } : item
-                                                                ));
-                                                            }}
-                                                            className="w-16 px-2 py-1.5 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                                            step="0.05"
-                                                            min="0.8"
-                                                            max="2.0"
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {/* Hook → Video Gap */}
-                                                <div className="space-y-2">
-                                                    <label className="text-xs text-neutral-400 font-medium">Hook → Video Gap</label>
-                                                    <p className="text-[10px] text-neutral-500">Space between hook text and the video</p>
-                                                    <div className="flex items-center gap-3">
-                                                        <input
-                                                            type="range"
-                                                            min="0"
-                                                            max="80"
-                                                            step="1"
-                                                            value={getHookVideoGap(p)}
-                                                            onChange={(e) => {
-                                                                const val = parseInt(e.target.value, 10);
-                                                                setPresets(prev => prev.map(item =>
-                                                                    item.id === p.id ? { ...item, hookVideoGap: val } : item
-                                                                ));
-                                                            }}
-                                                            className="flex-1 h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                                                        />
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max="80"
-                                                            value={getHookVideoGap(p)}
-                                                            onChange={(e) => {
-                                                                const val = Math.max(0, Math.min(80, parseInt(e.target.value, 10) || 0));
-                                                                setPresets(prev => prev.map(item =>
-                                                                    item.id === p.id ? { ...item, hookVideoGap: val } : item
-                                                                ));
-                                                            }}
-                                                            className="w-12 px-2 py-1.5 text-xs text-white bg-neutral-900 border border-neutral-700 rounded text-center focus:border-orange-500 focus:outline-none"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <PerBrandPresetCard
+                                                key={p.id}
+                                                p={p}
+                                                fontScale={fontScale}
+                                                wordSpacing={wordSpacing}
+                                                setPresets={setPresets}
+                                                updateIndividualText={updateIndividualText}
+                                            />
                                         ))}
                                         {presets.filter(p => p.active).length === 0 && (
-                                            <p className="text-sm text-neutral-500 italic text-center py-4">No presets selected. Select presets using the checkboxes on the cards or in BRAND ASSETS below, then use Per Brand to edit them.</p>
+                                            <p className="text-sm text-[var(--pintu-text-faint)] italic text-center py-4">No presets selected. Select presets using the checkboxes on the cards or in BRAND ASSETS below, then use Per Brand to edit them.</p>
                                         )}
                                     </div>
                                 )}
                             </div>
                         </div>
-
-                        {/* PRESET LIST */}
-                        <div className="bg-neutral-800/50 rounded-xl overflow-hidden border border-neutral-700/50">
-                            <div className="bg-neutral-700/50 px-6 py-3 border-b border-neutral-700/50">
-                                <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-400 text-center">BRAND ASSETS</h2>
-                                <p className="text-[10px] text-orange-400 text-center mt-1">Select presets (orange = selected for export)</p>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <p className="text-xs text-neutral-400">Drag & Drop logos onto squares to update.</p>
-                                <div className="flex flex-col gap-2">
-                                    {presets.map(p => (
-                                        <div key={p.id} className={`flex items-center justify-between p-3 rounded-lg transition-colors border-2 ${p.active ? 'bg-neutral-900 border-orange-500 ring-1 ring-orange-500/50' : 'bg-neutral-900 border-orange-500/40 hover:border-orange-500/70'}`}>
-                                            <div className="flex items-center gap-3 flex-1">
-                                                <div
-                                                    className={`relative group cursor-pointer w-[70px] h-[70px] ${p.name === 'Best Founder Clips' || p.name === 'Founders God' ? 'rounded-none' : ((p.name === 'Founders wtf' || p.name === 'mktg-wtf' || p.name === 'Business wtf' || p.name === 'Startups wtf') ? 'rounded-lg' : 'rounded-full')} bg-neutral-700 flex items-center justify-center border border-neutral-600 overflow-hidden shrink-0 hover:border-neutral-400 transition-all`}
-                                                    onDragOver={(e) => e.preventDefault()}
-                                                    onDrop={(e) => onDropLogo(e, p.id)}
-                                                >
-                                                    {getLogoUrl(p.logo) ? (
-                                                        <img src={getLogoUrl(p.logo)} className={`w-full h-full ${p.name === 'Best Founder Clips' || p.name === 'Founders God' ? 'rounded-none' : ((p.name === 'Founders wtf' || p.name === 'mktg-wtf' || p.name === 'Business wtf' || p.name === 'Startups wtf') ? 'rounded-lg' : 'rounded-full')}`} style={{ objectFit: 'cover', transform: p.name === 'Best Founder Clips' ? 'scale(1.0)' : 'scale(1.2)' }} />
-                                                    ) : (
-                                                        p.layout !== 'watermark' ? <ImageIcon className="w-4 h-4 text-neutral-500" /> : <span className="text-xs text-neutral-400">N/A</span>
-                                                    )}
-                                                    {(p.layout !== 'watermark' || p.name === 'The Rising Founder' || p.name === 'ceo hustle advice') && (
-                                                        <>
-                                                            <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer pointer-events-none">
-                                                                <Upload className="w-3 h-3 text-white" />
-                                                            </label>
-                                                            <input
-                                                                type="file"
-                                                                accept="image/*"
-                                                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                                                onChange={(e) => handlePresetLogoUpload(e, p.id)}
-                                                                id={`logo-upload-${p.id}`}
-                                                            />
-                                                        </>
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-white">{p.name}</span>
-                                                    <span className="text-xs text-neutral-400">{p.ratio}</span>
-                                                </div>
-                                            </div>
-                                            <button onClick={() => togglePresetActive(p.id)} title="Select for export" className="p-2 rounded border border-orange-500/40 hover:border-orange-500 hover:bg-orange-500/10 transition-colors">
-                                                {p.active ? <CheckSquare className="w-5 h-5 text-orange-500" /> : <Square className="w-5 h-5 text-orange-500/60" />}
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
+                    </div>
+                    )}
+                    </div>
                     </div>
                 </div>
 
-                {/* --- RIGHT PANEL: PREVIEW --- */}
-                <div className="flex-1 bg-neutral-950 flex flex-col relative overflow-hidden">
+                {/* --- RIGHT COLUMN: PRESET GRID --- */}
+                <div className="flex-1 bg-[var(--pintu-right-bg)] flex flex-col relative overflow-hidden">
 
-                    {videoSrc && !isExporting && (
+                    {videoSrc && (
                         <div className="absolute top-4 right-4 z-30 flex gap-2">
                             <button
-                                onClick={() => processServerExport()}
-                                disabled={isExporting || !videoSrc}
-                                className={`bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-full border border-yellow-500 flex items-center gap-2 shadow-lg transition-all ${(!videoSrc || isExporting) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                onClick={() => startExportJob()}
+                                disabled={!videoSrc || pipelineFull || presets.filter(p => p.active).length === 0}
+                                title={pipelineFull ? 'Pipeline full (5/5) — dismiss a finished job first' : undefined}
+                                className={`bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-full border border-yellow-500 flex items-center gap-2 shadow-lg transition-all ${(!videoSrc || pipelineFull || presets.filter(p => p.active).length === 0) ? 'opacity-60 cursor-not-allowed' : ''}`}
                             >
                                 <Download className="w-4 h-4" />
                                 <span className="text-xs font-bold uppercase tracking-wider">
-                                    {`Export ${presets.filter(p => p.active).length} Videos`}
+                                    {pipelineFull
+                                        ? 'Pipeline Full (5/5)'
+                                        : `Export ${presets.filter(p => p.active).length} Videos`}
                                 </span>
                             </button>
                             <button
@@ -2834,153 +3337,126 @@ export default function App() {
                         </div>
                     )}
 
-                    {isExporting && (
-                        <div className="absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center text-center p-8">
-                            <button
-                                onClick={() => {
-                                    if (exportAbortControllerRef.current) {
-                                        exportAbortControllerRef.current.abort();
-                                        exportAbortControllerRef.current = null;
-                                    }
-                                    if (serverPollIntervalRef.current) {
-                                        clearInterval(serverPollIntervalRef.current);
-                                        serverPollIntervalRef.current = null;
-                                    }
-                                    setIsExporting(false);
-                                    setExportStatus('Stopped');
-                                    setExportProgress(0);
-                                    setTimeout(() => setExportStatus(''), 1500);
-                                }}
-                                className="absolute top-4 right-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-all z-50"
-                            >
-                                <X className="w-4 h-4" />
-                                <span className="text-sm font-bold uppercase">Stop</span>
-                            </button>
-                            <Loader className="w-12 h-12 text-yellow-500 animate-spin mb-4" />
-                            <h2 className="text-2xl font-bold text-white mb-2">{exportStatus}</h2>
-                            <div className="w-64 h-2 bg-neutral-800 rounded-full overflow-hidden mt-4">
-                                <div className="h-full bg-yellow-500 transition-all duration-300" style={{ width: `${exportProgress}%` }}></div>
+                    {/* --- EXPORT PIPELINE TRAY (non-blocking) --- */}
+                    {exportJobs.length > 0 && (
+                        <div className="absolute bottom-4 left-4 right-4 z-40 pointer-events-none">
+                            <div className="pointer-events-auto ml-auto max-w-md w-full space-y-2">
+                                <div className="flex items-center justify-between px-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                                        Export pipeline {exportJobs.length}/{MAX_PIPELINE_JOBS}
+                                    </span>
+                                    <span className="text-[10px] text-neutral-500">Keep this tab open</span>
+                                </div>
+                                {exportJobs.map(job => {
+                                    const isActive = job.status === 'uploading' || job.status === 'processing';
+                                    const isDone = job.status === 'completed';
+                                    const isFail = job.status === 'failed' || job.status === 'stopped';
+                                    return (
+                                        <div
+                                            key={job.id}
+                                            className="bg-neutral-900/95 backdrop-blur border border-neutral-700 rounded-xl p-3 shadow-xl"
+                                        >
+                                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-xs font-bold text-white truncate">{job.label}</p>
+                                                    <p className={`text-[11px] truncate mt-0.5 ${
+                                                        isDone ? 'text-green-400' : isFail ? 'text-red-400' : 'text-neutral-400'
+                                                    }`}>
+                                                        {job.statusText}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    {isActive && (
+                                                        <button
+                                                            onClick={() => stopExportJob(job.id)}
+                                                            className="text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-red-600 hover:bg-red-700 text-white"
+                                                        >
+                                                            Stop
+                                                        </button>
+                                                    )}
+                                                    {(isDone || isFail) && (
+                                                        <button
+                                                            onClick={() => dismissExportJob(job.id)}
+                                                            className="text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-neutral-700 hover:bg-neutral-600 text-white"
+                                                        >
+                                                            Dismiss
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {isActive && (
+                                                <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-yellow-500 transition-all duration-300"
+                                                        style={{ width: `${Math.max(job.progress || 0, job.status === 'uploading' ? 8 : 0)}%` }}
+                                                    />
+                                                </div>
+                                            )}
+                                            {isDone && job.jobId && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+                                                <a
+                                                    href={`${SERVER_URL}/api/download/${job.jobId}`}
+                                                    className="inline-block mt-2 text-[11px] text-yellow-400 hover:text-yellow-300 font-medium"
+                                                >
+                                                    Re-download ZIP
+                                                </a>
+                                            )}
+                                            {job.driveLinks?.length > 0 && (
+                                                <div className="mt-2 space-y-1">
+                                                    <p className="text-[10px] text-green-400">Google Drive:</p>
+                                                    {job.driveLinks.map((link, i) => (
+                                                        <div key={i} className="flex items-center gap-2">
+                                                            <a href={link} target="_blank" rel="noopener" className="text-[11px] text-blue-400 hover:text-blue-300 truncate max-w-[220px]">
+                                                                {link.split('/').pop() || `File ${i + 1}`}
+                                                            </a>
+                                                            <button
+                                                                onClick={() => navigator.clipboard.writeText(link)}
+                                                                className="text-[10px] text-violet-400 hover:text-violet-300"
+                                                            >
+                                                                Copy
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {job.cloudLinks?.length > 0 && (
+                                                <div className="mt-2 space-y-1">
+                                                    <p className="text-[10px] text-green-400">Cloud links:</p>
+                                                    {job.cloudLinks.map((link, i) => (
+                                                        <div key={i} className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => navigator.clipboard.writeText(link)}
+                                                                className="text-[11px] text-blue-400 hover:text-blue-300 truncate max-w-[220px] text-left"
+                                                                title={link}
+                                                            >
+                                                                {link.split('/').pop()}
+                                                            </button>
+                                                            <a href={link} target="_blank" rel="noopener" className="text-[10px] text-violet-400 hover:text-violet-300">Open</a>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
-                            <p className="text-neutral-500 text-xs mt-4">Please keep this tab open.</p>
-                            {driveLinks.length > 0 && (
-                                <div className="mt-4 w-full max-w-md">
-                                    <p className="text-sm text-green-400 mb-2">Uploaded to Google Drive:</p>
-                                    {driveLinks.map((link, i) => (
-                                        <div key={i} className="flex items-center gap-2 mb-1">
-                                            <a href={link} target="_blank" rel="noopener" className="text-xs text-blue-400 hover:text-blue-300 truncate max-w-xs">
-                                                {link.split('/').pop() || `File ${i + 1}`}
-                                            </a>
-                                            <span className="text-neutral-600 text-xs">|</span>
-                                            <button
-                                                onClick={() => navigator.clipboard.writeText(link)}
-                                                className="text-xs text-orange-400 hover:text-orange-300"
-                                            >
-                                                Copy
-                                            </button>
-                                        </div>
-                                    ))}
-                                    <button
-                                        onClick={() => setDriveLinks([])}
-                                        className="mt-2 px-3 py-1 bg-neutral-700 hover:bg-neutral-600 rounded text-xs text-white"
-                                    >
-                                        Dismiss
-                                    </button>
-                                </div>
-                            )}
-                            {cloudLinks.length > 0 && (
-                                <div className="mt-4 w-full max-w-md">
-                                    <p className="text-sm text-green-400 mb-2">Cloud links (click to copy):</p>
-                                    {cloudLinks.map((link, i) => (
-                                        <div key={i} className="flex items-center gap-2 mb-1">
-                                            <button
-                                                onClick={() => { navigator.clipboard.writeText(link); }}
-                                                className="text-xs text-blue-400 hover:text-blue-300 truncate max-w-xs text-left"
-                                                title={link}
-                                            >
-                                                {link.split('/').pop()}
-                                            </button>
-                                            <span className="text-neutral-600 text-xs">|</span>
-                                            <a href={link} target="_blank" rel="noopener" className="text-xs text-orange-400 hover:text-orange-300">Open</a>
-                                        </div>
-                                    ))}
-                                    <button
-                                        onClick={() => { navigator.clipboard.writeText(cloudLinks.join('\n')); }}
-                                        className="mt-2 px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs text-white"
-                                    >
-                                        Copy All Links
-                                    </button>
-                                    <button
-                                        onClick={() => setCloudLinks([])}
-                                        className="mt-2 ml-2 px-3 py-1 bg-neutral-700 hover:bg-neutral-600 rounded text-xs text-white"
-                                    >
-                                        Dismiss
-                                    </button>
-                                </div>
-                            )}
                         </div>
                     )}
 
-                    {/* --- GRID VIEW CONTENT --- */}
-                    <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                        <div className="flex flex-col items-center min-h-full w-full max-w-7xl mx-auto space-y-10 pb-20">
-                            {/* Experiment X — quick-pick section for the presets configured in this pass */}
-                            {(() => {
-                                const experimentXPresets = presets.filter(p => EXPERIMENT_X_PRESET_NAMES.includes(p.name));
-                                if (experimentXPresets.length === 0) return null;
-                                return (
-                                    <div className="w-full border border-orange-500/40 rounded-xl p-4 md:p-6 bg-orange-500/5">
-                                        <h3 className="text-sm font-semibold text-orange-400 mb-1">Experiment X</h3>
-                                        <p className="text-xs text-neutral-400 mb-4">Newly configured / updated presets — pick from here for quick testing.</p>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full items-start">
-                                            {experimentXPresets.map((p) => (
-                                                <div key={`experiment-x-${p.id}`} className={`flex flex-col items-center gap-2 transition-opacity ${p.active ? 'opacity-100' : 'opacity-85'}`}>
-                                                    <div className="w-full aspect-[9/16]">
-                                                        <PreviewCard
-                                                            preset={p}
-                                                            videoSrc={videoSrc}
-                                                            isPlaying={isPlaying}
-                                                            videoRef={null}
-                                                            isMain={false}
-                                                            fitMode={fitMode}
-                                                            videoScale={videoScale}
-                                                            showCredit={showCredit}
-                                                            onToggle={togglePresetActive}
-                                                            fontScaleGlobal={fontScale}
-                                                            onPositionChange={handlePositionChange}
-                                                            onCreditPositionChange={handleCreditPositionChange}
-                                                            onWatermarkPositionChange={handleWatermarkPositionChange}
-                                                            onHeadlinePositionChange={handleHeadlinePositionChange}
-                                                            onVideoScaleChange={handleVideoScaleChange}
-                                                            isMuted={isMuted}
-                                                            wordSpacing={wordSpacing}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-                            {/* Preset search */}
-                            <div className="w-full flex justify-between items-center gap-4">
-                                <div className="flex-1">
-                                    <input
-                                        type="text"
-                                        value={presetSearch}
-                                        onChange={(e) => setPresetSearch(e.target.value)}
-                                        placeholder="Search presets by name or handle..."
-                                        className="w-full px-3 py-2 rounded-md bg-neutral-900 border border-neutral-700 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                    />
-                                </div>
-                            </div>
-                            <p className="text-xs text-orange-400 w-full text-center">Presets highlighted in orange — click the checkbox on each card to select for export.</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full items-start">
+                    {/* --- PRESET GRID CONTENT --- */}
+                    <div className={`flex-1 overflow-y-auto p-8 pintu-scroll ${exportJobs.length > 0 ? 'pb-48' : ''}`}>
+                        <div className="flex flex-col w-full space-y-4">
+                            <p className="text-xs text-[var(--pintu-accent)] w-full">Presets highlighted in purple — click the checkbox on each card to select for export.</p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full max-w-7xl mx-auto">
                                 {presets
                                     .filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery) || (p.handle || '').toLowerCase().includes(searchQuery))
                                     .sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0))
                                     .map((p, i) => (
-                                        <div key={p.id} className={`flex flex-col items-center gap-2 transition-opacity ${p.active ? 'opacity-100' : 'opacity-85'}`}>
-                                            <div className="w-full aspect-[9/16]">
+                                        <div key={p.id} className={`flex flex-col items-center gap-3 transition-opacity duration-200 ${p.active ? 'opacity-100' : 'opacity-85'}`}>
+                                            <span className="text-sm font-bold text-[var(--pintu-text-primary)] max-w-full truncate px-1">{p.name}</span>
+                                            <div
+                                                className="w-full rounded-lg overflow-hidden shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
+                                                style={{ aspectRatio: '9 / 16' }}
+                                            >
                                                 <PreviewCard
                                                     preset={p}
                                                     videoSrc={videoSrc}
@@ -2998,6 +3474,7 @@ export default function App() {
                                                     onHeadlinePositionChange={handleHeadlinePositionChange}
                                                     onVideoScaleChange={handleVideoScaleChange}
                                                     isMuted={isMuted}
+                                                    newsFontReady={newsFontReady}
                                                     wordSpacing={wordSpacing}
                                                 />
                                             </div>
@@ -3008,6 +3485,7 @@ export default function App() {
                     </div>
                 </div>
             </div>
+
         </div>
     );
 }

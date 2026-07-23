@@ -1,7 +1,36 @@
 // Simple in-memory job queue without Redis dependency
 const jobs = new Map();
 let jobIdCounter = 1;
-const processors = new Map(); // named processors
+// jobName -> { processor, concurrency, activeCount }
+const processorMeta = new Map();
+
+function tryStartNext(jobName) {
+  const meta = processorMeta.get(jobName);
+  if (!meta) return;
+
+  while (meta.activeCount < meta.concurrency) {
+    let next = null;
+    for (const job of jobs.values()) {
+      if (job.state === 'waiting' && job.name === jobName) {
+        next = job;
+        break;
+      }
+    }
+    if (!next) break;
+
+    // Claim immediately so concurrent tryStartNext calls don't pick the same job
+    next.state = 'active';
+    meta.activeCount++;
+
+    setTimeout(() => {
+      console.log(`Job ${next.id} - Starting processing now...`);
+      processJob(next, meta.processor).finally(() => {
+        meta.activeCount--;
+        tryStartNext(jobName);
+      });
+    }, 100);
+  }
+}
 
 export function createJobQueue() {
   const queue = {
@@ -15,90 +44,70 @@ export function createJobQueue() {
         _progress: null,
         returnvalue: null,
         failedReason: null,
-        // Progress setter function
-        progress: function(progress) {
+        progress: function (progress) {
           this._progress = progress;
         }
       };
-      
-      // Add getter for reading progress (separate from the function)
+
       Object.defineProperty(job, 'progressValue', {
-        get: function() {
+        get: function () {
           return this._progress;
         },
         enumerable: true
       });
-      
+
       jobs.set(jobId, job);
       console.log(`Job ${jobId} added to queue`);
-      
-      // Process immediately if a processor for this job name is registered
-      const proc = processors.get(jobName);
-      if (proc) {
-        console.log(`Job ${jobId} - Processor for '${jobName}' is registered, scheduling processing in 100ms...`);
-        setTimeout(() => {
-          console.log(`Job ${jobId} - Starting processing now...`);
-          processJob(job, proc);
-        }, 100);
+
+      const meta = processorMeta.get(jobName);
+      if (meta) {
+        console.log(`Job ${jobId} - Processor for '${jobName}' is registered, queuing (active ${meta.activeCount}/${meta.concurrency})...`);
+        tryStartNext(jobName);
       } else {
         console.warn(`Job ${jobId} - No processor registered for '${jobName}', job will be processed when processor is registered`);
       }
-      
+
       return job;
     },
-    
+
     async getJob(jobId) {
       return jobs.get(jobId) || null;
     },
-    
+
     process(jobName, concurrency, processor) {
-      // Store processor by name so multiple job types can coexist
-      processors.set(jobName, processor);
-      console.log(`✓ Job processor registered for: ${jobName} (concurrency: ${concurrency})`);
+      const limit = Math.max(1, concurrency || 1);
+      processorMeta.set(jobName, {
+        processor,
+        concurrency: limit,
+        activeCount: 0
+      });
+      console.log(`✓ Job processor registered for: ${jobName} (concurrency: ${limit})`);
 
-      // Process any waiting jobs for this name
-      const waitingJobs = [];
-      for (const [jobId, job] of jobs.entries()) {
-        if (job.state === 'waiting' && job.name === jobName) {
-          waitingJobs.push(job);
-        }
-      }
-
-      if (waitingJobs.length > 0) {
-        console.log(`Found ${waitingJobs.length} waiting job(s), processing them now...`);
-        waitingJobs.forEach(job => {
-          setTimeout(() => {
-            console.log(`Processing waiting job: ${job.id}`);
-            processJob(job, processor);
-          }, 100);
-        });
-      } else {
-        console.log(`No waiting jobs found, processor ready for new jobs`);
-      }
+      tryStartNext(jobName);
     }
   };
-  
+
   return queue;
 }
 
 async function processJob(job, processor) {
+  // state may already be 'active' if claimed by tryStartNext
   job.state = 'active';
   console.log(`[processJob] ===== JOB PROCESSING START =====`);
   console.log(`[processJob] Job ${job.id} state set to: active`);
   console.log(`[processJob] Job data keys:`, job.data ? Object.keys(job.data) : 'no data');
-  
+
   try {
     console.log(`[processJob] Calling processor function for job ${job.id}...`);
     if (!processor || typeof processor !== 'function') {
       throw new Error(`Processor is not a function. Type: ${typeof processor}`);
     }
-    
+
     const result = await processor(job);
-    
-    // CRITICAL: Set both state and returnvalue
+
     job.state = 'completed';
     job.returnvalue = result;
-    
+
     console.log(`[processJob] ===== JOB COMPLETION DEBUG =====`);
     console.log(`[processJob] Job ${job.id} state set to: ${job.state}`);
     console.log(`[processJob] Job ${job.id} returnvalue set: ${!!job.returnvalue}`);
@@ -118,7 +127,5 @@ async function processJob(job, processor) {
     console.error(`[processJob] Error name:`, error.name);
     console.error(`[processJob] Error stack:`, error.stack);
     console.error(`[processJob] ===== END FAILURE DEBUG =====\n`);
-    // Don't throw - just mark job as failed
-    // This prevents the error from crashing the server
   }
 }
