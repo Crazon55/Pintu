@@ -9,9 +9,14 @@ import { loadSync as opentypeLoad } from 'opentype.js';
 import {
   cleanHeadlineHtml,
   layoutHeadlineLines,
-  layoutNewsTickerTokenLines,
   getHookVideoGap,
   getEffectiveLineSpacing,
+  getExportNewsMaxLineWidth,
+  getNewsTickerLineStartX,
+  fitNewsTickerFontSize,
+  NEWS_TICKER_BAR_LINE_HEIGHT,
+  NEWS_TICKER_LINE_GAP,
+  NEWS_TICKER_HIGHLIGHT_HEIGHT,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -172,6 +177,15 @@ try {
   if (existsSync(interRegular)) { _otInterReg = opentypeLoad(interRegular); console.log('✓ Inter Regular loaded via opentype.js'); }
   if (existsSync(interBold))    { _otInterBold = opentypeLoad(interBold);   console.log('✓ Inter Bold loaded via opentype.js'); }
 } catch (e) { console.warn('Inter opentype load failed:', e.message); }
+
+// ITC Avant Garde Gothic Bold for the 4 news-ticker presets. Same Windows canvas-font
+// limitation as Poppins above, so this is measured via opentype.js and rendered via
+// FFmpeg drawtext (fontfile=) — never through canvas ctx.fillText.
+const avantGardeBold = resolve(fontsDir, 'ITCAvantGardeGothic-Bold.otf');
+let _otAvantGardeBold = null;
+try {
+  if (existsSync(avantGardeBold)) { _otAvantGardeBold = opentypeLoad(avantGardeBold); console.log('✓ ITC Avant Garde Gothic Bold loaded via opentype.js'); }
+} catch (e) { console.warn('ITC Avant Garde Gothic opentype load failed:', e.message); }
 
 function drawVerifiedBadge(ctx, cx, cy, sz) {
   const half = sz / 2;
@@ -760,7 +774,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const isIBCNews = (preset.name || '').toLowerCase() === 'indiabusinesscom-news';
   const isISSNews = (preset.name || '').toLowerCase() === 'indiastartupstory-news';
   const isIFCNews = (preset.name || '').toLowerCase() === 'ifc-news';
-  const isIFBNews = (preset.name || '').toLowerCase() === 'indianfounderbrief-news';
+  const isIFC2News = (preset.name || '').toLowerCase() === 'ifc2-news';
   // Derive canvas height from preset ratio (e.g. 4:5 → 900, 9:16 → 1280)
   const [wR, hR] = (preset.ratio || '9:16').split(':').map(Number);
   let canvasH = Math.round(720 * hR / wR);
@@ -769,64 +783,99 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const ctx = canvas.getContext('2d', { alpha: true });
   ctx.clearRect(0, 0, 720, canvasH);
 
-  // ISS-news uses PoppinsBoldM (registered as weight:normal to avoid Windows GDI synthetic-bold issues).
-  // All other news presets use InterExtraBold/Inter — same pattern.
-  const fontFamily = isISSNews ? 'PoppinsBoldM' : (interExtraBold ? 'InterExtraBold' : 'Inter');
-  const fontWeight = 'normal'; // bold variants are registered as separate families, always use 'normal'
-  const fontSize = Math.round(54 * (fontScale || 1));
-  ctx.font = `normal ${fontSize}px ${fontFamily}`;
-  const maxLineW = 660;
-  const padX = 28;
-
-  // Parse bold tokens — respect manual line breaks, then soft-wrap each line
+  // Measure + draw with the same opentype face so wrap never drifts from FFmpeg.
+  const maxLineW = getExportNewsMaxLineWidth(preset);
+  const baseFontSize = Math.round(54 * (fontScale || 1));
+  const maxTickerH = Math.round(canvasH * 0.28); // keep video dominant like Canva (~bottom 28%)
   let cleanedHtml = cleanHTML(headline || '');
-  const measureWordW = (text) =>
-    isISSNews && _otPoppinsBold ? _otPoppinsBold.getAdvanceWidth(text, fontSize) : ctx.measureText(text).width;
-  const lines = layoutNewsTickerTokenLines(cleanedHtml, measureWordW, maxLineW);
+  if (!_otAvantGardeBold) {
+    console.warn('[news_ticker] Avant Garde opentype missing — wrap metrics may be wrong');
+  }
+  const measureWordAtSize = (text, fs) =>
+    _otAvantGardeBold ? _otAvantGardeBold.getAdvanceWidth(text, fs) : (() => {
+      ctx.font = `bold ${fs}px Inter`;
+      // Inter is narrower than Avant Garde — pad measurements so wrap stays conservative.
+      return ctx.measureText(text).width * 1.22;
+    })();
+  // Keep min size low so long hooks can always fit — don't let UI fontScale block shrink.
+  const { fontSize, lines } = fitNewsTickerFontSize({
+    cleanedHtml,
+    measureWordAtSize,
+    maxLineW,
+    baseFontSize,
+    minFontSize: 22,
+    maxLines: 3,
+    maxTotalBarsH: maxTickerH,
+  });
 
-  const barH = Math.round(fontSize * 1.45);
-  const bottomMargin = 160;
-  const totalBarsH = lines.length * barH;
-  let barY = canvasH - bottomMargin - totalBarsH;
+  const highlightH = Math.round(fontSize * NEWS_TICKER_HIGHLIGHT_HEIGHT);
+  const lineGap = Math.round(fontSize * NEWS_TICKER_LINE_GAP);
+  // IFC (Canva-style 9:16): keep hook tight to the bottom over a soft fade.
+  const bottomMargin = Math.round(canvasH * (isIFCNews ? 0.055 : 0.10));
+  const totalBarsH = lines.length === 0
+    ? 0
+    : lines.length * highlightH + Math.max(0, lines.length - 1) * lineGap;
+  // headlinePosition.y = % of frame to raise the hook text + gradient
+  const shiftY = Math.round(
+    canvasH * Math.max(0, Math.min(48, Number(preset.headlinePosition?.y) || 0)) / 100,
+  );
+  // Text / highlight top
+  let barY = canvasH - bottomMargin - totalBarsH - shiftY;
+  // Small solid pad above the first line so competitor captions can't peek
+  // through the last stretch of the gradient (especially IFC full-bleed).
+  const blackPadAbove = Math.round(fontSize * (isIFCNews ? 0.35 : 0.12));
+  const blackTop = Math.max(0, barY - blackPadAbove);
 
-  const spaceW = measureWordW(' ');
+  const spaceW = measureWordAtSize(' ', fontSize);
 
-  // Gradient fade from video into solid black (all news_ticker presets)
-  const gradientH = 160;
-  const fadeGrad = ctx.createLinearGradient(0, barY - gradientH, 0, barY);
+  console.log(`[news_ticker] ${preset.name} fs=${fontSize} lines=${lines.length} maxW=${maxLineW} gap=${lineGap} barY=${barY} shiftY=${shiftY}`,
+    lines.map(l => l.map(t => t.text).join(' ')));
+
+  // Gradient sits above the solid cover. Reach full black early so video text
+  // in the fade zone gets smothered (Canva-like readability).
+  const gradientH = Math.min(
+    isIFCNews ? 260 : 160,
+    Math.round(canvasH * (isIFCNews ? 0.24 : 0.18)),
+  );
+  const fadeGrad = ctx.createLinearGradient(0, blackTop - gradientH, 0, blackTop);
   fadeGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  fadeGrad.addColorStop(0.45, 'rgba(0,0,0,0.55)');
+  fadeGrad.addColorStop(0.75, 'rgba(0,0,0,0.92)');
   fadeGrad.addColorStop(1, 'rgba(0,0,0,1)');
   ctx.fillStyle = fadeGrad;
-  ctx.fillRect(0, barY - gradientH, 720, gradientH);
+  ctx.fillRect(0, Math.max(0, blackTop - gradientH), 720, gradientH);
 
-  // Pass 1: solid black background from text start to bottom of frame
+  // Solid black ALWAYS to the frame bottom — even when the hook is raised —
+  // so competitor lower-third captions stay covered under the stack.
   ctx.fillStyle = '#000000';
-  ctx.fillRect(0, barY, 720, canvasH - barY);
+  ctx.fillRect(0, blackTop, 720, canvasH - blackTop);
 
-  // ISS-news text is rendered via FFmpeg drawtext (canvas font resolution unreliable on Windows)
-  const newsTickerTextSegments = isISSNews ? [] : null;
+  // Text is drawn on-canvas via opentype (same metrics as wrap). No FFmpeg drawtext / no credits.
+  const newsTickerTextSegments = [];
 
-  // Pass 2: word-level bars — draw gradient only behind consecutive bold runs, then text
+  // Pass 2: word-level bars — draw highlight pills with gaps between lines (match preview/Canva)
   let y = barY;
   for (const lineTokens of lines) {
-    ctx.font = `normal ${fontSize}px ${fontFamily}`;
-    const wordWidths = lineTokens.map(t => measureWordW(t.text));
+    const wordWidths = lineTokens.map(t => measureWordAtSize(t.text, fontSize));
 
-    // IBC/IFC: center; ISS: 76px; IFB: 70px; others: padX
     const totalLineW = wordWidths.reduce((a, w, i) => a + w + (i > 0 ? spaceW : 0), 0);
-    const lineStartX = (isIBCNews || isIFCNews) ? Math.round((720 - totalLineW) / 2) : (isISSNews ? 76 : (isIFBNews ? 70 : padX));
-    // ISS uses rounded-corner bars; others use plain rects
+    let lineStartX = getNewsTickerLineStartX(preset, totalLineW, 720);
+    // Never let a line paint past the right edge
+    if (lineStartX + totalLineW > 720 - 16) {
+      lineStartX = Math.max(16, 720 - 16 - totalLineW);
+    }
+    // ISS / IFC2 use rounded-corner bars; others use plain rects
     const fillBar = (bx, bw) => {
-      if (isISSNews) {
+      if (isISSNews || isIFC2News) {
         const r = 6;
         ctx.beginPath();
-        ctx.moveTo(bx + r, y); ctx.arcTo(bx + bw, y, bx + bw, y + barH, r);
-        ctx.arcTo(bx + bw, y + barH, bx, y + barH, r);
-        ctx.arcTo(bx, y + barH, bx, y, r);
+        ctx.moveTo(bx + r, y); ctx.arcTo(bx + bw, y, bx + bw, y + highlightH, r);
+        ctx.arcTo(bx + bw, y + highlightH, bx, y + highlightH, r);
+        ctx.arcTo(bx, y + highlightH, bx, y, r);
         ctx.arcTo(bx, y, bx + bw, y, r);
         ctx.closePath(); ctx.fill();
       } else {
-        ctx.fillRect(bx, y, bw, barH);
+        ctx.fillRect(bx, y, bw, highlightH);
       }
     };
     let runStartX = null;
@@ -848,7 +897,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
           grad.addColorStop(1, '#3AB26B');
           ctx.fillStyle = grad;
           fillBar(runStartX, runW);
-        } else if (!isIFBNews) {
+        } else {
           ctx.fillStyle = preset.color || '#e31d38';
           fillBar(runStartX, runW);
         }
@@ -866,63 +915,35 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
         grad.addColorStop(1, '#3AB26B');
         ctx.fillStyle = grad;
         fillBar(runStartX, runW);
-      } else if (!isIFBNews) {
+      } else {
         ctx.fillStyle = preset.color || '#e31d38';
         fillBar(runStartX, runW);
       }
     }
 
-    // Draw text word by word; for ISS-news collect positions for FFmpeg drawtext instead
-    ctx.textBaseline = 'middle';
+    // Draw words with opentype — identical advance widths to the wrap pass
     x = lineStartX;
+    const baselineY = y + fontSize * 0.92;
     for (let i = 0; i < lineTokens.length; i++) {
       const t = lineTokens[i];
-      if (isISSNews) {
-        newsTickerTextSegments.push({
-          text: t.text,
-          x: Math.round(x),
-          baselineY: Math.round(y + fontSize * 1.075),
-          fontSize,
-        });
+      const color = (isIBCNews || isIFCNews || isIFC2News)
+        ? (t.bold ? '#000000' : '#FFFFFF')
+        : '#FFFFFF';
+      if (_otAvantGardeBold) {
+        drawOpentypeText(ctx, _otAvantGardeBold, t.text, x, baselineY, fontSize, color);
       } else {
-        ctx.fillStyle = isIFBNews ? (t.bold ? (preset.color || '#FFFFFF') : '#FFFFFF') : ((isIBCNews || isIFCNews) ? (t.bold ? '#000000' : '#FFFFFF') : '#FFFFFF');
-        ctx.fillText(t.text, x, y + barH / 2);
+        // Fallback only — metrics already padded above
+        ctx.font = `bold ${fontSize}px Inter`;
+        ctx.fillStyle = color;
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(t.text, x, baselineY);
       }
       x += wordWidths[i] + spaceW;
     }
-    y += barH;
+    y += highlightH + lineGap;
   }
 
-  // Description text (footer) below headline — used by IFC, IFB and similar news presets
-  if (preset.footer && String(preset.footer).trim()) {
-    const descText = String(preset.footer).trim();
-    const descFontSize = Math.round(fontSize * 0.52);
-    ctx.font = `normal ${descFontSize}px Inter`;
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.textBaseline = 'top';
-    const descMaxW = 660;
-    const descWords = descText.split(/\s+/);
-    const descLines = [];
-    let curLine = '';
-    for (const word of descWords) {
-      const test = curLine ? `${curLine} ${word}` : word;
-      if (ctx.measureText(test).width > descMaxW && curLine) {
-        descLines.push(curLine);
-        curLine = word;
-      } else {
-        curLine = test;
-      }
-    }
-    if (curLine) descLines.push(curLine);
-    const descLineH = Math.round(descFontSize * 1.55);
-    let descY = y + 12;
-    for (const dline of descLines) {
-      if (descY + descFontSize > canvasH - 10) break; // don't overflow canvas
-      const descX = isIFCNews ? Math.round((720 - ctx.measureText(dline).width) / 2) : padX;
-      ctx.fillText(dline, descX, descY);
-      descY += descLineH;
-    }
-  }
+  // News formats never render credits / footer lines.
 
   // Social strip (right-side vertical icons bar) for indiabusinesscom-news only
   if (isIBCNews) {
@@ -942,22 +963,25 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     ctx.font = `900 ${textLogoSize}px Inter`;
     ctx.fillStyle = '#FFFFFF';
     ctx.textBaseline = 'top';
-    const tlX = isIFCNews ? 30 : 20;
-    const tlY = isIFCNews ? 97 : 45;
+    const tlX = preset.rules?.logoPadX ?? (isIFCNews ? 30 : 20);
+    const tlY = preset.rules?.logoPadY ?? (isIFCNews ? 56 : 45);
     textLogoLines.forEach((line, idx) => {
       ctx.fillText(line, tlX, tlY + idx * Math.round(textLogoSize * 1.1));
     });
   }
 
-  // ISS-news: draw logo directly on canvas below the headline text (bottom-left)
+  // ISS-news: logo bottom-left in the margin under the ticker (match preview bottom: 12px)
   if (isISSNews && preset.logo && preset.showLogo !== false) {
     const logoFile = join(__dirname, 'assets', 'logos', preset.logo);
     if (existsSync(logoFile)) {
       const logoImg = await loadImage(logoFile);
-      const logoH = Math.round((preset.rules?.logoSize || 55) * 0.85);
+      const logoH = Math.round(preset.rules?.logoSize || 55);
       const logoW = Math.round(logoImg.width * (logoH / logoImg.height));
+      const logoX = preset.rules?.logoPadX ?? 59;
+      const logoPadBottom = 12;
+      const logoY = Math.max(0, canvasH - logoH - logoPadBottom);
       ctx.globalAlpha = preset.rules?.logoOpacity ?? 1;
-      ctx.drawImage(logoImg, 59, y + 60, logoW, logoH);
+      ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
       ctx.globalAlpha = 1;
     }
   }
@@ -1036,7 +1060,7 @@ export function createVideoProcessor() {
           // 2. FFmpeg CROP & PAD (pass absolute paths)
           await processFFmpeg(videoPathAbs, outputPath, preset, layout, videoScale, fitMode);
 
-          processedVideos.push(outputPath);
+          processedVideos.push({ path: outputPath, pageName: preset.name });
           onProgress?.({ current: i + 1, total: presets.length, preset: preset.name });
         } catch (error) {
           const presetName = preset?.name || `preset at index ${i}`;
@@ -1053,7 +1077,8 @@ export function createVideoProcessor() {
 
       return {
         outputDir,
-        videoPaths: processedVideos
+        videoPaths: processedVideos.map((v) => v.path),
+        videos: processedVideos,
       };
     }
   };
@@ -1079,7 +1104,14 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   // News-ticker layout: full-frame video, gradient bars at bottom
   if (preset.layout === 'news_ticker') {
     const resolvedHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
-    return generateNewsTickerOverlay(preset, resolvedHeadline, fontScale, wordSpacingMultiplier, savePath);
+    // Always strip credits — global hook sync used to stamp DEFAULT_FOOTER onto news presets.
+    return generateNewsTickerOverlay(
+      { ...preset, footer: '' },
+      resolvedHeadline,
+      fontScale,
+      wordSpacingMultiplier,
+      savePath,
+    );
   }
 
   const canvas = createCanvas(720, 1280);
@@ -1980,6 +2012,9 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
 
     // Cover mode: scale up to cover the frame, then crop using posX/posY (0-100).
     // Formula matches CSS object-position: cropOffset = overflow * pos / 100
+    // videoScale (>100) zooms further — used in news RE-SIZE to push competitor
+    // captions under our hook/gradient (Canva-style layer scale).
+    const zoom = Math.max(0.5, Math.min(3, (Number(videoScale) || 100) / 100));
     const targetAspect = sw / sh;
     const originalAspect = originalWidth / originalHeight;
     let scaledWidth, scaledHeight;
@@ -1990,9 +2025,23 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       scaledWidth = sw;
       scaledHeight = Math.round(sw / originalAspect / 2) * 2;
     }
+    scaledWidth = Math.round(scaledWidth * zoom / 2) * 2;
+    scaledHeight = Math.round(scaledHeight * zoom / 2) * 2;
+    // Ensure we still cover the frame even at zoom < 1
+    if (scaledWidth < sw) {
+      const fix = sw / scaledWidth;
+      scaledWidth = sw;
+      scaledHeight = Math.round(scaledHeight * fix / 2) * 2;
+    }
+    if (scaledHeight < sh) {
+      const fix = sh / scaledHeight;
+      scaledHeight = sh;
+      scaledWidth = Math.round(scaledWidth * fix / 2) * 2;
+    }
     const cropX = Math.max(0, Math.min(scaledWidth - sw, Math.round((scaledWidth - sw) * posX / 100)));
     const cropY = Math.max(0, Math.min(scaledHeight - sh, Math.round((scaledHeight - sh) * posY / 100)));
     const vFilter = `scale=${scaledWidth}:${scaledHeight}:force_original_aspect_ratio=increase,crop=${sw}:${sh}:${cropX}:${cropY}`;
+    console.log(`[processFFmpeg] "${preset.name}" zoom=${zoom} scale=${scaledWidth}x${scaledHeight} crop=${sw}x${sh}@${cropX},${cropY}`);
 
     // Check if preset has rounded corners
     const borderRadius = preset.rules?.videoBorderRadius || 0;
@@ -2058,7 +2107,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       'indiabusinesscom-news',
       'indiastartupstory-news',
       'ifc-news',
-      'indianfounderbrief-news',
+      'ifc2-news',
       '101xtechnology-top',
       '101xtechnology-mid',
       '101xtechnology-low'
@@ -2108,10 +2157,9 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       let currentOutput = 'watermarked';
       if (layout.logoOverlay) {
         const logoSize = layout.logoOverlay.size || 160;
-        const isIFBLogo = (preset.name || '').toLowerCase() === 'indianfounderbrief-news';
         let logoX, logoY;
-        const logoPadX = preset.rules?.logoPadX ?? (preset.layout === 'news_ticker' ? (isIFBLogo ? 72 : 46) : 8);
-        const logoPadY = preset.rules?.logoPadY ?? (preset.layout === 'news_ticker' ? (isIFBLogo ? 82 : 41) : 8);
+        const logoPadX = preset.rules?.logoPadX ?? (preset.layout === 'news_ticker' ? 46 : 8);
+        const logoPadY = preset.rules?.logoPadY ?? (preset.layout === 'news_ticker' ? 41 : 8);
         if (layout.logoOverlay.position === 'top-right') {
           logoX = sx + sw - logoSize - logoPadX;
           logoY = sy + logoPadY;
@@ -2123,7 +2171,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         const opacityFilter = logoOpacity ? `,colorchannelmixer=aa=${logoOpacity}` : '';
         const r = logoSize / 2;
         const circularMask = layout.logoOverlay.circular ? `,geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='if(lte(sqrt(pow(X-${r},2)+pow(Y-${r},2)),${r}),alpha(X,Y),0)'` : '';
-        const logoScaleStr = isIFBLogo ? `crop=340:265:80:115,scale=${logoSize}:-2` : `scale=${logoSize}:-2`;
+        const logoScaleStr = `scale=${logoSize}:-2`;
         filterChain.push(`[2:v]${logoScaleStr},format=rgba${circularMask}${opacityFilter}[logoscaled]`);
         const logoOverlayFilter = `[${currentOutput}][logoscaled]overlay=${logoX}:${logoY}[logoed]`;
         filterChain.push(logoOverlayFilter);
@@ -2168,9 +2216,9 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         currentOutput = 'headlineOut';
       }
 
-      // News ticker Poppins text via FFmpeg drawtext \u2014 bypasses canvas font resolution on Windows
+      // News ticker text via FFmpeg drawtext (ITC Avant Garde Gothic) \u2014 bypasses canvas font resolution on Windows
       if (layout.newsTickerTextSegments && layout.newsTickerTextSegments.length > 0) {
-        const poppinsBoldFile = 'assets/fonts/Poppins-Bold.ttf';
+        const avantGardeBoldFile = 'assets/fonts/ITCAvantGardeGothic-Bold.otf';
         const nttSegs = layout.newsTickerTextSegments;
         for (let si = 0; si < nttSegs.length; si++) {
           const seg = nttSegs[si];
@@ -2178,9 +2226,10 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
             .replace(/\\/g, '\\\\')
             .replace(/:/g, '\\:')
             .replace(/'/g, '\u2019');
+          const fontcolor = (seg.color || '#FFFFFF').replace('#', '0x');
           const inLbl = si === 0 ? currentOutput : `ptt${si}`;
           const outLbl = si === nttSegs.length - 1 ? 'pttFinal' : `ptt${si + 1}`;
-          filterChain.push(`[${inLbl}]drawtext=text='${textEsc}':expansion=none:fontfile=${poppinsBoldFile}:fontsize=${seg.fontSize}:x=${seg.x}:y=${seg.baselineY}:y_align=baseline:fontcolor=white[${outLbl}]`);
+          filterChain.push(`[${inLbl}]drawtext=text='${textEsc}':expansion=none:fontfile=${avantGardeBoldFile}:fontsize=${seg.fontSize}:x=${seg.x}:y=${seg.baselineY}:y_align=baseline:fontcolor=${fontcolor}[${outLbl}]`);
         }
         currentOutput = 'pttFinal';
       }
@@ -2192,10 +2241,9 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       let currentOutput = 'ovl';
       if (layout.logoOverlay) {
         const logoSize = layout.logoOverlay.size || 160;
-        const isIFBLogo = (preset.name || '').toLowerCase() === 'indianfounderbrief-news';
         let logoX, logoY;
-        const logoPadX = preset.rules?.logoPadX ?? (preset.layout === 'news_ticker' ? (isIFBLogo ? 72 : 46) : 8);
-        const logoPadY = preset.rules?.logoPadY ?? (preset.layout === 'news_ticker' ? (isIFBLogo ? 82 : 41) : 8);
+        const logoPadX = preset.rules?.logoPadX ?? (preset.layout === 'news_ticker' ? 46 : 8);
+        const logoPadY = preset.rules?.logoPadY ?? (preset.layout === 'news_ticker' ? 41 : 8);
         if (layout.logoOverlay.position === 'top-right') {
           logoX = sx + sw - logoSize - logoPadX;
           logoY = sy + logoPadY;
@@ -2207,7 +2255,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         const opacityFilter = logoOpacity ? `,colorchannelmixer=aa=${logoOpacity}` : '';
         const r = logoSize / 2;
         const circularMask = layout.logoOverlay.circular ? `,geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='if(lte(sqrt(pow(X-${r},2)+pow(Y-${r},2)),${r}),alpha(X,Y),0)'` : '';
-        const logoScaleStr = isIFBLogo ? `crop=340:265:80:115,scale=${logoSize}:-2` : `scale=${logoSize}:-2`;
+        const logoScaleStr = `scale=${logoSize}:-2`;
         filterChain.push(`[2:v]${logoScaleStr},format=rgba${circularMask}${opacityFilter}[logoscaled]`);
         const logoOverlayFilter = `[${currentOutput}][logoscaled]overlay=${logoX}:${logoY}[logoed]`;
         filterChain.push(logoOverlayFilter);
@@ -2252,9 +2300,9 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
         currentOutput = 'headlineOut';
       }
 
-      // News ticker Poppins text via FFmpeg drawtext — bypasses canvas font resolution on Windows
+      // News ticker text via FFmpeg drawtext (ITC Avant Garde Gothic) — bypasses canvas font resolution on Windows
       if (layout.newsTickerTextSegments && layout.newsTickerTextSegments.length > 0) {
-        const poppinsBoldFile = 'assets/fonts/Poppins-Bold.ttf';
+        const avantGardeBoldFile = 'assets/fonts/ITCAvantGardeGothic-Bold.otf';
         const nttSegs = layout.newsTickerTextSegments;
         for (let si = 0; si < nttSegs.length; si++) {
           const seg = nttSegs[si];
@@ -2262,9 +2310,10 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
             .replace(/\\/g, '\\\\')
             .replace(/:/g, '\\:')
             .replace(/'/g, '’');
+          const fontcolor = (seg.color || '#FFFFFF').replace('#', '0x');
           const inLbl = si === 0 ? currentOutput : `ptt${si}`;
           const outLbl = si === nttSegs.length - 1 ? 'pttFinal' : `ptt${si + 1}`;
-          filterChain.push(`[${inLbl}]drawtext=text='${textEsc}':expansion=none:fontfile=${poppinsBoldFile}:fontsize=${seg.fontSize}:x=${seg.x}:y=${seg.baselineY}:y_align=baseline:fontcolor=white[${outLbl}]`);
+          filterChain.push(`[${inLbl}]drawtext=text='${textEsc}':expansion=none:fontfile=${avantGardeBoldFile}:fontsize=${seg.fontSize}:x=${seg.x}:y=${seg.baselineY}:y_align=baseline:fontcolor=${fontcolor}[${outLbl}]`);
         }
         currentOutput = 'pttFinal';
       }

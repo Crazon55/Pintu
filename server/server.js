@@ -12,7 +12,7 @@ import { createJobQueue } from './simpleQueue.js'; // Use your simpleQueue or Bu
 import { transcribeWithGroq } from './groqTranscriber.js';
 import { generateASS, generateIndianFounderASS } from './subtitleGenerator.js';
 import { uploadToCloudinary } from './cloudinaryUploader.js';
-import { uploadToDrive } from './driveUploader.js';
+import { uploadExportToDrive } from './driveUploader.js';
 import { burnSubtitles } from './subtitleBurner.js';
 import { removeSilence } from './silenceRemover.js';
 
@@ -400,14 +400,33 @@ app.post('/api/upload-to-drive', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Job not found or not completed.' });
     }
 
-    const videoPaths = job.returnvalue.videoPaths.filter(p => existsSync(p));
-    if (videoPaths.length === 0) {
+    const ideaName = (typeof job.data?.ideaName === 'string' && job.data.ideaName.trim())
+      ? job.data.ideaName.trim()
+      : 'untitled';
+
+    // Prefer explicit pageName pairing from export; fall back to presets / basename
+    const paired = Array.isArray(job.returnvalue.videos) && job.returnvalue.videos.length > 0
+      ? job.returnvalue.videos
+          .filter((v) => v?.path && existsSync(v.path))
+          .map((v) => ({ path: v.path, pageName: v.pageName || 'unknown-page' }))
+      : job.returnvalue.videoPaths
+          .filter((p) => existsSync(p))
+          .map((path, i) => ({
+            path,
+            pageName: job.data?.presets?.[i]?.name || basename(path, '.mp4') || 'unknown-page',
+          }));
+
+    if (paired.length === 0) {
       return res.status(400).json({ error: 'No video files found.' });
     }
 
     const results = [];
-    for (const vp of videoPaths) {
-      const result = await uploadToDrive(vp, basename(vp));
+    for (const { path: vp, pageName } of paired) {
+      const result = await uploadExportToDrive(vp, {
+        pageName,
+        ideaName,
+        fileName: basename(vp),
+      });
       results.push(result);
     }
     res.json({ success: true, files: results });
