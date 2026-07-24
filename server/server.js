@@ -140,6 +140,21 @@ app.get('/api/job/:jobId', async (req, res) => {
   res.json(job ? { state: job.state, progress: job._progress, returnvalue: job.returnvalue, failedReason: job.failedReason } : { error: '404' });
 });
 
+// Stop an export: cancel waiting jobs immediately, kill active FFmpeg
+app.post('/api/job/:jobId/cancel', async (req, res) => {
+  try {
+    const result = await jobQueue.cancel(req.params.jobId);
+    if (!result.ok && result.reason === 'not_found') {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    console.log(`[cancel] Job ${req.params.jobId}:`, result);
+    res.json(result);
+  } catch (err) {
+    console.error('[cancel] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/download/:jobId', async (req, res) => {
   const job = await jobQueue.getJob(req.params.jobId);
   if (!job?.returnvalue) return res.status(404).json({ error: 'Not ready' });
@@ -239,7 +254,11 @@ app.get('/api/download-file/:jobId/:index', async (req, res) => {
 jobQueue.process('process-video', 1, async (job) => {
   return await videoProcessor.processVideo({
     ...job.data,
-    onProgress: (p) => job.progress(p)
+    onProgress: (p) => job.progress(p),
+    isCancelled: () => !!job._cancelled,
+    registerKill: (killFn) => {
+      job._killActive = killFn;
+    },
   });
 });
 
