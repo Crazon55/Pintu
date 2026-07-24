@@ -11,7 +11,7 @@ function tryStartNext(jobName) {
   while (meta.activeCount < meta.concurrency) {
     let next = null;
     for (const job of jobs.values()) {
-      if (job.state === 'waiting' && job.name === jobName) {
+      if (job.state === 'waiting' && job.name === jobName && !job._cancelled) {
         next = job;
         break;
       }
@@ -32,6 +32,13 @@ function tryStartNext(jobName) {
   }
 }
 
+function markCancelled(job, reason = 'Cancelled by user') {
+  job._cancelled = true;
+  job.state = 'cancelled';
+  job.failedReason = reason;
+  job._progress = { ...(job._progress || {}), phase: 'cancelled', percent: 0 };
+}
+
 export function createJobQueue() {
   const queue = {
     async add(jobName, data) {
@@ -44,6 +51,8 @@ export function createJobQueue() {
         _progress: null,
         returnvalue: null,
         failedReason: null,
+        _cancelled: false,
+        _killActive: null, // set by processor to kill FFmpeg / abort work
         progress: function (progress) {
           this._progress = progress;
         }
@@ -74,6 +83,39 @@ export function createJobQueue() {
       return jobs.get(jobId) || null;
     },
 
+    /**
+     * Cancel a waiting or active job. Active jobs should register _killActive
+     * (e.g. ffmpeg.kill) so work actually stops and the concurrency slot frees.
+     */
+    async cancel(jobId) {
+      const job = jobs.get(jobId);
+      if (!job) return { ok: false, reason: 'not_found' };
+
+      if (job.state === 'completed' || job.state === 'failed' || job.state === 'cancelled') {
+        return { ok: true, alreadyDone: true, state: job.state };
+      }
+
+      job._cancelled = true;
+
+      if (job.state === 'waiting') {
+        markCancelled(job);
+        console.log(`Job ${jobId} cancelled while waiting`);
+        return { ok: true, state: 'cancelled' };
+      }
+
+      // active — kill FFmpeg / in-flight work if registered
+      console.log(`Job ${jobId} cancel requested while active — killing...`);
+      try {
+        if (typeof job._killActive === 'function') {
+          job._killActive();
+        }
+      } catch (err) {
+        console.warn(`Job ${jobId} kill error:`, err.message);
+      }
+      // State becomes cancelled in processJob when the processor rejects/returns
+      return { ok: true, state: 'active', killing: true };
+    },
+
     process(jobName, concurrency, processor) {
       const limit = Math.max(1, concurrency || 1);
       processorMeta.set(jobName, {
@@ -91,7 +133,12 @@ export function createJobQueue() {
 }
 
 async function processJob(job, processor) {
-  // state may already be 'active' if claimed by tryStartNext
+  if (job._cancelled) {
+    markCancelled(job);
+    console.log(`[processJob] Job ${job.id} was cancelled before start`);
+    return;
+  }
+
   job.state = 'active';
   console.log(`[processJob] ===== JOB PROCESSING START =====`);
   console.log(`[processJob] Job ${job.id} state set to: active`);
@@ -104,6 +151,12 @@ async function processJob(job, processor) {
     }
 
     const result = await processor(job);
+
+    if (job._cancelled) {
+      markCancelled(job);
+      console.log(`Job ${job.id} cancelled after processor returned`);
+      return;
+    }
 
     job.state = 'completed';
     job.returnvalue = result;
@@ -119,6 +172,11 @@ async function processJob(job, processor) {
     console.log(`[processJob] ===== END DEBUG =====`);
     console.log(`Job ${job.id} completed successfully`);
   } catch (error) {
+    if (job._cancelled || error?.name === 'CancelledError' || /cancelled/i.test(error?.message || '')) {
+      markCancelled(job);
+      console.log(`Job ${job.id} cancelled: ${error?.message || 'user request'}`);
+      return;
+    }
     job.state = 'failed';
     job.failedReason = error.message;
     console.error(`\n[processJob] ===== JOB FAILED =====`);
@@ -127,5 +185,7 @@ async function processJob(job, processor) {
     console.error(`[processJob] Error name:`, error.name);
     console.error(`[processJob] Error stack:`, error.stack);
     console.error(`[processJob] ===== END FAILURE DEBUG =====\n`);
+  } finally {
+    job._killActive = null;
   }
 }

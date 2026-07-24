@@ -2441,23 +2441,60 @@ export default function App() {
         exportJobControllersRef.current.delete(localId);
     }, []);
 
-    const stopExportJob = useCallback((localId) => {
-        const entry = exportJobControllersRef.current.get(localId);
-        if (entry?.abortController) {
-            entry.abortController.abort();
+    const resolveExportServerUrl = useCallback(() => {
+        if (typeof window === 'undefined') return '';
+        const host = window.location.hostname;
+        if (host === 'localhost' || host === '127.0.0.1' || window.location.origin.includes('ngrok')) {
+            return window.location.origin;
         }
-        clearExportJobController(localId);
-        updateExportJob(localId, { status: 'stopped', statusText: 'Stopped', progress: 0 });
-    }, [clearExportJobController, updateExportJob]);
+        return `http://${host}:3002`;
+    }, []);
 
-    const dismissExportJob = useCallback((localId) => {
+    const cancelServerJob = useCallback(async (jobId) => {
+        if (!jobId) return;
+        try {
+            await fetch(`${resolveExportServerUrl()}/api/job/${jobId}/cancel`, { method: 'POST' });
+        } catch (err) {
+            console.warn('Server cancel failed:', err);
+        }
+    }, [resolveExportServerUrl]);
+
+    const stopExportJob = useCallback(async (localId) => {
         const entry = exportJobControllersRef.current.get(localId);
+        let jobId = entry?.jobId || null;
         if (entry?.abortController) {
             entry.abortController.abort();
         }
         clearExportJobController(localId);
-        setExportJobs(prev => prev.filter(j => j.id !== localId));
-    }, [clearExportJobController]);
+        setExportJobs(prev => {
+            if (!jobId) jobId = prev.find(j => j.id === localId)?.jobId || null;
+            return prev.map(j => j.id === localId
+                ? { ...j, status: 'stopped', statusText: 'Stopping server…', progress: 0 }
+                : j);
+        });
+        await cancelServerJob(jobId);
+        updateExportJob(localId, { status: 'stopped', statusText: 'Stopped', progress: 0 });
+    }, [cancelServerJob, clearExportJobController, updateExportJob]);
+
+    const dismissExportJob = useCallback(async (localId) => {
+        const entry = exportJobControllersRef.current.get(localId);
+        let jobId = entry?.jobId || null;
+        let shouldCancel = false;
+        if (entry?.abortController) {
+            entry.abortController.abort();
+        }
+        clearExportJobController(localId);
+        setExportJobs(prev => {
+            const j = prev.find(x => x.id === localId);
+            if (!jobId) jobId = j?.jobId || null;
+            shouldCancel = !!(j && (j.status === 'uploading' || j.status === 'processing' || j.status === 'stopped'));
+            // still cancel if user dismissed while "Stopping…"
+            return prev.filter(x => x.id !== localId);
+        });
+        if (shouldCancel && jobId) {
+            await cancelServerJob(jobId);
+        }
+    }, [cancelServerJob, clearExportJobController]);
 
     // Cleanup polls on unmount
     useEffect(() => {
@@ -2746,6 +2783,9 @@ export default function App() {
 
     const pollExportJob = useCallback(async (localId, jobId, signal) => {
         if (signal.aborted) return;
+        const entry = exportJobControllersRef.current.get(localId);
+        if (entry?.polling) return; // single-flight — avoid overlapping polls
+        if (entry) entry.polling = true;
         try {
             const statusResponse = await fetch(`${SERVER_URL}/api/job/${jobId}`, { signal });
             if (signal.aborted) return;
@@ -2754,9 +2794,15 @@ export default function App() {
             const jobStatus = await statusResponse.json();
             if (signal.aborted) return;
 
+            if (jobStatus.error === '404' || (!jobStatus.state && jobStatus.error)) {
+                clearExportJobController(localId);
+                updateExportJob(localId, { status: 'failed', statusText: 'Job lost (server restarted?)' });
+                return;
+            }
+
             if (jobStatus.state === 'completed') {
                 clearExportJobController(localId);
-                updateExportJob(localId, { progress: 100, statusText: 'Export complete!' });
+                updateExportJob(localId, { progress: 100, statusText: 'Export complete! 100%' });
 
                 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
@@ -2803,27 +2849,51 @@ export default function App() {
                 clearExportJobController(localId);
                 const reason = jobStatus.failedReason || 'Unknown error. Check server console.';
                 updateExportJob(localId, { status: 'failed', statusText: `Export failed: ${reason}` });
+            } else if (jobStatus.state === 'cancelled') {
+                clearExportJobController(localId);
+                updateExportJob(localId, { status: 'stopped', statusText: 'Stopped', progress: 0 });
             } else {
-                if (jobStatus.progress && typeof jobStatus.progress === 'object') {
-                    const { current, total } = jobStatus.progress;
-                    const progress = total > 0 ? (current / total) * 100 : 0;
+                const p = jobStatus.progress;
+                if (p && typeof p === 'object') {
+                    const percent = typeof p.percent === 'number'
+                        ? p.percent
+                        : (p.total > 0 ? (p.current / p.total) * 100 : 0);
+                    const presetLabel = p.preset || '';
+                    const idx = Math.min((p.current || 0) + (p.phase === 'done' ? 0 : 1), p.total || 0);
+                    let statusText;
+                    if (p.phase === 'overlay') {
+                        statusText = `Preparing ${presetLabel} (${idx}/${p.total}) — ${Math.round(percent)}%`;
+                    } else if (p.phase === 'encoding') {
+                        const enc = Math.round(p.encodePercent || 0);
+                        statusText = `Encoding ${presetLabel} ${enc}% · ${Math.round(percent)}% overall (${idx}/${p.total})`;
+                    } else {
+                        statusText = `Processing ${presetLabel} (${p.current}/${p.total}) — ${Math.round(percent)}%`;
+                    }
                     updateExportJob(localId, {
                         status: 'processing',
-                        progress,
-                        statusText: `Processing: ${jobStatus.progress.preset || ''} (${current}/${total})`,
+                        progress: percent,
+                        statusText,
+                    });
+                } else if (jobStatus.state === 'waiting') {
+                    updateExportJob(localId, {
+                        status: 'processing',
+                        progress: 0,
+                        statusText: 'Queued — waiting for previous export…',
                     });
                 } else {
                     updateExportJob(localId, {
                         status: 'processing',
-                        statusText: `Processing on server... (${jobId})`,
+                        statusText: `Processing on server… (${jobId})`,
                     });
                 }
             }
         } catch (err) {
             if (err.name === 'AbortError') return;
             console.error('Error polling job status:', err);
-            clearExportJobController(localId);
-            updateExportJob(localId, { status: 'failed', statusText: 'Error checking status' });
+            // Don't kill the job on a single blip — next interval retries
+        } finally {
+            const e = exportJobControllersRef.current.get(localId);
+            if (e) e.polling = false;
         }
     }, [SERVER_URL, clearExportJobController, updateExportJob]);
 
@@ -2927,6 +2997,7 @@ export default function App() {
 
             const { jobId } = await uploadResponse.json();
             if (signal.aborted) {
+                await cancelServerJob(jobId);
                 updateExportJob(localId, { status: 'stopped', statusText: 'Stopped' });
                 clearExportJobController(localId);
                 return;
@@ -2935,13 +3006,22 @@ export default function App() {
             updateExportJob(localId, {
                 jobId,
                 status: 'processing',
-                statusText: `Processing on server... (${jobId})`,
+                progress: 1,
+                statusText: `Queued… (${jobId})`,
             });
 
             const poll = () => pollExportJob(localId, jobId, signal);
-            const pollInterval = setInterval(poll, 2000);
+            const pollInterval = setInterval(poll, 1000);
             const entry = exportJobControllersRef.current.get(localId);
-            if (entry) entry.pollInterval = pollInterval;
+            if (entry) {
+                entry.pollInterval = pollInterval;
+                entry.jobId = jobId;
+            } else {
+                // Stop raced us — cancel server and clear orphaned interval
+                clearInterval(pollInterval);
+                await cancelServerJob(jobId);
+                return;
+            }
             poll();
         } catch (error) {
             if (error.name === 'AbortError') {
@@ -3385,11 +3465,21 @@ export default function App() {
                                                 </div>
                                             </div>
                                             {isActive && (
-                                                <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-yellow-500 transition-all duration-300"
-                                                        style={{ width: `${Math.max(job.progress || 0, job.status === 'uploading' ? 8 : 0)}%` }}
-                                                    />
+                                                <div className="mt-1">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-[10px] text-neutral-500 uppercase tracking-wider">
+                                                            {job.status === 'uploading' ? 'Upload' : 'Progress'}
+                                                        </span>
+                                                        <span className="text-[11px] font-bold text-yellow-400 tabular-nums">
+                                                            {Math.round(job.status === 'uploading' ? Math.max(job.progress || 0, 8) : (job.progress || 0))}%
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-yellow-500 transition-all duration-300"
+                                                            style={{ width: `${Math.min(100, Math.max(job.progress || 0, job.status === 'uploading' ? 8 : 0))}%` }}
+                                                        />
+                                                    </div>
                                                 </div>
                                             )}
                                             {isDone && job.jobId && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (

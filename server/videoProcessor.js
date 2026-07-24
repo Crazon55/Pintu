@@ -1013,9 +1013,47 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   };
 }
 
+function makeCancelledError(message = 'Cancelled by user') {
+  const err = new Error(message);
+  err.name = 'CancelledError';
+  return err;
+}
+
+function reportPresetProgress(onProgress, { index, total, presetName, phase, encodePercent = 0 }) {
+  if (!onProgress || total <= 0) return;
+  // Overlay is ~8% of a preset slot; encode fills the rest with live FFmpeg %
+  const slot = 100 / total;
+  const within =
+    phase === 'overlay' ? slot * 0.08
+      : phase === 'encoding' ? slot * (0.08 + 0.92 * Math.min(1, Math.max(0, encodePercent / 100)))
+        : slot; // done
+  const percent = Math.min(99.5, Math.round((index * slot + within) * 10) / 10);
+  onProgress({
+    current: index + (phase === 'done' ? 1 : 0),
+    total,
+    preset: presetName,
+    phase,
+    encodePercent: Math.round(encodePercent),
+    percent,
+  });
+}
+
 export function createVideoProcessor() {
   return {
-    async processVideo({ videoPath, presets, headline, fontScale, wordSpacing, videoScale, fitMode, showCredit = true, ideaName = '', onProgress }) {
+    async processVideo({
+      videoPath,
+      presets,
+      headline,
+      fontScale,
+      wordSpacing,
+      videoScale,
+      fitMode,
+      showCredit = true,
+      ideaName = '',
+      onProgress,
+      isCancelled,
+      registerKill,
+    }) {
       const batchId = `export-${Date.now()}`;
       const outputDir = join(__dirname, 'outputs', batchId);
       const tempDir = join(__dirname, 'temp', batchId);
@@ -1023,6 +1061,9 @@ export function createVideoProcessor() {
       await fs.mkdir(tempDir, { recursive: true });
 
       const processedVideos = [];
+      const throwIfCancelled = () => {
+        if (isCancelled?.()) throw makeCancelledError();
+      };
 
       // Use absolute paths for FFmpeg (avoids issues on Windows with cwd and relative paths)
       const videoPathAbs = resolve(videoPath);
@@ -1032,6 +1073,7 @@ export function createVideoProcessor() {
       console.log(`[processVideo] Starting: video=${videoPathAbs}, presets=${presets.length} (${presets.map(p => p?.name).join(', ')})`);
 
       for (let i = 0; i < presets.length; i++) {
+        throwIfCancelled();
         const preset = presets[i];
         try {
           // Validate preset has required properties
@@ -1051,18 +1093,62 @@ export function createVideoProcessor() {
           const presetFontScale = preset.fontScale ?? fontScale;
           const presetWordSpacing = preset.wordSpacing ?? wordSpacing;
           console.log(`[processVideo] Preset ${i + 1}/${presets.length}: "${preset.name}" – generating overlay...`);
+          reportPresetProgress(onProgress, {
+            index: i,
+            total: presets.length,
+            presetName: preset.name,
+            phase: 'overlay',
+          });
           const layout = await generateLayoutOverlay(preset, headline, presetFontScale, presetWordSpacing, overlayPath, showCredit);
+          throwIfCancelled();
           layout.overlayPath = resolve(layout.overlayPath || overlayPath);
           if (!existsSync(layout.overlayPath)) {
             throw new Error(`Overlay file was not created: ${layout.overlayPath}`);
           }
 
-          // 2. FFmpeg CROP & PAD (pass absolute paths)
-          await processFFmpeg(videoPathAbs, outputPath, preset, layout, videoScale, fitMode);
+          // 2. FFmpeg CROP & PAD (pass absolute paths) — live encode %
+          reportPresetProgress(onProgress, {
+            index: i,
+            total: presets.length,
+            presetName: preset.name,
+            phase: 'encoding',
+            encodePercent: 0,
+          });
+          await processFFmpeg(videoPathAbs, outputPath, preset, layout, videoScale, fitMode, {
+            isCancelled,
+            registerKill,
+            onEncodeProgress: (p) => {
+              const enc = typeof p?.percent === 'number' && !Number.isNaN(p.percent) ? p.percent : 0;
+              reportPresetProgress(onProgress, {
+                index: i,
+                total: presets.length,
+                presetName: preset.name,
+                phase: 'encoding',
+                encodePercent: enc,
+              });
+            },
+          });
 
+          throwIfCancelled();
           processedVideos.push({ path: outputPath, pageName: preset.name });
-          onProgress?.({ current: i + 1, total: presets.length, preset: preset.name });
+          reportPresetProgress(onProgress, {
+            index: i,
+            total: presets.length,
+            presetName: preset.name,
+            phase: 'done',
+          });
+          onProgress?.({
+            current: i + 1,
+            total: presets.length,
+            preset: preset.name,
+            phase: 'done',
+            encodePercent: 100,
+            percent: Math.round(((i + 1) / presets.length) * 1000) / 10,
+          });
         } catch (error) {
+          if (error?.name === 'CancelledError' || isCancelled?.()) {
+            throw makeCancelledError(error?.message || 'Cancelled by user');
+          }
           const presetName = preset?.name || `preset at index ${i}`;
           console.error(`[processVideo] Error processing "${presetName}":`, error.message);
           console.error('[processVideo] Full error:', error);
@@ -1071,9 +1157,20 @@ export function createVideoProcessor() {
         }
       }
 
+      throwIfCancelled();
+
       if (processedVideos.length === 0 && presets.length > 0) {
         throw new Error('Export failed: no videos were produced. Check server console for FFmpeg/overlay errors.');
       }
+
+      onProgress?.({
+        current: presets.length,
+        total: presets.length,
+        preset: '',
+        phase: 'done',
+        encodePercent: 100,
+        percent: 100,
+      });
 
       return {
         outputDir,
@@ -1964,7 +2061,8 @@ function calculateRichLines(ctx, html, maxW, size, spacing, forceBold, fontFamil
   );
 }
 
-async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, fitMode) {
+async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, fitMode, opts = {}) {
+  const { isCancelled, registerKill, onEncodeProgress } = opts;
   const overlayPathAbs = resolve(layout.overlayPath || '');
   const outputPathAbs = resolve(outputPath);
   if (!existsSync(overlayPathAbs)) {
@@ -1978,6 +2076,9 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
     let originalHeight = 1080; // Default fallback
 
     try {
+      if (isCancelled?.()) {
+        return reject(makeCancelledError());
+      }
       const videoInfo = await new Promise((resolve, reject) => {
         ffmpeg.ffprobe(videoPath, (err, metadata) => {
           if (err) return reject(err);
@@ -1996,7 +2097,12 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       originalWidth = videoInfo.width;
       originalHeight = videoInfo.height;
     } catch (error) {
+      if (error?.name === 'CancelledError') return reject(error);
       console.warn('Could not probe video dimensions, using defaults:', error.message);
+    }
+
+    if (isCancelled?.()) {
+      return reject(makeCancelledError());
     }
 
     // Video width/x default to full canvas (720 @ x=0); aroll insets the frame with
@@ -2346,29 +2452,58 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       console.log(`[processVideoWithFFmpeg] No logo overlay for preset "${preset.name}"`);
     }
 
+    let settled = false;
+    const settle = (fn) => (arg) => {
+      if (settled) return;
+      settled = true;
+      try { process.chdir(originalCwd); } catch (_) { /* ignore */ }
+      fn(arg);
+    };
+
+    // Allow queue cancel to kill this encode
+    registerKill?.(() => {
+      try {
+        console.log(`[FFmpeg] Killing encode for "${preset.name}"...`);
+        ffmpegCmd.kill('SIGKILL');
+      } catch (err) {
+        console.warn('[FFmpeg] kill failed:', err.message);
+      }
+    });
+
+    if (isCancelled?.()) {
+      return settle(reject)(makeCancelledError());
+    }
+
     ffmpegCmd.complexFilter(filterChain)
       .outputOptions(['-map [out]', '-map 0:a?', '-c:v libx264', '-preset superfast', '-crf 20', '-pix_fmt yuv420p'])
+      .on('progress', (progress) => {
+        try {
+          onEncodeProgress?.(progress);
+        } catch (_) { /* ignore UI progress errors */ }
+      })
       .on('error', (err, stdout, stderr) => {
+        if (isCancelled?.()) {
+          return settle(reject)(makeCancelledError());
+        }
         console.error('[FFmpeg] error:', err.message);
         if (stderr) console.error('[FFmpeg] stderr:', stderr);
         const enhanced = new Error(err.message + (stderr ? `\nFFmpeg stderr: ${stderr.slice(-800)}` : ''));
         enhanced.stderr = stderr;
-        process.chdir(originalCwd);
-        reject(enhanced);
+        settle(reject)(enhanced);
       })
       .on('end', () => {
-        process.chdir(originalCwd); // Restore original working directory
+        if (isCancelled?.()) {
+          return settle(reject)(makeCancelledError());
+        }
         if (!existsSync(outputPathAbs)) {
-          reject(new Error(`FFmpeg finished but output file was not created: ${outputPathAbs}`));
-          return;
+          return settle(reject)(new Error(`FFmpeg finished but output file was not created: ${outputPathAbs}`));
         }
         const stat = statSync(outputPathAbs);
         if (stat.size === 0) {
-          reject(new Error(`FFmpeg output file is empty: ${outputPathAbs}`));
-          return;
+          return settle(reject)(new Error(`FFmpeg output file is empty: ${outputPathAbs}`));
         }
         console.log(`[FFmpeg] OK: ${outputPathAbs} (${stat.size} bytes)`);
-        resolve();
+        settle(resolve)();
       }).save(outputPathAbs);
   });
 }
