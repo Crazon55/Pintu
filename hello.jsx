@@ -988,6 +988,12 @@ const PreviewCard = memo(({
     const exportNewsMaxLineW = getExportNewsMaxLineWidth(preset) * previewScale;
     const hookVideoGapPx = getHookVideoGap(preset) * previewScale;
     const effectiveLineSpacing = getEffectiveLineSpacing(preset);
+    // CSS line-height leaves slack under the last glyph line; export measures to fontSize.
+    // Subtract that slack so preview gap matches export (glyph bottom → video top).
+    const hookVideoGapCssPx = Math.max(
+        0,
+        hookVideoGapPx - previewFontSize * Math.max(0, effectiveLineSpacing - 1)
+    );
 
     // Alignment Logic - Use preset.alignment property
     const isCenterAligned = preset.alignment === 'center';
@@ -997,8 +1003,10 @@ const PreviewCard = memo(({
     const arollHookPos = preset.layout === 'aroll' ? (preset.rules?.hookPosition || 'mid') : null;
     const arollCenterStack = preset.layout === 'aroll' && (preset.ratio === '16:9' || preset.ratio === '6:5');
     const justifyClass = arollHookPos
-        ? (arollCenterStack ? 'justify-center gap-1 -mt-[4%]' : arollHookPos === 'top' ? 'justify-start gap-1 pt-[9%]' : arollHookPos === 'low' ? 'justify-center gap-1 pt-[14%]' : 'justify-center gap-1')
-        : 'justify-center gap-1';
+        ? (arollCenterStack ? 'justify-center gap-0 -mt-[4%]' : arollHookPos === 'top' ? 'justify-start gap-0 pt-[9%]' : arollHookPos === 'low' ? 'justify-center gap-0 pt-[14%]' : 'justify-center gap-0')
+        : preset.layout === 'hook_video'
+            ? 'justify-center gap-0'
+            : 'justify-center gap-1';
     const showMainHookBlock = preset.layout !== 'hook_video' && preset.layout !== 'news_ticker' && preset.layout !== 'aroll' && preset.name !== 'Best Founder Clips' && preset.name !== 'best business clips' && preset.name !== 'startup madness' && preset.name !== 'Ads by marketer';
     const eyebrowSizeScale = preset.hookEyebrowSizeScale ?? 1.1;
     const eyebrowGapScale = preset.hookEyebrowGapScale ?? 7.0;
@@ -1100,8 +1108,8 @@ const PreviewCard = memo(({
                 {/* 1a. HOOK_VIDEO HEADER: optional line above hook, then hook text centered on black */}
                 {preset.layout === 'hook_video' && (
                     <div
-                        className="w-full px-4 pt-4 z-10 shrink-0"
-                        style={{ marginBottom: `${hookVideoGapPx}px` }}
+                        className="w-full px-4 z-10 shrink-0"
+                        style={{ marginBottom: `${hookVideoGapCssPx}px` }}
                     >
                         {showEyebrowInPreview && (
                             <div
@@ -1221,7 +1229,7 @@ const PreviewCard = memo(({
                                 fontSize: `${previewFontSize}px`,
                                 lineHeight: effectiveLineSpacing,
                                 fontWeight: isLogoSocial ? 400 : 700,
-                                marginBottom: `${hookVideoGapPx}px`,
+                                marginBottom: `${hookVideoGapCssPx}px`,
                                 paddingBottom: 0,
                             }}>
                                 {lines.map((line, li) => (
@@ -1360,7 +1368,7 @@ const PreviewCard = memo(({
                             fontSize: `${previewFontSize}px`,
                             lineHeight: effectiveLineSpacing,
                             marginTop: preset.name === 'Best Founder Clips' ? '0.5rem' : (preset.name === 'The Founders Show' || preset.name === 'Life Wealth Lessons' || preset.name === 'Business India Lessons' || preset.name === 'Billionaires of Bharat' || preset.name === 'startupcoded' || preset.name === 'kwazyfounders' || preset.name === 'founders-in-india' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf' || preset.name === 'wealth lessons india' || preset.name === 'Daily Tech India' ? '1rem' : '0'),
-                            marginBottom: `${hookVideoGapPx}px`,
+                            marginBottom: `${hookVideoGapCssPx}px`,
                             ...(localHeadlinePos.x !== 0 && localHeadlinePos.x ? {
                                 left: `${localHeadlinePos.x}%`,
                                 transform: 'translateX(0)'

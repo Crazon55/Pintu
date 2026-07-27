@@ -364,8 +364,8 @@ export function getHookVideoGap(preset) {
 
   // Keep hook flush to the video like IG references (~8–12px visual).
   // Remaining line-box slack is handled by measuring the last line to fontSize.
-  if (preset?.layout === 'hook_video') return 10;
-  if (preset?.layout === 'aroll') return 10;
+  if (preset?.layout === 'hook_video') return 6;
+  if (preset?.layout === 'aroll') return 8;
 
   const name = preset?.name || '';
   const nameLower = name.toLowerCase();
