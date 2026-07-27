@@ -1141,16 +1141,16 @@ const PreviewCard = memo(({
                         >
                             {(() => {
                                 const hookFontFamily = "'Inter', sans-serif";
-                                const hookBoldWeight = preset.name === 'indiabusinesscom' ? 800
-                                    : preset.name === 'indianfoundercore' ? 900
-                                    : preset.name === 'indian-founders-co' ? 700 : 700;
+                                const isInterBoldHook = preset.name === 'indiabusinesscom'
+                                    || preset.name === 'indianfoundercore'
+                                    || preset.name === 'indian-founders-co';
                                 const lines = buildPreviewLines(preset.headline, {
                                     fontSize: previewFontSize,
                                     maxWidth: exportMaxTextW,
                                     wordSpacing: adjustedWordSpacing,
                                     fontFamily: hookFontFamily,
-                                    boldWeight: hookBoldWeight,
-                                    regularWeight: preset.name === 'indian-founders-co' ? 700 : 400,
+                                    boldWeight: 700,
+                                    regularWeight: isInterBoldHook ? 700 : 400,
                                 });
                                 let highlightGroupIndex = 0;
                                 let prevWasHighlight = false;
@@ -1181,13 +1181,7 @@ const PreviewCard = memo(({
                                                         color: preset.name === 'indiabusinesscom'
                                                             ? (grp === 1 ? '#FF5F07' : grp >= 2 ? '#46DB27' : '#FFFFFF')
                                                             : (t.bold ? preset.color : '#FFFFFF'),
-                                                        fontWeight: preset.name === 'indian-founders-co'
-                                                            ? 700
-                                                            : preset.name === 'indiabusinesscom'
-                                                                ? 800
-                                                                : preset.name === 'indianfoundercore'
-                                                                    ? 900
-                                                                    : (t.bold ? 700 : 400),
+                                                        fontWeight: isInterBoldHook ? 700 : (t.bold ? 700 : 400),
                                                     }}
                                                 >
                                                     {t.text}{' '}
