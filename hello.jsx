@@ -298,13 +298,13 @@ function resetMeasureCtx() {
 }
 
 /** Match export line-wrap at preview scale (720px reference canvas). */
-function buildPreviewLines(headline, { fontSize, maxWidth, wordSpacing, fontFamily, boldWeight = 700 }) {
+function buildPreviewLines(headline, { fontSize, maxWidth, wordSpacing, fontFamily, boldWeight = 700, regularWeight = 400 }) {
     const ctx = getMeasureCtx();
     if (!ctx || !headline) return [];
     const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
     const spacing = wordSpacing * fontSize;
     return layoutHeadlineLines(cleaned, (text, bold) => {
-        ctx.font = `${bold ? boldWeight : 400} ${fontSize}px ${fontFamily}`;
+        ctx.font = `${bold ? boldWeight : regularWeight} ${fontSize}px ${fontFamily}`;
         return ctx.measureText(text).width;
     }, maxWidth, spacing);
 }
@@ -1143,13 +1143,14 @@ const PreviewCard = memo(({
                                 const hookFontFamily = "'Inter', sans-serif";
                                 const hookBoldWeight = preset.name === 'indiabusinesscom' ? 800
                                     : preset.name === 'indianfoundercore' ? 900
-                                    : preset.name === 'indian-founders-co' ? 900 : 700;
+                                    : preset.name === 'indian-founders-co' ? 700 : 700;
                                 const lines = buildPreviewLines(preset.headline, {
                                     fontSize: previewFontSize,
                                     maxWidth: exportMaxTextW,
                                     wordSpacing: adjustedWordSpacing,
                                     fontFamily: hookFontFamily,
                                     boldWeight: hookBoldWeight,
+                                    regularWeight: preset.name === 'indian-founders-co' ? 700 : 400,
                                 });
                                 let highlightGroupIndex = 0;
                                 let prevWasHighlight = false;
@@ -1181,7 +1182,7 @@ const PreviewCard = memo(({
                                                             ? (grp === 1 ? '#FF5F07' : grp >= 2 ? '#46DB27' : '#FFFFFF')
                                                             : (t.bold ? preset.color : '#FFFFFF'),
                                                         fontWeight: preset.name === 'indian-founders-co'
-                                                            ? (t.bold ? 900 : 400)
+                                                            ? 700
                                                             : preset.name === 'indiabusinesscom'
                                                                 ? 800
                                                                 : preset.name === 'indianfoundercore'
