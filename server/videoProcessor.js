@@ -375,7 +375,8 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
   const measureHookWord = (text, bold) => {
     let mFamily, mWeight;
-    if (_isIFCore || _isIFC) { mFamily = interBlack ? 'InterBlack' : 'Inter'; mWeight = 'normal'; }
+    if (_isIFC) { mFamily = interBold ? 'InterBold' : 'Inter'; mWeight = interBold ? 'normal' : 'bold'; }
+    else if (_isIFCore) { mFamily = interBlack ? 'InterBlack' : 'Inter'; mWeight = 'normal'; }
     else if (_isIBC) { mFamily = interExtraBold ? 'InterExtraBold' : 'Inter'; mWeight = 'normal'; }
     else { mFamily = 'Inter'; mWeight = bold ? 'bold' : 'normal'; }
     ctx.font = `${mWeight} ${fontSize}px ${mFamily}`;
@@ -470,12 +471,15 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     for (const t of line.tokens) {
       const grp = groupMap[tokenIdx++];
       // Use family-name-based font selection — Cairo doesn't reliably resolve numeric weights.
-      // IBC = Inter ExtraBold (800), IFCore/IFC = Inter Black (900), others = Inter Regular/Bold.
+      // IBC = Inter ExtraBold (800), IFCore = Inter Black (900), IFC = Inter Bold (700), others = Inter Regular/Bold.
       let fontFamily, fontWeight;
       if (isIBC) {
         fontFamily = interExtraBold ? 'InterExtraBold' : 'Inter';
         fontWeight = 'normal';
-      } else if (isIFCore || isIFC) {
+      } else if (isIFC) {
+        fontFamily = interBold ? 'InterBold' : 'Inter';
+        fontWeight = interBold ? 'normal' : 'bold';
+      } else if (isIFCore) {
         fontFamily = interBlack ? 'InterBlack' : 'Inter';
         fontWeight = 'normal';
       } else {
