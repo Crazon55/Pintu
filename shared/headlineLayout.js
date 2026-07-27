@@ -362,7 +362,10 @@ export function fitNewsTickerFontSize({
 export function getHookVideoGap(preset) {
   if (Number.isFinite(preset?.hookVideoGap)) return Math.round(preset.hookVideoGap);
 
-  if (preset?.layout === 'hook_video') return 25;
+  // Keep hook flush to the video like IG references (~8–12px visual).
+  // Remaining line-box slack is handled by measuring the last line to fontSize.
+  if (preset?.layout === 'hook_video') return 10;
+  if (preset?.layout === 'aroll') return 10;
 
   const name = preset?.name || '';
   const nameLower = name.toLowerCase();

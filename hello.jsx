@@ -1216,11 +1216,13 @@ const PreviewCard = memo(({
                             boldWeight: hookBoldWeight,
                         });
                         return (
-                            <div className="pb-2" style={{
+                            <div style={{
                                 fontFamily: hookFontFamily,
                                 fontSize: `${previewFontSize}px`,
                                 lineHeight: effectiveLineSpacing,
                                 fontWeight: isLogoSocial ? 400 : 700,
+                                marginBottom: `${hookVideoGapPx}px`,
+                                paddingBottom: 0,
                             }}>
                                 {lines.map((line, li) => (
                                     <div key={li}>

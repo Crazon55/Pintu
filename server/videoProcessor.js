@@ -419,7 +419,12 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   if (videoH % 2 !== 0) videoH += 1;
 
   // --- Center entire stack (text + gap + video) vertically in frame ---
-  const totalTextH = eyebrowH + lines.length * lineHeight;
+  // Last line uses fontSize (not full lineHeight) so gap is measured from glyph
+  // bottom → video top — matches IG references where hook sits tight on the frame.
+  const hookTextH = lines.length === 0
+    ? 0
+    : (lines.length - 1) * lineHeight + fontSize;
+  const totalTextH = eyebrowH + hookTextH;
   const totalStackH = totalTextH + textToVideoGap + videoH;
   const startY = Math.round((1280 - totalStackH) / 2);
 
@@ -596,11 +601,14 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
   // --- Vertical stack layout ---
   const LOGO_SOCIAL_SZ = 70;
   const headerToHookGap = isLogoSocial ? 16 : 14;
-  const hookToVideoGap = 26;
+  const hookToVideoGap = getHookVideoGap(preset);
   const brandFontSz = isLogoSocial ? 32 : 46;
   const handleFontSz = isLogoSocial ? 18 : 20;
   const headerH = isLogoSocial ? LOGO_SOCIAL_SZ : brandFontSz;
-  const hookTextH = lines.length * lineHeight;
+  // Last line to glyph bottom (fontSize), not full line box — keeps hook tight to video
+  const hookTextH = lines.length === 0
+    ? 0
+    : (lines.length - 1) * lineHeight + fontSize;
   const totalTextH = headerH + headerToHookGap + hookTextH;
   const totalStackH = totalTextH + hookToVideoGap + videoH;
 
