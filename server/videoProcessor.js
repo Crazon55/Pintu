@@ -375,10 +375,13 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
   const measureHookWord = (text, bold) => {
     let mFamily, mWeight;
-    if (_isIFC) { mFamily = interBold ? 'InterBold' : 'Inter'; mWeight = interBold ? 'normal' : 'bold'; }
-    else if (_isIFCore) { mFamily = interBlack ? 'InterBlack' : 'Inter'; mWeight = 'normal'; }
-    else if (_isIBC) { mFamily = interExtraBold ? 'InterExtraBold' : 'Inter'; mWeight = 'normal'; }
-    else { mFamily = 'Inter'; mWeight = bold ? 'bold' : 'normal'; }
+    if (_isIFC || _isIFCore || _isIBC) {
+      mFamily = interBold ? 'InterBold' : 'Inter';
+      mWeight = interBold ? 'normal' : 'bold';
+    } else {
+      mFamily = 'Inter';
+      mWeight = bold ? 'bold' : 'normal';
+    }
     ctx.font = `${mWeight} ${fontSize}px ${mFamily}`;
     return ctx.measureText(text).width;
   };
@@ -471,17 +474,11 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     for (const t of line.tokens) {
       const grp = groupMap[tokenIdx++];
       // Use family-name-based font selection — Cairo doesn't reliably resolve numeric weights.
-      // IBC = Inter ExtraBold (800), IFCore = Inter Black (900), IFC = Inter Bold (700), others = Inter Regular/Bold.
+      // IBC / IFCore / IFC = Inter Bold (700); others = Inter Regular/Bold by token.
       let fontFamily, fontWeight;
-      if (isIBC) {
-        fontFamily = interExtraBold ? 'InterExtraBold' : 'Inter';
-        fontWeight = 'normal';
-      } else if (isIFC) {
+      if (isIBC || isIFC || isIFCore) {
         fontFamily = interBold ? 'InterBold' : 'Inter';
         fontWeight = interBold ? 'normal' : 'bold';
-      } else if (isIFCore) {
-        fontFamily = interBlack ? 'InterBlack' : 'Inter';
-        fontWeight = 'normal';
       } else {
         fontFamily = 'Inter';
         fontWeight = t.bold ? 'bold' : 'normal';
