@@ -19,7 +19,7 @@ const preset = {
   showLogo: false,
   alignment: 'center',
   lineSpacing: 1.25,
-  rules: { bottomMarginPct: 14, solidBandPct: 30, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 5 } },
+  rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 5 } },
 };
 
 async function main() {
