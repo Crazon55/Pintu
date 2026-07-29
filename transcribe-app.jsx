@@ -276,13 +276,12 @@ export default function TranscribeApp() {
     return idx;
   }, [activeBlock, time]);
 
-  // Matches the ASS reveal: 'accumulate' only shows the words spoken so far, so
-  // the sentence builds up instead of sitting there fully written.
-  const visibleWords = useMemo(() => {
+  // Matches the ASS reveal: unspoken future words stay in the layout (invisible
+  // but still taking width) so earlier words keep their fixed left/mid/right slots.
+  const layoutWords = useMemo(() => {
     if (!activeBlock) return [];
-    if (style.reveal === 'all') return activeBlock.words;
-    return activeBlock.words.slice(0, Math.max(activeWordIdx + 1, 1));
-  }, [activeBlock, activeWordIdx, style.reveal]);
+    return activeBlock.words;
+  }, [activeBlock]);
 
   const scale = stageWidth ? stageWidth / PLAY_RES_X : 0;
   const setS = (patch) => setStyle((s) => ({ ...s, ...patch }));
@@ -351,7 +350,8 @@ export default function TranscribeApp() {
                   lineHeight: 1.15,
                 }}
               >
-                {visibleWords.map((w, i) => {
+                {layoutWords.map((w, i) => {
+                  const spoken = style.reveal === 'all' || i <= activeWordIdx;
                   const isActive = i === activeWordIdx;
                   const s = isActive ? popScaleAt(time, w, style) / 100 : 1;
                   const rises = style.riseOn === 'word' || (style.riseOn === 'block' && i === 0);
@@ -361,6 +361,8 @@ export default function TranscribeApp() {
                       key={`${w.start}-${i}`}
                       style={{
                         display: 'inline-block',
+                        // opacity:0 still occupies width — that's what locks each word's x slot
+                        opacity: spoken ? 1 : 0,
                         transform: `translateY(${dy}px) scale(${s})`,
                         color: isActive ? style.activeColor : style.baseColor,
                         WebkitTextStrokeWidth: `${style.outline * scale}px`,
@@ -369,7 +371,7 @@ export default function TranscribeApp() {
                         textShadow: isActive && style.glow
                           ? `0 0 ${style.glowBlur * scale}px ${style.activeColor}, 0 0 ${style.glowBlur * 2 * scale}px ${style.activeColor}`
                           : 'none',
-                        marginRight: i < visibleWords.length - 1 ? `${0.28 * style.fontSize * scale}px` : 0,
+                        marginRight: i < layoutWords.length - 1 ? `${0.28 * style.fontSize * scale}px` : 0,
                       }}
                     >
                       {w.text}
