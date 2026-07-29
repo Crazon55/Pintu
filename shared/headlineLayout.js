@@ -254,14 +254,18 @@ export function getExportNewsMaxLineWidth(preset) {
   const name = (preset?.name || '').toLowerCase();
   // Leave room for left/right inset + bold bar padding (±4px) so lines never clip the frame.
   if (name === 'indiastartupstory-news') return 560; // startX 56 + right pad + bar padding
-  if (name === 'ifc2-news') return 500; // hook block spans ~68% of frame width in the reference
+  if (isPlainTextNewsTicker({ name })) return 500; // hook block spans ~68% of frame width in the reference
   return 600; // centered brands ~60px side margins + bar padding
 }
 
 /** Left inset (px at 720) for left-aligned news tickers. */
 export function getNewsTickerLineStartX(preset, totalLineW, canvasW = CANVAS_REF_W) {
   const name = (preset?.name || '').toLowerCase();
-  if (name === 'indiabusinesscom-news' || name === 'ifc-news' || name === 'ifc2-news') {
+  if (
+    name === 'indiabusinesscom-news' ||
+    name === 'ifc-news' ||
+    isPlainTextNewsTicker(preset)
+  ) {
     return Math.round((canvasW - totalLineW) / 2);
   }
   if (name === 'indiastartupstory-news') return 56;
@@ -291,14 +295,16 @@ export const NEWS_TICKER_PLAIN_LINE_HEIGHT = 1.0;
  * Tickers that paint highlights as coloured text instead of a filled pill behind
  * black text. Drives line advance, so preview and export must agree.
  */
+export const PLAIN_TEXT_NEWS_TICKER_NAMES = ['ifc2-news', 'foundersinindia-news'];
+
 export function isPlainTextNewsTicker(preset) {
-  return (preset?.name || '').toLowerCase() === 'ifc2-news';
+  return PLAIN_TEXT_NEWS_TICKER_NAMES.includes((preset?.name || '').toLowerCase());
 }
 
 /** Full-bleed 9:16 tickers: taller fade and more solid pad, since there is no letterboxing. */
 function isFullBleedNewsTicker(preset) {
   const name = (preset?.name || '').toLowerCase();
-  return name === 'ifc-news' || name === 'ifc2-news';
+  return name === 'ifc-news' || isPlainTextNewsTicker(preset);
 }
 
 /** Per-line vertical metrics for a news ticker at a given font size. */

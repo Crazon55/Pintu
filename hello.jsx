@@ -148,6 +148,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55 } },
     { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 38, textLogo: 'IFC.', logoPadX: 30, logoPadY: 56 } },
     { id: 97, name: 'ifc2-news', handle: '@indianfounderscore', ratio: '9:16', color: '#E0E140', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 8, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 5 } } },
+    { id: 100, name: 'foundersinindia-news', handle: '@foundersinindia', ratio: '9:16', color: '#439eff', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 8, handleLockup: { file: 'foundersinindia.png', width: 170, height: 25, gap: 5 } } },
     { id: 98, name: '101xtechnology-aroll', handle: '@101xtechnology', ratio: '16:9', color: '#4898ab', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: '101xt.', highlightColors: ['#4898ab', '#90d46c'], topGlow: true } },
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
@@ -167,14 +168,14 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
 }));
 
 // Presets configured during the "Experiment X" pass — surfaced in their own quick-pick section
-const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'indiastartupstory-news', 'ifc-news', 'ifc2-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
+const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'indiastartupstory-news', 'ifc-news', 'ifc2-news', 'foundersinindia-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
 // Archived out of Bizz India Playbook for now — tech pages + news-ticker formats. Kept here so they're easy to bring back.
-const ARCHIVED_PRESET_NAMES = ['101xtechnology-aroll', 'indiantechdaily-aroll', 'indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'ifc2-news'];
+const ARCHIVED_PRESET_NAMES = ['101xtechnology-aroll', 'indiantechdaily-aroll', 'indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'ifc2-news', 'foundersinindia-news'];
 const BIZZINDIA_PLAYBOOK_PRESET_NAMES = EXPERIMENT_X_PRESET_NAMES.filter(n => !ARCHIVED_PRESET_NAMES.includes(n));
 // Bizz India Playbook format switch (inside the playbook header): "A-roll" is the
 // original 4-preset default set above; "News formats" is the archived news-ticker group.
 // The archived tech/aroll-layout pages stay unused.
-const BIZZINDIA_NEWS_PRESET_NAMES = ['indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'ifc2-news'];
+const BIZZINDIA_NEWS_PRESET_NAMES = ['indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'ifc2-news', 'foundersinindia-news'];
 
 // Helper to get logo URL (handles both data URIs and filenames)
 const getLogoUrl = (logo) => {
@@ -791,7 +792,7 @@ const PreviewCard = memo(({
         let currentPosY = localPos.y;
         const isNews = preset.layout === 'news_ticker';
         const presetNameLower = (preset.name || '').toLowerCase();
-        const isFullBleedNews = presetNameLower === 'ifc-news' || presetNameLower === 'ifc2-news';
+        const isFullBleedNews = presetNameLower === 'ifc-news' || isPlainTextNewsTicker(preset);
         // full-bleed 9:16 — cap zoom so face doesn't disappear before captions are covered
         const maxZoom = isFullBleedNews ? 220 : 300;
         const rect0 = containerRef.current?.getBoundingClientRect();
@@ -1656,7 +1657,7 @@ const PreviewCard = memo(({
                                     const isIBC = preset.name === 'indiabusinesscom-news';
                                     const isISS = preset.name === 'indiastartupstory-news';
                                     const isIFC = preset.name === 'ifc-news';
-                                    const isIFC2 = preset.name === 'ifc2-news';
+                                    const isIFC2 = isPlainTextNewsTicker(preset);
                                     const isPlainText = isPlainTextNewsTicker(preset);
                                     const ntFontWeight = 700;
                                     const ntFontFamily = getNewsTickerFontFamily(preset);
@@ -3132,7 +3133,7 @@ export default function App() {
                     font-display: swap;
                     src: url('/fonts/ITCAvantGardeGothic-Bold.otf') format('opentype');
                 }
-                /* Helvetica World Bold for indianfounderscore (ifc2-news). Drop licensed file at public/fonts/. */
+                /* Helvetica World Bold for plain-text news tickers (ifc2 / foundersinindia). */
                 @font-face {
                     font-family: 'Helvetica World';
                     font-style: normal;
