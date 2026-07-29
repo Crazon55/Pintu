@@ -10,11 +10,15 @@ import archiver from 'archiver';
 import { createVideoProcessor } from './videoProcessor.js';
 import { createJobQueue } from './simpleQueue.js'; // Use your simpleQueue or Bull
 import { transcribeWithGroq } from './groqTranscriber.js';
-import { generateASS, generateIndianFounderASS } from './subtitleGenerator.js';
+import {
+  generateASS,
+  generateIndianFounderASS,
+  generateWordHighlightASS,
+  buildCaptionSpec,
+} from './subtitleGenerator.js';
 import { uploadToCloudinary } from './cloudinaryUploader.js';
 import { uploadExportToDrive } from './driveUploader.js';
 import { burnSubtitles } from './subtitleBurner.js';
-import { removeSilence } from './silenceRemover.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -262,16 +266,14 @@ jobQueue.process('process-video', 1, async (job) => {
   });
 });
 
-// --- TRANSCRIPTION & SUBTITLE ENDPOINTS ---
+// --- TRANSCRIPTION & WORD-LEVEL CAPTIONS ---
 
 app.post('/api/transcribe', upload.single('video'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No video file received.' });
-    const { modelSize, language } = req.body;
-    console.log(`[transcribe] Received: modelSize=${modelSize}, language=${language}`);
+    const { language } = req.body;
     const job = await jobQueue.add('transcribe', {
       videoPath: req.file.path,
-      modelSize: modelSize || 'small',
       language: language && language !== 'undefined' ? language : null,
     });
     res.json({ jobId: job.id });
@@ -289,35 +291,75 @@ jobQueue.process('transcribe', 1, async (job) => {
     language: job.data.language,
   });
   job.progress({ step: 'done', percent: 100 });
-  // Store the original video path so burn-subtitles can use it
+  // burn-subtitles needs the original video
   result.videoPath = job.data.videoPath;
   return result;
 });
 
+// Preview the grouped caption layout (no rendering) — useful for tuning
+// word-per-block and timing before spending an encode.
+app.post('/api/caption-spec', express.json(), async (req, res) => {
+  try {
+    const { words, style } = req.body;
+    if (!Array.isArray(words) || words.length === 0) {
+      return res.status(400).json({ error: 'words[] is required.' });
+    }
+    res.json(buildCaptionSpec(words, style || {}));
+  } catch (err) {
+    console.error('[caption-spec] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// A burn is a full FFmpeg encode. Bulk callers can fire many of these at once,
+// so run them one at a time — otherwise peak memory scales with request count
+// instead of staying flat like the export queue.
+let burnLane = Promise.resolve();
+let burnsWaiting = 0;
+function serializeBurn(task) {
+  burnsWaiting++;
+  const run = burnLane.then(task, task);
+  burnLane = run.then(() => { burnsWaiting--; }, () => { burnsWaiting--; });
+  return run;
+}
+
 app.post('/api/burn-subtitles', express.json(), async (req, res) => {
   try {
-    const { videoPath, segments, words, style, captionStyle } = req.body;
+    const { videoPath, segments, words, style, captionStyle = 'word-highlight' } = req.body;
     if (!videoPath || (!segments?.length && !words?.length)) {
       return res.status(400).json({ error: 'videoPath and segments/words are required.' });
     }
+    if (!existsSync(videoPath)) {
+      return res.status(404).json({ error: `Video not found: ${videoPath}` });
+    }
 
-    const outputDir = join(__dirname, 'outputs', `subtitled-${Date.now()}`);
+    const stamp = Date.now();
+    const outputDir = join(__dirname, 'outputs', `subtitled-${stamp}`);
     await fs.mkdir(outputDir, { recursive: true });
 
-    // Generate ASS file based on caption style
-    const assContent = (captionStyle === 'indian-founder')
-      ? generateIndianFounderASS(words || segments, style || {})
-      : generateASS(segments, style || {});
+    let assContent;
+    if (captionStyle === 'word-highlight') {
+      if (!words?.length) {
+        return res.status(400).json({ error: 'word-highlight captions require word-level timestamps.' });
+      }
+      assContent = generateWordHighlightASS(words, style || {});
+    } else if (captionStyle === 'indian-founder') {
+      assContent = generateIndianFounderASS(words || segments, style || {});
+    } else {
+      assContent = generateASS(segments, style || {});
+    }
+
     const assPath = join(outputDir, 'subtitles.ass');
     await fs.writeFile(assPath, assContent, 'utf-8');
 
-    // Burn subtitles
     const outputPath = join(outputDir, 'subtitled.mp4');
-    await burnSubtitles(videoPath, assPath, outputPath);
+    if (burnsWaiting > 0) console.log(`[burn-subtitles] queued behind ${burnsWaiting} burn(s)`);
+    await serializeBurn(() => burnSubtitles(videoPath, assPath, outputPath));
 
     res.json({
       videoPath: outputPath,
-      downloadUrl: `/outputs/subtitled-${outputDir.match(/subtitled-(\d+)/)?.[1] || Date.now()}/subtitled.mp4`,
+      captionStyle,
+      downloadUrl: `/outputs/subtitled-${stamp}/subtitled.mp4`,
     });
   } catch (err) {
     console.error('[burn-subtitles] Error:', err.message);
@@ -325,58 +367,12 @@ app.post('/api/burn-subtitles', express.json(), async (req, res) => {
   }
 });
 
-// Serve subtitled video for download
 app.get('/api/download-subtitled', async (req, res) => {
   const filePath = req.query.path;
   if (!filePath || !existsSync(filePath)) {
     return res.status(404).json({ error: 'File not found.' });
   }
   res.download(filePath);
-});
-
-// --- SILENCE REMOVAL ---
-
-app.post('/api/remove-silence', upload.single('video'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'No video file received.' });
-
-    const {
-      silenceThreshold = '-30',
-      minSilenceDuration = '0.5',
-      padding = '0.1',
-    } = req.body;
-
-    const job = await jobQueue.add('remove-silence', {
-      videoPath: req.file.path,
-      silenceThreshold: parseFloat(silenceThreshold),
-      minSilenceDuration: parseFloat(minSilenceDuration),
-      padding: parseFloat(padding),
-    });
-
-    res.json({ jobId: job.id });
-  } catch (err) {
-    console.error('[remove-silence] Error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-jobQueue.process('remove-silence', 1, async (job) => {
-  const outputDir = join(__dirname, 'outputs', `silence-removed-${Date.now()}`);
-  const result = await removeSilence(job.data.videoPath, outputDir, {
-    silenceThreshold: job.data.silenceThreshold,
-    minSilenceDuration: job.data.minSilenceDuration,
-    padding: job.data.padding,
-    onProgress: (p) => job.progress(p),
-  });
-  return result;
-});
-
-app.get('/api/download-silence-removed', async (req, res) => {
-  const filePath = req.query.path;
-  if (!filePath || !existsSync(filePath)) {
-    return res.status(404).json({ error: 'File not found.' });
-  }
-  res.download(filePath, 'no-silence.mp4');
 });
 
 // --- GOOGLE DRIVE UPLOAD ---

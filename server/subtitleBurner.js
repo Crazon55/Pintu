@@ -15,9 +15,11 @@ const __dirname = dirname(__filename);
  */
 export async function burnSubtitles(videoPath, assPath, outputPath) {
   const fontsDir = resolve(__dirname, 'assets', 'fonts');
-  // Escape paths for FFmpeg filter (colons and backslashes)
+  // Escape paths for FFmpeg filter args, then wrap in single quotes. Without the
+  // quotes a Windows drive colon ends the option and FFmpeg rejects the chain.
   const assEscaped = assPath.replace(/\\/g, '/').replace(/:/g, '\\:');
   const fontsDirEscaped = fontsDir.replace(/\\/g, '/').replace(/:/g, '\\:');
+  const assFilter = `ass=filename='${assEscaped}':fontsdir='${fontsDirEscaped}'`;
 
   return new Promise((resolve, reject) => {
     console.log(`[burnSubtitles] Input: ${videoPath}`);
@@ -26,7 +28,7 @@ export async function burnSubtitles(videoPath, assPath, outputPath) {
     console.log(`[burnSubtitles] Fonts: ${fontsDir}`);
 
     ffmpeg(videoPath)
-      .videoFilters(`ass=${assEscaped}:fontsdir=${fontsDirEscaped}`)
+      .videoFilters(assFilter)
       .outputOptions([
         '-c:v libx264',
         '-preset superfast',
