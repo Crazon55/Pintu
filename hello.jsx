@@ -19,8 +19,9 @@ import {
     getNewsTickerFitRatios,
     getNewsTickerBottomMarginRatio,
     getNewsTickerGradientHeight,
-    getNewsTickerBlackPadAbove,
+    getNewsTickerSolidTopOffset,
     getNewsTickerHandleLockup,
+    getNewsTickerFontFamily,
     isPlainTextNewsTicker,
 } from './shared/headlineLayout.js';
 // Inter is loaded globally via public/fonts/*.woff2 (see index.css)
@@ -1658,7 +1659,7 @@ const PreviewCard = memo(({
                                     const isIFC2 = preset.name === 'ifc2-news';
                                     const isPlainText = isPlainTextNewsTicker(preset);
                                     const ntFontWeight = 700;
-                                    const ntFontFamily = "'ITC Avant Garde Gothic', sans-serif";
+                                    const ntFontFamily = getNewsTickerFontFamily(preset);
                                     const [rw, rh] = (preset.ratio || '9:16').split(':').map(Number);
                                     const exportCanvasH = Math.round(720 * (rh / rw));
                                     // Handle lockup reserves a fixed box under the hook (mirrors export)
@@ -1678,14 +1679,16 @@ const PreviewCard = memo(({
                                     const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fittedExportFs);
                                     const totalBarsH = getNewsTickerStackHeight(preset, fittedExportFs, lines.length);
                                     const bottomMarginPct = getNewsTickerBottomMarginRatio(preset) * 100;
-                                    const blackBandHPct = bottomMarginPct + ((totalBarsH + lockupBlockH) / exportCanvasH) * 100;
-                                    const gradientHPct = (getNewsTickerGradientHeight(preset, exportCanvasH) / exportCanvasH) * 100;
-                                    const lineGapPx = lineGap * previewScale;
                                     // headlinePosition.y = % to raise hook text + gradient
                                     const shiftUpPct = Math.max(0, Math.min(48, localHeadlinePos?.y || 0));
-                                    // Match export: solid pad above first line + black always to frame bottom
-                                    const blackPadPct = (getNewsTickerBlackPadAbove(preset, fittedExportFs) / exportCanvasH) * 100;
-                                    const solidBlackHPct = blackBandHPct + shiftUpPct + blackPadPct;
+                                    // Solid cover: plain-text ifc2 starts under the hook; others pad above it
+                                    const solidTopOffset = getNewsTickerSolidTopOffset(preset, fittedExportFs, totalBarsH);
+                                    const blackBandHPct = bottomMarginPct
+                                        + ((totalBarsH + lockupBlockH) / exportCanvasH) * 100
+                                        + (solidTopOffset / exportCanvasH) * 100;
+                                    const gradientHPct = (getNewsTickerGradientHeight(preset, exportCanvasH) / exportCanvasH) * 100;
+                                    const lineGapPx = lineGap * previewScale;
+                                    const solidBlackHPct = blackBandHPct + shiftUpPct;
                                     const gradientBottomPct = solidBlackHPct; // gradient sits on top of solid cover
 
                                     return (
@@ -2558,7 +2561,10 @@ export default function App() {
     const [newsFontReady, setNewsFontReady] = useState(false);
     useEffect(() => {
         if (!document.fonts) { setNewsFontReady(true); return; }
-        document.fonts.load("700 54px 'ITC Avant Garde Gothic'")
+        Promise.all([
+            document.fonts.load("700 54px 'ITC Avant Garde Gothic'"),
+            document.fonts.load("700 54px 'Helvetica World'"),
+        ])
             .catch(() => {})
             .then(() => document.fonts.ready)
             .then(() => {
@@ -3125,6 +3131,15 @@ export default function App() {
                     font-weight: 700;
                     font-display: swap;
                     src: url('/fonts/ITCAvantGardeGothic-Bold.otf') format('opentype');
+                }
+                /* Helvetica World Bold for indianfounderscore (ifc2-news). Drop licensed file at public/fonts/. */
+                @font-face {
+                    font-family: 'Helvetica World';
+                    font-style: normal;
+                    font-weight: 700;
+                    font-display: swap;
+                    src: url('/fonts/HelveticaWorld-Bold.otf') format('opentype'),
+                         url('/fonts/HelveticaWorld-Bold.ttf') format('truetype');
                 }
                 .pintu-scroll::-webkit-scrollbar {
                     width: 8px;
