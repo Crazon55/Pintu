@@ -2025,7 +2025,8 @@ const PLAYBOOKS = [
         ],
     },
     { id: 'news', title: 'News Playbook', accent: '#3B82F6', enabled: false },
-    { id: '101xf', title: '101xf Playbook', accent: '#8B5CF6', enabled: false },
+    // href entries open a separate page instead of loading presets into the batcher.
+    { id: 'captions', title: 'Transcript & Captions', accent: '#EF4444', enabled: true, href: '/transcribe.html' },
 ];
 
 function RetroPopup({ title, icon, children, style }) {
@@ -2091,7 +2092,12 @@ function StartMenu({ onSelect, onClose }) {
                         key={pb.id}
                         type="button"
                         disabled={!pb.enabled}
-                        onClick={() => { if (pb.enabled) { onSelect(pb.id, pb.title); onClose(); } }}
+                        onClick={() => {
+                            if (!pb.enabled) return;
+                            if (pb.href) { window.location.href = pb.href; return; }
+                            onSelect(pb.id, pb.title);
+                            onClose();
+                        }}
                         className={`w-full flex items-center gap-3 px-3 py-2 text-left text-sm ${pb.enabled ? 'hover:bg-[#316ac5] hover:text-white text-black cursor-pointer' : 'text-neutral-400 cursor-not-allowed'}`}
                     >
                         <span className="flex-1 font-medium">{pb.title}</span>
@@ -2117,7 +2123,12 @@ function PlaybookCard({ pb, onOpen, isDark, isActive }) {
         <button
             type="button"
             disabled={!pb.enabled}
-            onClick={(e) => { e.stopPropagation(); pb.enabled && onOpen(pb.id, pb.title); }}
+            onClick={(e) => {
+                e.stopPropagation();
+                if (!pb.enabled) return;
+                if (pb.href) { window.location.href = pb.href; return; }
+                onOpen(pb.id, pb.title);
+            }}
             className={`group relative w-48 sm:w-52 rounded-2xl p-6 flex flex-col items-center gap-4 overflow-hidden isolate transition-all duration-300 ${isDark
                     ? 'bg-white/[0.06] border border-white/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_8px_32px_rgba(0,0,0,0.4)] hover:bg-white/[0.09] hover:border-white/25'
                     : 'bg-white/80 backdrop-blur-md border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:shadow-[0_16px_40px_rgba(0,0,0,0.12)]'
