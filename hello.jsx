@@ -17,9 +17,9 @@ import {
     getNewsTickerLineMetrics,
     getNewsTickerStackHeight,
     getNewsTickerFitRatios,
-    getNewsTickerBottomMarginRatio,
     getNewsTickerGradientHeight,
     getNewsTickerSolidTopY,
+    getNewsTickerHookBarY,
     getNewsTickerHandleLockup,
     getNewsTickerFontFamily,
     isPlainTextNewsTicker,
@@ -1679,21 +1679,26 @@ const PreviewCard = memo(({
                                     // Mirror generateNewsTickerOverlay geometry (percent of frame height)
                                     const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fittedExportFs);
                                     const totalBarsH = getNewsTickerStackHeight(preset, fittedExportFs, lines.length);
-                                    const bottomMarginPct = getNewsTickerBottomMarginRatio(preset) * 100;
-                                    // headlinePosition.y = % to raise hook text + gradient
+                                    // headlinePosition.y = % to raise hook text
                                     const shiftUpPct = Math.max(0, Math.min(48, localHeadlinePos?.y || 0));
-                                    // Solid cover — fixed band for plain-text; pad-above-hook for others
-                                    const barYPx = exportCanvasH
-                                        - (exportCanvasH * (bottomMarginPct + shiftUpPct) / 100)
-                                        - lockupBlockH
-                                        - totalBarsH;
+                                    const shiftYPx = Math.round(exportCanvasH * shiftUpPct / 100);
+                                    const barYPx = getNewsTickerHookBarY(preset, {
+                                        canvasH: exportCanvasH,
+                                        fontSize: fittedExportFs,
+                                        totalBarsH,
+                                        lockupBlockH,
+                                        shiftY: shiftYPx,
+                                    });
                                     const blackTopPx = getNewsTickerSolidTopY(
                                         preset, exportCanvasH, barYPx, fittedExportFs, totalBarsH,
                                     );
                                     const solidBlackHPct = ((exportCanvasH - blackTopPx) / exportCanvasH) * 100;
                                     const gradientHPct = (getNewsTickerGradientHeight(preset, exportCanvasH) / exportCanvasH) * 100;
                                     const lineGapPx = lineGap * previewScale;
-                                    const gradientBottomPct = solidBlackHPct; // gradient sits on top of solid cover
+                                    const gradientBottomPct = solidBlackHPct;
+                                    // CSS bottom-%: text block ends at last line; lockup sits under it with gap
+                                    const textBottomPct = ((exportCanvasH - (barYPx + totalBarsH)) / exportCanvasH) * 100;
+                                    const lockupBottomPct = ((exportCanvasH - (barYPx + totalBarsH + lockupBlockH)) / exportCanvasH) * 100;
 
                                     return (
                                         <>
@@ -1719,7 +1724,7 @@ const PreviewCard = memo(({
                                             <div
                                                 className="absolute left-0 right-0 z-20 flex flex-col pointer-events-none"
                                                 style={{
-                                                    bottom: `${bottomMarginPct + shiftUpPct + (lockupBlockH / exportCanvasH) * 100}%`,
+                                                    bottom: `${textBottomPct}%`,
                                                     gap: `${lineGapPx}px`,
                                                     paddingLeft: isISS ? canvasPxToPercent(56) : canvasPxToPercent(16),
                                                     paddingRight: canvasPxToPercent(16),
@@ -1770,7 +1775,7 @@ const PreviewCard = memo(({
                                                 <div
                                                     className="absolute left-0 right-0 z-20 flex justify-center pointer-events-none"
                                                     style={{
-                                                        bottom: `${bottomMarginPct + shiftUpPct}%`,
+                                                        bottom: `${lockupBottomPct}%`,
                                                         height: `${(handleLockup.height / exportCanvasH) * 100}%`,
                                                     }}
                                                 >

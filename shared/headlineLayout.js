@@ -373,6 +373,36 @@ export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBar
 }
 
 /**
+ * Y of the first hook line (from top).
+ *
+ * Plain-text: pin the stack to the TOP of the solid black bar (slightly into the
+ * gradient), so text isn't floating mid-slab. Other tickers: bottom-margin layout.
+ */
+export function getNewsTickerHookBarY(preset, {
+  canvasH,
+  fontSize,
+  totalBarsH,
+  lockupBlockH = 0,
+  shiftY = 0,
+}) {
+  if (isPlainTextNewsTicker(preset)) {
+    const blackTop = getNewsTickerSolidTopY(preset, canvasH, 0, fontSize, totalBarsH);
+    // Start a touch above the solid edge so the first line rides the fade.
+    const riseIntoGradient = Math.round(fontSize * 0.45);
+    let barY = blackTop - riseIntoGradient - shiftY;
+    // Keep a tiny floor so the handle never clips the frame bottom.
+    const minBottom = Math.round(canvasH * 0.04);
+    const stackBottom = barY + totalBarsH + lockupBlockH;
+    if (stackBottom > canvasH - minBottom) {
+      barY = canvasH - minBottom - lockupBlockH - totalBarsH;
+    }
+    return Math.max(0, barY);
+  }
+  const bottomMargin = Math.round(canvasH * getNewsTickerBottomMarginRatio(preset));
+  return canvasH - bottomMargin - lockupBlockH - totalBarsH - shiftY;
+}
+
+/**
  * Y offset of the solid black cover relative to the first hook line (barY).
  * Positive = solid starts above the hook (covers competitor captions under the text).
  * Negative = solid starts below the first line (hook sits on the gradient above the bar).
