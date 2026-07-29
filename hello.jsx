@@ -14,8 +14,14 @@ import {
     getEffectiveLineSpacing,
     fitNewsTickerFontSize,
     NEWS_TICKER_BAR_LINE_HEIGHT,
-    NEWS_TICKER_LINE_GAP,
-    NEWS_TICKER_HIGHLIGHT_HEIGHT,
+    getNewsTickerLineMetrics,
+    getNewsTickerStackHeight,
+    getNewsTickerFitRatios,
+    getNewsTickerBottomMarginRatio,
+    getNewsTickerGradientHeight,
+    getNewsTickerBlackPadAbove,
+    getNewsTickerHandleLockup,
+    isPlainTextNewsTicker,
 } from './shared/headlineLayout.js';
 // Inter is loaded globally via public/fonts/*.woff2 (see index.css)
 
@@ -140,7 +146,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '4:5', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 46, logoPadY: 41 } },
     { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55 } },
     { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 38, textLogo: 'IFC.', logoPadX: 30, logoPadY: 56 } },
-    { id: 97, name: 'ifc2-news', handle: '@indianfoundercore', ratio: '4:5', color: '#ffd412', active: true, layout: 'news_ticker', logo: 'FoundersCORE-white.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 160, logoPadX: 28, logoPadY: 36 } },
+    { id: 97, name: 'ifc2-news', handle: '@indianfounderscore', ratio: '9:16', color: '#E0E140', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 22, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 5 } } },
     { id: 98, name: '101xtechnology-aroll', handle: '@101xtechnology', ratio: '16:9', color: '#4898ab', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: '101xt.', highlightColors: ['#4898ab', '#90d46c'], topGlow: true } },
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
@@ -320,7 +326,7 @@ function buildNewsTickerPreviewLines(headline, { fontSize, maxWidth, fontFamily,
 }
 
 /** Auto-fit news ticker like Canva/export: same min size + wrap budget as server. */
-function fitNewsTickerPreview(headline, { baseFontSize, maxWidth, fontFamily, boldWeight = 700, maxTotalBarsH }) {
+function fitNewsTickerPreview(headline, { baseFontSize, maxWidth, fontFamily, boldWeight = 700, maxTotalBarsH, fitRatios }) {
     const ctx = getMeasureCtx();
     if (!ctx || !headline) return { fontSize: baseFontSize, lines: [] };
     const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
@@ -336,6 +342,7 @@ function fitNewsTickerPreview(headline, { baseFontSize, maxWidth, fontFamily, bo
         maxLines: 3,
         maxTotalBarsH,
         barLineHeight: NEWS_TICKER_BAR_LINE_HEIGHT,
+        ...(fitRatios || {}),
     });
 }
 
@@ -782,9 +789,10 @@ const PreviewCard = memo(({
         let currentPosX = localPos.x;
         let currentPosY = localPos.y;
         const isNews = preset.layout === 'news_ticker';
-        const isIfc = (preset.name || '').toLowerCase() === 'ifc-news';
-        // ifc is full-bleed 9:16 — cap zoom so face doesn't disappear before captions are covered
-        const maxZoom = isIfc ? 220 : 300;
+        const presetNameLower = (preset.name || '').toLowerCase();
+        const isFullBleedNews = presetNameLower === 'ifc-news' || presetNameLower === 'ifc2-news';
+        // full-bleed 9:16 — cap zoom so face doesn't disappear before captions are covered
+        const maxZoom = isFullBleedNews ? 220 : 300;
         const rect0 = containerRef.current?.getBoundingClientRect();
         const startDistance = Math.sqrt(
             Math.pow(e.clientX - ((rect0?.left || 0) + (rect0?.width || 0) / 2), 2) +
@@ -1648,38 +1656,35 @@ const PreviewCard = memo(({
                                     const isISS = preset.name === 'indiastartupstory-news';
                                     const isIFC = preset.name === 'ifc-news';
                                     const isIFC2 = preset.name === 'ifc2-news';
+                                    const isPlainText = isPlainTextNewsTicker(preset);
                                     const ntFontWeight = 700;
                                     const ntFontFamily = "'ITC Avant Garde Gothic', sans-serif";
                                     const [rw, rh] = (preset.ratio || '9:16').split(':').map(Number);
                                     const exportCanvasH = Math.round(720 * (rh / rw));
+                                    // Handle lockup reserves a fixed box under the hook (mirrors export)
+                                    const handleLockup = getNewsTickerHandleLockup(preset);
+                                    const lockupBlockH = handleLockup ? handleLockup.gap + handleLockup.height : 0;
                                     // Same wrap budget as export (getExportNewsMaxLineWidth already leaves pad room)
                                     const { fontSize: fittedExportFs, lines } = fitNewsTickerPreview(preset.headline, {
                                         baseFontSize: Math.round(54 * effectiveFontScale),
                                         maxWidth: getExportNewsMaxLineWidth(preset),
                                         fontFamily: ntFontFamily,
                                         boldWeight: ntFontWeight,
-                                        maxTotalBarsH: Math.round(exportCanvasH * 0.28),
+                                        maxTotalBarsH: Math.round(exportCanvasH * 0.28) - lockupBlockH,
+                                        fitRatios: getNewsTickerFitRatios(preset),
                                     });
                                     const ntFontSize = Math.max(8, fittedExportFs * previewScale);
                                     // Mirror generateNewsTickerOverlay geometry (percent of frame height)
-                                    const highlightH = Math.round(fittedExportFs * NEWS_TICKER_HIGHLIGHT_HEIGHT);
-                                    const lineGap = Math.round(fittedExportFs * NEWS_TICKER_LINE_GAP);
-                                    const totalBarsH = lines.length === 0
-                                        ? 0
-                                        : lines.length * highlightH + Math.max(0, lines.length - 1) * lineGap;
-                                    // IFC Canva-style: tight bottom margin, black hugs the hook (no empty slab)
-                                    const bottomMarginPct = isIFC ? 5.5 : 10;
-                                    const blackBandHPct = bottomMarginPct + (totalBarsH / exportCanvasH) * 100;
-                                    const gradientHPx = Math.min(
-                                        isIFC ? 280 : 160,
-                                        Math.round(exportCanvasH * (isIFC ? 0.26 : 0.18)),
-                                    );
-                                    const gradientHPct = (gradientHPx / exportCanvasH) * 100;
-                                    const lineGapPx = Math.round(ntFontSize * NEWS_TICKER_LINE_GAP);
+                                    const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fittedExportFs);
+                                    const totalBarsH = getNewsTickerStackHeight(preset, fittedExportFs, lines.length);
+                                    const bottomMarginPct = getNewsTickerBottomMarginRatio(preset) * 100;
+                                    const blackBandHPct = bottomMarginPct + ((totalBarsH + lockupBlockH) / exportCanvasH) * 100;
+                                    const gradientHPct = (getNewsTickerGradientHeight(preset, exportCanvasH) / exportCanvasH) * 100;
+                                    const lineGapPx = lineGap * previewScale;
                                     // headlinePosition.y = % to raise hook text + gradient
                                     const shiftUpPct = Math.max(0, Math.min(48, localHeadlinePos?.y || 0));
                                     // Match export: solid pad above first line + black always to frame bottom
-                                    const blackPadPct = (fittedExportFs * (isIFC ? 0.35 : 0.12) / exportCanvasH) * 100;
+                                    const blackPadPct = (getNewsTickerBlackPadAbove(preset, fittedExportFs) / exportCanvasH) * 100;
                                     const solidBlackHPct = blackBandHPct + shiftUpPct + blackPadPct;
                                     const gradientBottomPct = solidBlackHPct; // gradient sits on top of solid cover
 
@@ -1703,11 +1708,11 @@ const PreviewCard = memo(({
                                                     background: '#000000',
                                                 }}
                                             />
-                                            {/* Ticker text */}
+                                            {/* Ticker text — sits above the reserved handle-lockup box */}
                                             <div
                                                 className="absolute left-0 right-0 z-20 flex flex-col pointer-events-none"
                                                 style={{
-                                                    bottom: `${bottomMarginPct + shiftUpPct}%`,
+                                                    bottom: `${bottomMarginPct + shiftUpPct + (lockupBlockH / exportCanvasH) * 100}%`,
                                                     gap: `${lineGapPx}px`,
                                                     paddingLeft: isISS ? canvasPxToPercent(56) : canvasPxToPercent(16),
                                                     paddingRight: canvasPxToPercent(16),
@@ -1730,17 +1735,19 @@ const PreviewCard = memo(({
                                                             fontFamily: ntFontFamily,
                                                             fontWeight: ntFontWeight,
                                                             fontSize: `${ntFontSize}px`,
-                                                            lineHeight: NEWS_TICKER_HIGHLIGHT_HEIGHT,
+                                                            lineHeight: highlightH / fittedExportFs,
                                                             whiteSpace: 'nowrap',
                                                             maxWidth: '100%',
                                                             boxSizing: 'border-box',
                                                         }}>
                                                             {runs.map((run, j) => (
                                                                 <span key={j} style={{
-                                                                    background: run.bold ? (isIBC ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : preset.color) : 'transparent',
-                                                                    color: (isIBC || isIFC || isIFC2) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff',
-                                                                    padding: run.bold ? '0 4px' : '0 2px',
-                                                                    borderRadius: ((isISS || isIFC2) && run.bold) ? '6px' : undefined,
+                                                                    background: (run.bold && !isPlainText) ? (isIBC ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : preset.color) : 'transparent',
+                                                                    color: isPlainText
+                                                                        ? (run.bold ? preset.color : '#ffffff')
+                                                                        : (isIBC || isIFC || isIFC2) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff',
+                                                                    padding: (run.bold && !isPlainText) ? '0 4px' : '0 2px',
+                                                                    borderRadius: (isISS && run.bold) ? '6px' : undefined,
                                                                     flexShrink: 1,
                                                                     minWidth: 0,
                                                                 }}>
@@ -1751,6 +1758,27 @@ const PreviewCard = memo(({
                                                     );
                                                 })}
                                             </div>
+                                            {/* Handle lockup (Instagram + Facebook + wordmark) under the hook */}
+                                            {handleLockup && (
+                                                <div
+                                                    className="absolute left-0 right-0 z-20 flex justify-center pointer-events-none"
+                                                    style={{
+                                                        bottom: `${bottomMarginPct + shiftUpPct}%`,
+                                                        height: `${(handleLockup.height / exportCanvasH) * 100}%`,
+                                                    }}
+                                                >
+                                                    <img
+                                                        src={getLogoUrl(handleLockup.file)}
+                                                        alt=""
+                                                        style={{
+                                                            width: canvasPxToPercent(handleLockup.width),
+                                                            height: '100%',
+                                                            objectFit: 'contain',
+                                                            display: 'block',
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
                                             {/* Drag hit-area for MOVE HOOK — must sit above dismiss layers */}
                                             {isRepositioningHeadline && (
                                                 <div
