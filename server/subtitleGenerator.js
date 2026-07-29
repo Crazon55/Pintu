@@ -310,21 +310,21 @@ export function buildCaptionSpec(words, options = {}) {
 
 /**
  * Word-level captions that build a sentence one word at a time: each word
- * slides up into place in the highlight colour, the words already spoken stay
- * put in white, and the line clears when the next block starts.
+ * slides up into a fixed horizontal slot in the highlight colour, earlier
+ * words stay put in white, and the line clears when the next block starts.
  *
- * Emits one Dialogue state per word (rather than \k karaoke, which colours
- * words cumulatively). Each state is drawn as up to three events:
+ * Emits one Dialogue state per word. Each state is drawn as up to three events:
  *
  *   layer 0  glow behind the incoming word
- *   layer 1  the words already on screen, anchored (they must not move)
+ *   layer 1  words already spoken, anchored (they must not move)
  *   layer 2  the incoming word, sliding up from riseY
  *
- * All three lay out the *same* tokens with the *same* scale tags and differ
- * only in alpha. That matters: the line is centre-anchored, so any difference
- * in rendered width would shift the centre and knock the incoming word out of
- * alignment with the settled ones. Hidden tokens still occupy their advance
- * width, so libass does the positioning and no text measuring is needed.
+ * Every event lays out the *full* block — unspoken future words are fully
+ * transparent but still advance the pen. That keeps the centre-anchored line
+ * the same width from the first word to the last, so word 1 lands on the left
+ * of the eventual sentence and never gets shoved sideways when word 2 arrives.
+ * Scale tags are identical across layers so the settled and rising copies of
+ * the line measure the same width.
  *
  * @param {Array} words - Word-level timestamps [{word|text, start, end}, ...]
  * @param {Object} options
@@ -400,20 +400,22 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
 
   for (const block of blocks) {
     const ws = block.words;
+    const lastIdx = ws.length - 1;
     for (let j = 0; j < ws.length; j++) {
       const evStart = ws[j].start;
       const evEnd = (j + 1 < ws.length) ? ws[j + 1].start : block.end;
       if (evEnd <= evStart) continue;
 
-      const lastIdx = accumulate ? j : ws.length - 1;
       const rises = riseOn === 'word' || (riseOn === 'block' && j === 0);
       const fixed = `\\pos(${posX},${posY})`;
       const moving = rises
         ? `\\move(${posX},${posY + riseY},${posX},${posY},0,${riseMs})`
         : fixed;
 
-      // `visible` decides the appearance of token k; scale tags stay identical
-      // across layers so every copy of the line measures the same width.
+      // Always lay out every token in the block. In accumulate mode, unspoken
+      // future words stay HIDDEN so the line width (and each word's x slot)
+      // is locked from the first reveal. Scale tags stay identical across
+      // layers so settled and rising copies measure the same.
       const build = (anchor, visible) => {
         let line = `{${anchor}\\frz${frz}}`;
         for (let k = 0; k <= lastIdx; k++) {
@@ -424,9 +426,18 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
         return line;
       };
 
-      const settled = build(fixed, (k) => (
-        k === j ? HIDDEN : `\\alpha&H00&\\c${base}\\3c${outlineC}\\bord${outline}\\blur0`
-      ));
+      const settledVisible = (k) => {
+        // Past words stay white; current + future reserve width only.
+        if (accumulate) {
+          if (k < j) return `\\alpha&H00&\\c${base}\\3c${outlineC}\\bord${outline}\\blur0`;
+          return HIDDEN;
+        }
+        // 'all': whole sentence visible; current word drawn on the rising layer.
+        if (k === j) return HIDDEN;
+        return `\\alpha&H00&\\c${base}\\3c${outlineC}\\bord${outline}\\blur0`;
+      };
+
+      const settled = build(fixed, settledVisible);
       const incoming = build(moving, (k) => (
         k === j ? `\\alpha&H00&\\c${active}\\3c${outlineC}\\bord${outline}\\blur0` : HIDDEN
       ));
@@ -437,8 +448,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
       const start = toASSTime(evStart);
       const end = toASSTime(evEnd);
       if (glow) dialogues.push(`Dialogue: 0,${start},${end},Default,,0,0,0,,${glowLine}`);
-      // Skip an all-transparent line: the first word of a block has nothing settled behind it.
-      if (lastIdx > 0) dialogues.push(`Dialogue: 1,${start},${end},Default,,0,0,0,,${settled}`);
+      // First word of a block has nothing settled behind it yet.
+      if (j > 0 || !accumulate) dialogues.push(`Dialogue: 1,${start},${end},Default,,0,0,0,,${settled}`);
       dialogues.push(`Dialogue: 2,${start},${end},Default,,0,0,0,,${incoming}`);
     }
   }
