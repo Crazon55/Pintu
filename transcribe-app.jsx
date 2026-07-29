@@ -1,567 +1,597 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Upload, Play, Pause, Loader2, Download, Wand2, Type, RotateCcw, AlertCircle, Check,
+} from 'lucide-react';
 
-const SERVER_URL = (() => {
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1' || window.location.origin.includes('ngrok')) return '';
-    return `http://${host}:3002`;
-})();
+// The ASS script is authored against this virtual canvas; the preview maps
+// positions proportionally so what you see matches what libass renders.
+const PLAY_RES_X = 720;
+const PLAY_RES_Y = 1280;
+
+const DEFAULT_STYLE = {
+  fontSize: 58,
+  baseColor: '#FFFFFF',
+  activeColor: '#FF0000',
+  outlineColor: '#000000',
+  outline: 4,
+  slantDeg: -6,
+  popFromScale: 85,
+  popToScale: 110,
+  popDurationMs: 70,
+  glow: true,
+  glowBlur: 11,
+  posX: 360,
+  posY: 900,
+  maxWordsPerBlock: 4,
+  maxBlockDuration: 2.0,
+};
+
+const round3 = (n) => Math.round(n * 1000) / 1000;
+
+/** Mirrors the ASS \t(0,popDurationMs,\fscx..) ramp so preview timing matches. */
+function popScaleAt(time, word, style) {
+  if (!word) return style.popToScale;
+  const ms = (time - word.activeFrom) * 1000;
+  if (ms <= 0) return style.popFromScale;
+  if (ms >= style.popDurationMs) return style.popToScale;
+  const p = ms / style.popDurationMs;
+  return style.popFromScale + (style.popToScale - style.popFromScale) * p;
+}
+
+function fmtTime(s) {
+  if (!Number.isFinite(s)) return '0:00';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+function Slider({ label, value, min, max, step = 1, suffix = '', onChange }) {
+  return (
+    <label className="block">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] uppercase tracking-wider text-neutral-500">{label}</span>
+        <span className="text-[11px] font-medium text-neutral-300 tabular-nums">{value}{suffix}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full h-1 bg-neutral-800 rounded-full appearance-none cursor-pointer
+                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5
+                   [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full
+                   [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:cursor-grab"
+      />
+    </label>
+  );
+}
+
+function ColorInput({ label, value, onChange }) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] uppercase tracking-wider text-neutral-500 mb-1.5">{label}</span>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value.toUpperCase())}
+          className="w-8 h-8 rounded-md bg-transparent border border-neutral-800 cursor-pointer p-0.5"
+        />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value.toUpperCase())}
+          className="flex-1 min-w-0 bg-neutral-900 border border-neutral-800 rounded-md px-2 py-1.5
+                     text-xs font-mono text-neutral-300 focus:outline-none focus:border-neutral-600"
+        />
+      </div>
+    </label>
+  );
+}
 
 export default function TranscribeApp() {
-    const [step, setStep] = useState('upload'); // upload | transcribing | edit | burning | done
-    const [language, setLanguage] = useState('en'); // en = English, hi = Hinglish
-    const [videoFile, setVideoFile] = useState(null);
-    const [videoSrc, setVideoSrc] = useState(null);
-    const [jobId, setJobId] = useState(null);
-    const [progress, setProgress] = useState(null);
-    const [captionStyle, setCaptionStyle] = useState('clean'); // clean | indian-founder
-    const [segments, setSegments] = useState([]);
-    const [words, setWords] = useState([]); // word-level timestamps for indian-founder style
-    const [videoPath, setVideoPath] = useState(null);
-    const [subtitledUrl, setSubtitledUrl] = useState(null);
-    const [subtitledPath, setSubtitledPath] = useState(null);
-    const [error, setError] = useState(null);
-    const [style, setStyle] = useState({
-        fontName: 'Neue Haas Grotesk Display Pro',
-        fontSize: 48,
-        bold: false,
-        outline: 3,
-        marginV: 300, // distance from bottom (higher = subtitles move up)
-        posX: 360,
-        posY: 900,
-    });
-    const videoRef = useRef(null);
-    const previewVideoRef = useRef(null);
-    const pollRef = useRef(null);
-    const [currentTime, setCurrentTime] = useState(0);
+  const [file, setFile] = useState(null);
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [language, setLanguage] = useState('hinglish');
 
-    // Handle video upload
-    const handleFileChange = useCallback((e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setVideoFile(file);
-        setVideoSrc(URL.createObjectURL(file));
-        setStep('upload');
-        setSegments([]);
-        setSubtitledUrl(null);
-        setError(null);
-    }, []);
+  const [phase, setPhase] = useState('idle'); // idle | transcribing | ready | burning
+  const [progress, setProgress] = useState(null);
+  const [error, setError] = useState(null);
 
-    // Start transcription
-    const startTranscribe = useCallback(async () => {
-        if (!videoFile) return;
-        setStep('transcribing');
-        setError(null);
-        setProgress(`Uploading video... (${language === 'hi' ? 'Hinglish' : 'English'} mode)`);
+  const [words, setWords] = useState([]);
+  const [serverVideoPath, setServerVideoPath] = useState(null);
+  const [spec, setSpec] = useState(null);
+  const [style, setStyle] = useState(DEFAULT_STYLE);
 
-        try {
-            const formData = new FormData();
-            formData.append('video', videoFile);
-            // Hinglish: use medium model + language='hi', then transliterate Devanagari to Roman
-            // Hinglish needs small model for accuracy, English can use base for speed
-            formData.append('modelSize', language === 'hi' ? 'small' : 'base');
-            // English: force 'en'. Hinglish: auto-detect (outputs mix of English + Devanagari, transliteration handles the rest)
-            if (language === 'en') formData.append('language', 'en');
-            if (language === 'hi') formData.append('language', 'hinglish');
+  const [time, setTime] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [aspect, setAspect] = useState(9 / 16);
+  const [editing, setEditing] = useState(null); // index into `words`
+  const [burnResult, setBurnResult] = useState(null);
 
-            const res = await fetch(`${SERVER_URL}/api/transcribe`, {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Transcription failed');
+  const videoRef = useRef(null);
+  const stageRef = useRef(null);
+  const [stageWidth, setStageWidth] = useState(0);
 
-            setJobId(data.jobId);
-            setProgress(`Transcribing in ${language === 'hi' ? 'Hinglish' : 'English'}...`);
+  // --- upload -------------------------------------------------------------
+  const onPickFile = useCallback((f) => {
+    if (!f) return;
+    setFile(f);
+    setVideoUrl((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(f); });
+    setWords([]); setSpec(null); setServerVideoPath(null);
+    setBurnResult(null); setError(null); setPhase('idle');
+  }, []);
 
-            // Poll for completion
-            pollRef.current = setInterval(async () => {
-                try {
-                    const statusRes = await fetch(`${SERVER_URL}/api/job/${data.jobId}`);
-                    const statusData = await statusRes.json();
+  useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);
 
-                    if (statusData.state === 'completed') {
-                        clearInterval(pollRef.current);
-                        const result = statusData.returnvalue;
-                        setSegments(result.segments || []);
-                        setWords((result.words || []).map(w => ({ ...w, highlight: false })));
-                        setVideoPath(result.videoPath);
-                        setStep('edit');
-                        setProgress(null);
-                    } else if (statusData.state === 'failed') {
-                        clearInterval(pollRef.current);
-                        setError(statusData.failedReason || 'Transcription failed');
-                        setStep('upload');
-                        setProgress(null);
-                    } else {
-                        const p = statusData.progress;
-                        if (p?.step) setProgress(`${p.step}... ${p.percent || 0}%`);
-                    }
-                } catch (err) {
-                    console.error('Poll error:', err);
-                }
-            }, 2000);
-        } catch (err) {
-            setError(err.message);
-            setStep('upload');
-            setProgress(null);
+  // --- transcribe ---------------------------------------------------------
+  const transcribe = useCallback(async () => {
+    if (!file) return;
+    setPhase('transcribing'); setError(null); setProgress({ step: 'uploading', percent: 5 });
+    try {
+      const fd = new FormData();
+      fd.append('video', file);
+      fd.append('language', language);
+
+      const res = await fetch('/api/transcribe', { method: 'POST', body: fd });
+      const started = await res.json();
+      if (!res.ok) throw new Error(started.error || 'Transcription request failed');
+
+      // poll
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 1200));
+        const jr = await fetch(`/api/job/${started.jobId}`);
+        const job = await jr.json();
+        if (job.progress) setProgress(job.progress);
+        if (job.state === 'completed') {
+          const rv = job.returnvalue || {};
+          setWords((rv.words || []).map((w) => ({ text: w.text, start: w.start, end: w.end })));
+          setServerVideoPath(rv.videoPath || null);
+          setPhase('ready');
+          setProgress(null);
+          return;
         }
-    }, [videoFile, language]);
-
-    // Update segment text
-    const updateSegment = useCallback((idx, field, value) => {
-        setSegments(prev => prev.map((seg, i) => i === idx ? { ...seg, [field]: value } : seg));
-    }, []);
-
-    // Delete segment
-    const deleteSegment = useCallback((idx) => {
-        setSegments(prev => prev.filter((_, i) => i !== idx));
-    }, []);
-
-    // Add segment
-    const addSegment = useCallback(() => {
-        const lastEnd = segments.length > 0 ? segments[segments.length - 1].end : 0;
-        setSegments(prev => [...prev, { start: lastEnd, end: lastEnd + 2, text: '' }]);
-    }, [segments]);
-
-    // Burn subtitles
-    const burnSubs = useCallback(async () => {
-        if (!videoPath || (captionStyle === 'clean' ? segments.length === 0 : words.length === 0)) return;
-        setStep('burning');
-        setError(null);
-        setProgress('Burning subtitles...');
-
-        try {
-            const res = await fetch(`${SERVER_URL}/api/burn-subtitles`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ videoPath, segments, words, style, captionStyle }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Subtitle burning failed');
-
-            setSubtitledUrl(data.downloadUrl);
-            setSubtitledPath(data.videoPath);
-            setStep('done');
-            setProgress(null);
-        } catch (err) {
-            setError(err.message);
-            setStep('edit');
-            setProgress(null);
+        if (job.state === 'failed' || job.state === 'cancelled') {
+          throw new Error(job.failedReason || 'Transcription failed');
         }
-    }, [videoPath, segments, style]);
+      }
+    } catch (e) {
+      setError(e.message);
+      setPhase('idle');
+      setProgress(null);
+    }
+  }, [file, language]);
 
-    // Download via fetch + blob (works cross-origin)
-    const downloadVideo = useCallback(async () => {
-        if (!subtitledUrl) return;
-        try {
-            const res = await fetch(`${SERVER_URL}${subtitledUrl}`);
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'subtitled.mp4';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        } catch (err) {
-            setError('Download failed: ' + err.message);
-        }
-    }, [subtitledUrl]);
+  // --- grouping comes from the server so preview == render ----------------
+  useEffect(() => {
+    if (!words.length) { setSpec(null); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/caption-spec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ words, style }),
+        });
+        const data = await res.json();
+        if (res.ok) setSpec(data);
+      } catch { /* preview-only; ignore */ }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [words, style.maxWordsPerBlock, style.maxBlockDuration, style.activeColor, style.baseColor]);
 
-    // Send to Pintu batcher
-    const sendToBatcher = useCallback(() => {
-        if (subtitledPath) {
-            localStorage.setItem('subtitledVideoPath', subtitledPath);
-            window.location.href = '/';
-        }
-    }, [subtitledPath]);
-
-    // Clear everything and start over
-    const startFresh = useCallback(() => {
-        setStep('upload');
-        setSegments([]);
-        setWords([]);
-        setVideoFile(null);
-        setVideoSrc(null);
-        setVideoPath(null);
-        setSubtitledUrl(null);
-        setSubtitledPath(null);
-        setError(null);
-        setCaptionStyle('clean');
-    }, []);
-
-    // Cleanup polling on unmount
-    useEffect(() => {
-        return () => { if (pollRef.current) clearInterval(pollRef.current); };
-    }, []);
-
-    const formatTime = (s) => {
-        const m = Math.floor(s / 60);
-        const sec = (s % 60).toFixed(1);
-        return `${m}:${sec.padStart(4, '0')}`;
+  // --- playback clock -----------------------------------------------------
+  useEffect(() => {
+    let raf;
+    const tick = () => {
+      const v = videoRef.current;
+      if (v) setTime(v.currentTime);
+      raf = requestAnimationFrame(tick);
     };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
-    return (
-        <div className="min-h-screen bg-neutral-950 text-white">
-            {/* Header */}
-            <div className="border-b border-neutral-800 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <h1 className="text-xl font-bold tracking-tight text-orange-500">PINTU</h1>
-                    <span className="text-neutral-500">|</span>
-                    <span className="text-sm text-neutral-400">Transcribe & Subtitle</span>
-                </div>
-                <div className="flex items-center gap-4">
-                    {step !== 'upload' && (
-                        <button onClick={startFresh} className="text-sm text-red-400 hover:text-red-300 transition-colors">
-                            Clear & Reset
-                        </button>
-                    )}
-                    <a href="/silence-remover.html" className="text-sm text-neutral-400 hover:text-neutral-300 transition-colors">
-                        Silence Remover
-                    </a>
-                    <a href="/" className="text-sm text-orange-500 hover:text-orange-400 transition-colors">
-                        Back to Batcher
-                    </a>
-                </div>
-            </div>
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setStageWidth(e.contentRect.width));
+    ro.observe(el);
+    setStageWidth(el.getBoundingClientRect().width);
+    return () => ro.disconnect();
+  }, [videoUrl]);
 
-            <div className="max-w-5xl mx-auto px-6 py-8">
-                {/* Error banner */}
-                {error && (
-                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                        {error}
-                        <button onClick={() => setError(null)} className="ml-4 text-red-300 hover:text-white">Dismiss</button>
-                    </div>
-                )}
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) { v.play(); setPlaying(true); } else { v.pause(); setPlaying(false); }
+  };
 
-                {/* Progress banner */}
-                {progress && (
-                    <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg text-orange-400 text-sm flex items-center gap-3">
-                        <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-                        {progress}
-                    </div>
-                )}
+  const seek = (t) => {
+    const v = videoRef.current;
+    if (v) { v.currentTime = t; setTime(t); }
+  };
 
-                {/* Step 1: Upload */}
-                <div className="mb-8">
-                    <h2 className="text-lg font-semibold mb-4">1. Upload Video</h2>
-                    <div className="flex items-center gap-4">
-                        <label className="px-6 py-3 bg-orange-600 hover:bg-orange-500 rounded-lg cursor-pointer text-sm font-medium transition-colors">
-                            Choose Video
-                            <input type="file" accept="video/*" onChange={handleFileChange} className="hidden" />
-                        </label>
-                        {videoFile && <span className="text-sm text-neutral-400">{videoFile.name}</span>}
-                    </div>
-                    {videoSrc && (
-                        <div className="mt-4 max-w-md">
-                            <video ref={videoRef} src={videoSrc} controls className="w-full rounded-lg" />
-                        </div>
-                    )}
-                </div>
+  // --- word editing -------------------------------------------------------
+  const indexByStart = useMemo(() => {
+    const m = new Map();
+    words.forEach((w, i) => m.set(round3(w.start), i));
+    return m;
+  }, [words]);
 
-                {/* Language selection + Transcribe button */}
-                {step === 'upload' && videoFile && (
-                    <div className="mb-8 flex items-center gap-4">
-                        <div className="flex rounded-lg overflow-hidden border border-neutral-700">
-                            <button
-                                onClick={() => setLanguage('en')}
-                                className={`px-5 py-3 text-sm font-medium transition-colors ${language === 'en' ? 'bg-orange-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
-                            >
-                                English
-                            </button>
-                            <button
-                                onClick={() => setLanguage('hi')}
-                                className={`px-5 py-3 text-sm font-medium transition-colors ${language === 'hi' ? 'bg-orange-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
-                            >
-                                Hinglish
-                            </button>
-                        </div>
-                        <button
-                            onClick={startTranscribe}
-                            className="px-8 py-3 bg-orange-600 hover:bg-orange-500 rounded-lg font-medium transition-colors"
-                        >
-                            Transcribe Video
-                        </button>
-                    </div>
-                )}
+  const updateWord = (idx, text) => {
+    setWords((prev) => prev.map((w, i) => (i === idx ? { ...w, text } : w)));
+  };
 
-                {/* Caption Style Selector */}
-                {(step === 'edit' || step === 'burning' || step === 'done') && segments.length > 0 && (
-                    <div className="mb-6">
-                        <h2 className="text-lg font-semibold mb-3">2. Caption Style</h2>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setCaptionStyle('clean')}
-                                className={`px-5 py-3 rounded-lg text-sm font-medium transition-colors border ${captionStyle === 'clean' ? 'bg-orange-600 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700'}`}
-                            >
-                                Clean (Phrase-based)
-                            </button>
-                            <button
-                                onClick={() => setCaptionStyle('indian-founder')}
-                                className={`px-5 py-3 rounded-lg text-sm font-medium transition-colors border ${captionStyle === 'indian-founder' ? 'bg-orange-600 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700'}`}
-                            >
-                                Indian Founder (Word-by-word)
-                            </button>
-                        </div>
-                    </div>
-                )}
+  // --- burn ---------------------------------------------------------------
+  const burn = useCallback(async () => {
+    if (!serverVideoPath || !words.length) return;
+    setPhase('burning'); setError(null); setBurnResult(null);
+    try {
+      const res = await fetch('/api/burn-subtitles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoPath: serverVideoPath,
+          words,
+          style,
+          captionStyle: 'word-highlight',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Burn failed');
+      setBurnResult(data);
+      setPhase('ready');
+    } catch (e) {
+      setError(e.message);
+      setPhase('ready');
+    }
+  }, [serverVideoPath, words, style]);
 
-                {/* Word-level editor for Indian Founder style */}
-                {(step === 'edit' || step === 'burning' || step === 'done') && captionStyle === 'indian-founder' && words.length > 0 && (
-                    <div className="mb-8">
-                        <h2 className="text-lg font-semibold mb-3">3. Tap words to highlight in yellow</h2>
-                        <p className="text-sm text-neutral-500 mb-4">Click any word to toggle yellow highlight. These will pop in yellow during playback.</p>
-                        <div className="flex flex-wrap gap-2 bg-neutral-900 rounded-lg p-4">
-                            {words.map((w, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => setWords(prev => prev.map((word, i) => i === idx ? { ...word, highlight: !word.highlight } : word))}
-                                    className={`px-3 py-1.5 rounded text-sm font-bold uppercase transition-colors ${w.highlight ? 'bg-yellow-500 text-black' : 'bg-neutral-700 text-white hover:bg-neutral-600'}`}
-                                >
-                                    {w.text}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
+  // --- derived preview state ---------------------------------------------
+  const blocks = spec?.blocks || [];
+  const activeBlock = useMemo(
+    () => blocks.find((b) => time >= b.start && time < b.end) || null,
+    [blocks, time],
+  );
+  const activeWordIdx = useMemo(() => {
+    if (!activeBlock) return -1;
+    let idx = -1;
+    activeBlock.words.forEach((w, i) => { if (time >= w.activeFrom) idx = i; });
+    return idx;
+  }, [activeBlock, time]);
 
-                {/* Step 3: Edit Transcript (Clean style) */}
-                {(step === 'edit' || step === 'burning' || step === 'done') && captionStyle === 'clean' && segments.length > 0 && (
-                    <div className="mb-8">
-                        <h2 className="text-lg font-semibold mb-4">3. Edit Transcript</h2>
-                        <p className="text-sm text-neutral-500 mb-4">Edit the text or adjust timestamps. Delete segments you don't need.</p>
+  const scale = stageWidth ? stageWidth / PLAY_RES_X : 0;
+  const setS = (patch) => setStyle((s) => ({ ...s, ...patch }));
 
-                        <div className="space-y-2">
-                            {segments.map((seg, idx) => (
-                                <div key={idx} className="flex items-center gap-3 bg-neutral-900 rounded-lg p-3">
-                                    <div className="flex flex-col gap-1 shrink-0">
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            value={seg.start}
-                                            onChange={(e) => updateSegment(idx, 'start', parseFloat(e.target.value) || 0)}
-                                            className="w-20 bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-center"
-                                        />
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            value={seg.end}
-                                            onChange={(e) => updateSegment(idx, 'end', parseFloat(e.target.value) || 0)}
-                                            className="w-20 bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-center"
-                                        />
-                                    </div>
-                                    <input
-                                        type="text"
-                                        value={seg.text}
-                                        onChange={(e) => updateSegment(idx, 'text', e.target.value)}
-                                        className="flex-1 bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm"
-                                        placeholder="Subtitle text..."
-                                    />
-                                    <button
-                                        onClick={() => deleteSegment(idx)}
-                                        className="text-red-500 hover:text-red-400 text-sm px-2"
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
+  const busy = phase === 'transcribing' || phase === 'burning';
 
-                        <button
-                            onClick={addSegment}
-                            className="mt-3 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm transition-colors"
-                        >
-                            + Add Segment
-                        </button>
-                    </div>
-                )}
-
-                {/* Style options with live preview */}
-                {(step === 'edit') && (segments.length > 0 || words.length > 0) && (
-                    <div className="mb-8">
-                        <h2 className="text-lg font-semibold mb-4">{captionStyle === 'clean' ? '4' : '4'}. Subtitle Style & Position</h2>
-                        <div className="flex gap-6 flex-col lg:flex-row">
-                            {/* Live preview with audio and time-synced subtitles */}
-                            <div className="shrink-0">
-                                <p className="text-xs text-neutral-500 mb-2">Live Preview (play to see synced subtitles)</p>
-                                <div className="relative bg-black rounded-lg overflow-hidden" style={{ width: '320px', aspectRatio: '9/16' }}>
-                                    {videoSrc && (
-                                        <video
-                                            ref={previewVideoRef}
-                                            src={videoSrc}
-                                            className="w-full h-full object-cover"
-                                            controls
-                                            playsInline
-                                            onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
-                                        />
-                                    )}
-                                    {/* Time-synced subtitle overlay */}
-                                    {(() => {
-                                        if (captionStyle === 'indian-founder') {
-                                            // Find which phrase we're in and show accumulated words
-                                            const PUNCT = /[.,!?;:]$/;
-                                            const phrases = [];
-                                            let cur = [];
-                                            for (const w of words) {
-                                                if (!w.text) continue;
-                                                cur.push(w);
-                                                if (cur.length >= 4 || (cur.length > 0 && w.end - cur[0].start >= 2) || PUNCT.test(w.text)) {
-                                                    phrases.push([...cur]); cur = [];
-                                                }
-                                            }
-                                            if (cur.length > 0) phrases.push(cur);
-                                            // Find active phrase
-                                            const activePhrase = phrases.find(p =>
-                                                currentTime >= p[0].start && currentTime <= p[p.length - 1].end + 0.15
-                                            );
-                                            if (!activePhrase) return null;
-                                            // Show accumulated words up to current time
-                                            const visibleWords = activePhrase.filter(w => currentTime >= w.start);
-                                            if (visibleWords.length === 0) return null;
-                                            return (
-                                                <div
-                                                    className="absolute pointer-events-none"
-                                                    style={{
-                                                        left: '50%',
-                                                        bottom: `${(style.marginV / 1280) * 100}%`,
-                                                        transform: 'translateX(-50%)',
-                                                        fontSize: `${(style.fontSize / 720) * 320}px`,
-                                                        fontWeight: '800',
-                                                        fontFamily: "'Montserrat', sans-serif",
-                                                        color: 'white',
-                                                        textShadow: `0 0 ${style.outline}px black, 0 0 ${style.outline * 2}px black, 2px 2px ${style.outline}px black, -2px -2px ${style.outline}px black`,
-                                                        textAlign: 'center',
-                                                        maxWidth: '85%',
-                                                        lineHeight: 1.3,
-                                                    }}
-                                                >
-                                                    {visibleWords.map((w, i) => (
-                                                        <span key={i} style={{
-                                                            color: w.highlight ? '#FFFF00' : 'white',
-                                                            fontStyle: w.highlight ? 'italic' : 'normal',
-                                                            fontSize: w.highlight ? '115%' : '100%',
-                                                        }}>
-                                                            {w.text}{' '}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            );
-                                        }
-                                        // Clean style
-                                        const activeSeg = segments.find(s => currentTime >= s.start && currentTime <= s.end);
-                                        if (!activeSeg) return null;
-                                        return (
-                                            <div
-                                                className="absolute pointer-events-none"
-                                                style={{
-                                                    left: '50%',
-                                                    bottom: `${(style.marginV / 1280) * 100}%`,
-                                                    transform: 'translateX(-50%)',
-                                                    fontSize: `${(style.fontSize / 720) * 320}px`,
-                                                    fontWeight: style.bold ? '800' : '500',
-                                                    color: 'white',
-                                                    textShadow: `0 0 ${style.outline}px black, 0 0 ${style.outline * 2}px black, 2px 2px ${style.outline}px black, -2px -2px ${style.outline}px black`,
-                                                    textAlign: 'center',
-                                                    maxWidth: '90%',
-                                                    lineHeight: 1.2,
-                                                }}
-                                            >
-                                                {activeSeg.text}
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-
-                            {/* Controls */}
-                            <div className="flex-1 space-y-4">
-                                <div>
-                                    <label className="text-xs text-neutral-500 block mb-1">Vertical Position (higher = subtitles move up)</label>
-                                    <input
-                                        type="range"
-                                        min="50" max="700" value={style.marginV}
-                                        onChange={(e) => setStyle(s => ({ ...s, marginV: parseInt(e.target.value) }))}
-                                        className="w-full"
-                                    />
-                                    <span className="text-xs text-neutral-500">{style.marginV} px from bottom</span>
-                                </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div>
-                                        <label className="text-xs text-neutral-500 block mb-1">Font Size</label>
-                                        <input
-                                            type="number"
-                                            value={style.fontSize}
-                                            onChange={(e) => setStyle(s => ({ ...s, fontSize: parseInt(e.target.value) || 48 }))}
-                                            className="w-full bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-neutral-500 block mb-1">Outline</label>
-                                        <input
-                                            type="number"
-                                            value={style.outline}
-                                            onChange={(e) => setStyle(s => ({ ...s, outline: parseInt(e.target.value) || 3 }))}
-                                            className="w-full bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm"
-                                        />
-                                    </div>
-                                    <div className="flex items-end">
-                                        <label className="flex items-center gap-2 text-sm">
-                                            <input
-                                                type="checkbox"
-                                                checked={style.bold}
-                                                onChange={(e) => setStyle(s => ({ ...s, bold: e.target.checked }))}
-                                                className="rounded"
-                                            />
-                                            Bold
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Burn button */}
-                {step === 'edit' && (segments.length > 0 || words.length > 0) && (
-                    <button
-                        onClick={burnSubs}
-                        className="mb-8 px-8 py-3 bg-green-600 hover:bg-green-500 rounded-lg font-medium transition-colors"
-                    >
-                        Burn Subtitles into Video
-                    </button>
-                )}
-
-                {/* Step 3: Done */}
-                {step === 'done' && subtitledUrl && (
-                    <div className="mb-8">
-                        <h2 className="text-lg font-semibold mb-4">4. Done!</h2>
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={downloadVideo}
-                                className="px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg font-medium transition-colors"
-                            >
-                                Download Subtitled Video
-                            </button>
-                            <button
-                                onClick={sendToBatcher}
-                                className="px-6 py-3 bg-orange-600 hover:bg-orange-500 rounded-lg font-medium transition-colors"
-                            >
-                                Send to Pintu Batcher
-                            </button>
-                            <button
-                                onClick={startFresh}
-                                className="px-6 py-3 bg-neutral-700 hover:bg-neutral-600 rounded-lg font-medium transition-colors"
-                            >
-                                Start Fresh
-                            </button>
-                        </div>
-                        <div className="mt-4 max-w-md">
-                            <video src={`${SERVER_URL}${subtitledUrl}`} controls className="w-full rounded-lg" />
-                        </div>
-                    </div>
-                )}
-            </div>
+  return (
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-inter">
+      <header className="border-b border-neutral-900 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <Type className="w-4 h-4 text-red-500" />
+          <h1 className="text-sm font-semibold tracking-tight">Word-Level Captions</h1>
+          <span className="text-[11px] text-neutral-600 ml-1">Groq transcribe → ASS burn-in</span>
         </div>
-    );
+        <a href="/" className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors">
+          ← Video Batcher
+        </a>
+      </header>
+
+      <div className="flex flex-col lg:flex-row gap-6 p-6 max-w-[1500px] mx-auto">
+        {/* ---------------- preview ---------------- */}
+        <div className="lg:w-[420px] shrink-0">
+          <div
+            ref={stageRef}
+            className="relative w-full bg-black rounded-xl overflow-hidden border border-neutral-900"
+            style={{ aspectRatio: String(aspect) }}
+          >
+            {videoUrl ? (
+              <video
+                ref={videoRef}
+                src={videoUrl}
+                className="absolute inset-0 w-full h-full object-contain"
+                onLoadedMetadata={(e) => {
+                  const v = e.currentTarget;
+                  setDuration(v.duration || 0);
+                  if (v.videoWidth && v.videoHeight) setAspect(v.videoWidth / v.videoHeight);
+                }}
+                onEnded={() => setPlaying(false)}
+                playsInline
+              />
+            ) : (
+              <label className="absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer
+                                text-neutral-600 hover:text-neutral-400 transition-colors">
+                <Upload className="w-7 h-7" />
+                <span className="text-xs">Drop a video or click to select</span>
+                <input
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={(e) => onPickFile(e.target.files?.[0])}
+                />
+              </label>
+            )}
+
+            {/* caption overlay — mirrors the ASS layout */}
+            {activeBlock && scale > 0 && (
+              <div
+                className="absolute pointer-events-none whitespace-nowrap"
+                style={{
+                  left: `${(style.posX / PLAY_RES_X) * 100}%`,
+                  top: `${(style.posY / PLAY_RES_Y) * 100}%`,
+                  transform: `translate(-50%, -50%) rotate(${-style.slantDeg}deg)`,
+                  fontFamily: 'Montserrat, sans-serif',
+                  fontWeight: 800,
+                  fontSize: `${style.fontSize * scale}px`,
+                  lineHeight: 1.15,
+                }}
+              >
+                {activeBlock.words.map((w, i) => {
+                  const isActive = i === activeWordIdx;
+                  const s = isActive ? popScaleAt(time, w, style) / 100 : 1;
+                  return (
+                    <span
+                      key={`${w.start}-${i}`}
+                      style={{
+                        display: 'inline-block',
+                        transform: `scale(${s})`,
+                        color: isActive ? style.activeColor : style.baseColor,
+                        WebkitTextStrokeWidth: `${style.outline * scale}px`,
+                        WebkitTextStrokeColor: style.outlineColor,
+                        paintOrder: 'stroke fill',
+                        textShadow: isActive && style.glow
+                          ? `0 0 ${style.glowBlur * scale}px ${style.activeColor}, 0 0 ${style.glowBlur * 2 * scale}px ${style.activeColor}`
+                          : 'none',
+                        marginRight: i < activeBlock.words.length - 1 ? `${0.28 * style.fontSize * scale}px` : 0,
+                      }}
+                    >
+                      {w.text}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* transport */}
+          {videoUrl && (
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={togglePlay}
+                className="w-9 h-9 shrink-0 rounded-full bg-white text-black flex items-center justify-center
+                           hover:bg-neutral-200 transition-colors"
+              >
+                {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={duration || 0}
+                step={0.01}
+                value={time}
+                onChange={(e) => seek(parseFloat(e.target.value))}
+                className="flex-1 h-1 bg-neutral-800 rounded-full appearance-none cursor-pointer
+                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3
+                           [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full
+                           [&::-webkit-slider-thumb]:bg-white"
+              />
+              <span className="text-[11px] text-neutral-500 tabular-nums shrink-0">
+                {fmtTime(time)} / {fmtTime(duration)}
+              </span>
+            </div>
+          )}
+
+          {file && (
+            <p className="mt-2 text-[11px] text-neutral-600 truncate">
+              {file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB
+            </p>
+          )}
+        </div>
+
+        {/* ---------------- controls ---------------- */}
+        <div className="flex-1 min-w-0 space-y-5">
+          {error && (
+            <div className="flex items-start gap-2.5 bg-red-950/40 border border-red-900/60 rounded-lg px-3.5 py-3">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-200 leading-relaxed">{error}</p>
+            </div>
+          )}
+
+          {/* step 1 — transcribe */}
+          <section className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-4">
+            <h2 className="text-xs font-semibold text-neutral-300 mb-3">1 · Transcribe</h2>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="block">
+                <span className="block text-[11px] uppercase tracking-wider text-neutral-500 mb-1.5">Language</span>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="bg-neutral-900 border border-neutral-800 rounded-md px-2.5 py-1.5 text-xs
+                             text-neutral-200 focus:outline-none focus:border-neutral-600"
+                >
+                  <option value="hinglish">Hindi → Hinglish (romanized)</option>
+                  <option value="en">English</option>
+                </select>
+              </label>
+              <button
+                onClick={transcribe}
+                disabled={!file || busy}
+                className="flex items-center gap-2 bg-white text-black text-xs font-medium rounded-md
+                           px-3.5 py-2 hover:bg-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed
+                           transition-colors"
+              >
+                {phase === 'transcribing'
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Wand2 className="w-3.5 h-3.5" />}
+                {phase === 'transcribing' ? 'Transcribing…' : 'Transcribe'}
+              </button>
+              {progress && (
+                <span className="text-[11px] text-neutral-500">
+                  {progress.step} {progress.percent ? `${progress.percent}%` : ''}
+                </span>
+              )}
+              {spec && (
+                <span className="flex items-center gap-1.5 text-[11px] text-emerald-400">
+                  <Check className="w-3.5 h-3.5" />
+                  {spec.wordCount} words · {spec.blockCount} blocks
+                </span>
+              )}
+            </div>
+          </section>
+
+          {/* step 2 — style */}
+          <section className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xs font-semibold text-neutral-300">2 · Style</h2>
+              <button
+                onClick={() => setStyle(DEFAULT_STYLE)}
+                className="flex items-center gap-1.5 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" /> Reset
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-4">
+              <ColorInput label="Base" value={style.baseColor} onChange={(v) => setS({ baseColor: v })} />
+              <ColorInput label="Active word" value={style.activeColor} onChange={(v) => setS({ activeColor: v })} />
+              <ColorInput label="Outline" value={style.outlineColor} onChange={(v) => setS({ outlineColor: v })} />
+
+              <Slider label="Font size" value={style.fontSize} min={28} max={96} onChange={(v) => setS({ fontSize: v })} />
+              <Slider label="Outline" value={style.outline} min={0} max={10} onChange={(v) => setS({ outline: v })} />
+              <Slider label="Slant" value={style.slantDeg} min={-15} max={15} suffix="°" onChange={(v) => setS({ slantDeg: v })} />
+
+              <Slider label="Pop from" value={style.popFromScale} min={50} max={100} suffix="%" onChange={(v) => setS({ popFromScale: v })} />
+              <Slider label="Pop to" value={style.popToScale} min={100} max={160} suffix="%" onChange={(v) => setS({ popToScale: v })} />
+              <Slider label="Pop speed" value={style.popDurationMs} min={20} max={300} step={10} suffix="ms" onChange={(v) => setS({ popDurationMs: v })} />
+
+              <Slider label="Words / block" value={style.maxWordsPerBlock} min={1} max={4} onChange={(v) => setS({ maxWordsPerBlock: v })} />
+              <Slider label="Max block time" value={style.maxBlockDuration} min={0.8} max={4} step={0.1} suffix="s" onChange={(v) => setS({ maxBlockDuration: v })} />
+              <Slider label="Vertical position" value={style.posY} min={200} max={1200} step={10} onChange={(v) => setS({ posY: v })} />
+
+              <div className="col-span-2 md:col-span-3 flex flex-wrap items-end gap-5 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={style.glow}
+                    onChange={(e) => setS({ glow: e.target.checked })}
+                    className="w-3.5 h-3.5 rounded accent-red-500"
+                  />
+                  <span className="text-[11px] uppercase tracking-wider text-neutral-500">Glow</span>
+                </label>
+                {style.glow && (
+                  <div className="w-44">
+                    <Slider label="Glow blur" value={style.glowBlur} min={0} max={30} onChange={(v) => setS({ glowBlur: v })} />
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* step 3 — transcript */}
+          {blocks.length > 0 && (
+            <section className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-4">
+              <h2 className="text-xs font-semibold text-neutral-300 mb-1">3 · Transcript</h2>
+              <p className="text-[11px] text-neutral-600 mb-3">
+                Click any word to fix it. Timings stay locked to the audio.
+              </p>
+              <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
+                {blocks.map((b) => {
+                  const isNow = activeBlock && activeBlock.index === b.index;
+                  return (
+                    <div
+                      key={b.index}
+                      className={`flex items-baseline gap-3 rounded-md px-2 py-1.5 cursor-pointer transition-colors ${
+                        isNow ? 'bg-neutral-800/70' : 'hover:bg-neutral-900/70'
+                      }`}
+                      onClick={() => seek(b.start + 0.01)}
+                    >
+                      <span className="text-[10px] text-neutral-600 tabular-nums shrink-0 w-9">
+                        {b.start.toFixed(1)}s
+                      </span>
+                      <div className="flex flex-wrap gap-x-1.5 gap-y-1">
+                        {b.words.map((w) => {
+                          const idx = indexByStart.get(round3(w.start));
+                          const isEditing = editing === idx && idx !== undefined;
+                          const isActiveWord = isNow &&
+                            activeBlock.words[activeWordIdx]?.start === w.start;
+                          if (isEditing) {
+                            return (
+                              <input
+                                key={w.start}
+                                autoFocus
+                                defaultValue={w.text}
+                                onClick={(e) => e.stopPropagation()}
+                                onBlur={(e) => { updateWord(idx, e.target.value.trim() || w.text); setEditing(null); }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') e.currentTarget.blur();
+                                  if (e.key === 'Escape') setEditing(null);
+                                }}
+                                className="bg-neutral-800 border border-neutral-600 rounded px-1 py-0.5
+                                           text-xs text-white w-24 focus:outline-none"
+                              />
+                            );
+                          }
+                          return (
+                            <button
+                              key={w.start}
+                              onClick={(e) => { e.stopPropagation(); if (idx !== undefined) setEditing(idx); }}
+                              className={`text-xs rounded px-1 py-0.5 transition-colors ${
+                                isActiveWord
+                                  ? 'text-red-400 font-semibold'
+                                  : 'text-neutral-300 hover:bg-neutral-700/60'
+                              }`}
+                            >
+                              {w.text}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* step 4 — export */}
+          {phase !== 'idle' && words.length > 0 && (
+            <section className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-4">
+              <h2 className="text-xs font-semibold text-neutral-300 mb-3">4 · Burn in</h2>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={burn}
+                  disabled={busy || !serverVideoPath}
+                  className="flex items-center gap-2 bg-red-600 text-white text-xs font-medium rounded-md
+                             px-3.5 py-2 hover:bg-red-500 disabled:opacity-30 disabled:cursor-not-allowed
+                             transition-colors"
+                >
+                  {phase === 'burning'
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <Wand2 className="w-3.5 h-3.5" />}
+                  {phase === 'burning' ? 'Rendering…' : 'Burn captions'}
+                </button>
+
+                {burnResult && (
+                  <a
+                    href={`/api/download-subtitled?path=${encodeURIComponent(burnResult.videoPath)}`}
+                    className="flex items-center gap-2 bg-neutral-800 text-neutral-100 text-xs font-medium
+                               rounded-md px-3.5 py-2 hover:bg-neutral-700 transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download
+                  </a>
+                )}
+              </div>
+              <p className="mt-2.5 text-[11px] text-neutral-600">
+                Encodes at the source resolution with libx264 · one job at a time.
+              </p>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

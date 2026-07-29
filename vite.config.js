@@ -9,7 +9,6 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         transcribe: resolve(__dirname, 'transcribe.html'),
-        'silence-remover': resolve(__dirname, 'silence-remover.html'),
       },
     },
   },
