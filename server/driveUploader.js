@@ -4,9 +4,12 @@ import { basename, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 let driveClient = null;
+let resolvedRootFolderId = null;
 
 const __driveDir = dirname(fileURLToPath(import.meta.url));
-const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '0AMBxg_5KAT-oUk9PVA';
+/** Shared Drive root the service account is a member of — always valid fallback. */
+const DEFAULT_DRIVE_ROOT_ID = '0AMBxg_5KAT-oUk9PVA';
+const CONFIGURED_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || DEFAULT_DRIVE_ROOT_ID;
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
 function getDriveClient() {
@@ -14,7 +17,7 @@ function getDriveClient() {
   const keyFile = join(__driveDir, 'service-account.json');
   const serviceAccount = JSON.parse(readFileSync(keyFile, 'utf8'));
   console.log('[drive] Using key file:', keyFile);
-  console.log('[drive] Target folder:', DRIVE_FOLDER_ID);
+  console.log('[drive] Configured folder:', CONFIGURED_DRIVE_FOLDER_ID);
   console.log('[drive] Service account:', serviceAccount.client_email);
   const auth = new google.auth.JWT({
     email: serviceAccount.client_email,
@@ -23,6 +26,50 @@ function getDriveClient() {
   });
   driveClient = google.drive({ version: 'v3', auth });
   return driveClient;
+}
+
+/**
+ * Resolve a usable Drive root. If GOOGLE_DRIVE_FOLDER_ID was deleted / never
+ * shared with the service account, fall back to the known Shared Drive root
+ * instead of failing the whole export upload with "File not found".
+ */
+async function resolveRootFolderId() {
+  if (resolvedRootFolderId) return resolvedRootFolderId;
+
+  const drive = getDriveClient();
+  const candidates = [CONFIGURED_DRIVE_FOLDER_ID, DEFAULT_DRIVE_ROOT_ID]
+    .filter(Boolean)
+    .filter((id, i, arr) => arr.indexOf(id) === i);
+
+  let lastErr = null;
+  for (const id of candidates) {
+    try {
+      const meta = await drive.files.get({
+        fileId: id,
+        supportsAllDrives: true,
+        fields: 'id, name, mimeType',
+      });
+      resolvedRootFolderId = meta.data.id;
+      if (id !== CONFIGURED_DRIVE_FOLDER_ID) {
+        console.warn(
+          `[drive] Configured folder ${CONFIGURED_DRIVE_FOLDER_ID} is unreachable; ` +
+          `falling back to ${id} (${meta.data.name})`,
+        );
+      } else {
+        console.log(`[drive] Root folder OK: ${meta.data.name} (${id})`);
+      }
+      return resolvedRootFolderId;
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[drive] Root candidate failed (${id}): ${err.message}`);
+    }
+  }
+
+  throw new Error(
+    `No reachable Google Drive root folder. ` +
+    `Set GOOGLE_DRIVE_FOLDER_ID to a folder/Shared Drive shared with the service account. ` +
+    `Last error: ${lastErr?.message || 'unknown'}`,
+  );
 }
 
 function sanitizeFolderName(name) {
@@ -116,14 +163,15 @@ export async function findOrCreateFolder(parentId, name) {
  * Resolve page → date (IST) → idea under the configured Drive root.
  * @returns {Promise<string>} leaf folder ID
  */
-export async function ensureExportPath(pageName, ideaName, rootFolderId = DRIVE_FOLDER_ID) {
+export async function ensureExportPath(pageName, ideaName, rootFolderId) {
+  const rootId = rootFolderId || await resolveRootFolderId();
   const page = sanitizeFolderName(pageName) || 'unknown-page';
   const idea = sanitizeFolderName(ideaName) || 'untitled';
   const dateFolder = formatIstDateFolder();
 
   console.log(`[drive] Ensuring path: ${page} / ${dateFolder} / ${idea}`);
 
-  const pageId = await findOrCreateFolder(rootFolderId, page);
+  const pageId = await findOrCreateFolder(rootId, page);
   const dateId = await findOrCreateFolder(pageId, dateFolder);
   const ideaId = await findOrCreateFolder(dateId, idea);
   return ideaId;
@@ -139,7 +187,7 @@ export async function ensureExportPath(pageName, ideaName, rootFolderId = DRIVE_
  */
 export async function uploadToDrive(filePath, fileName, folderId, mimeType = 'video/mp4') {
   const drive = getDriveClient();
-  const targetFolder = folderId || DRIVE_FOLDER_ID;
+  const targetFolder = folderId || await resolveRootFolderId();
 
   console.log(`[drive] Uploading: ${fileName} to folder ${targetFolder}`);
 
@@ -177,7 +225,7 @@ export async function uploadExportToDrive(filePath, { pageName, ideaName, fileNa
  * Creates the subfolder if it doesn't exist.
  */
 export async function uploadBatchToDrive(filePaths, subfolderName, parentFolderId) {
-  const parent = parentFolderId || DRIVE_FOLDER_ID;
+  const parent = parentFolderId || await resolveRootFolderId();
   const folderId = await findOrCreateFolder(parent, subfolderName);
 
   const results = [];
