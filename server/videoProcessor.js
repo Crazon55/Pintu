@@ -207,7 +207,7 @@ try {
     _otHelveticaWorldBold = opentypeLoad(helveticaWorldBold);
     console.log('✓ Helvetica World Bold loaded via opentype.js:', helveticaWorldBold);
   } else {
-    console.warn('Helvetica World Bold not found — ifc2-news will fall back to ITC Avant Garde');
+    console.warn('Helvetica World Bold not found — plain-text news tickers will fall back to ITC Avant Garde');
   }
 } catch (e) { console.warn('Helvetica World Bold opentype load failed:', e.message); }
 
@@ -2282,6 +2282,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       'indiastartupstory-news',
       'ifc-news',
       'ifc2-news',
+      'foundersinindia-news',
       '101xtechnology-top',
       '101xtechnology-mid',
       '101xtechnology-low'
