@@ -347,6 +347,31 @@ export function getNewsTickerBlackPadAbove(preset, fontSize) {
 }
 
 /**
+ * Y offset of the solid black cover relative to the first hook line (barY).
+ * Positive = solid starts above the hook (covers competitor captions under the text).
+ * Negative = solid starts below the first line (hook sits on the gradient above the bar).
+ *
+ * indianfounderscore (plain-text): solid starts just under the last hook line so the
+ * text rides the fade, kissing the top of the black bar — matching the Canva reference.
+ */
+export function getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH) {
+  if (isPlainTextNewsTicker(preset)) {
+    // End of hook stack, minus a thin kiss so the last line still rests on the bar.
+    return -(Math.max(0, totalBarsH - Math.round(fontSize * 0.22)));
+  }
+  return getNewsTickerBlackPadAbove(preset, fontSize);
+}
+
+/**
+ * CSS / canvas font-family for a news ticker. ifc2 uses Helvetica World Bold when the
+ * file is present; everything else stays on ITC Avant Garde Gothic Bold.
+ */
+export function getNewsTickerFontFamily(preset) {
+  if (isPlainTextNewsTicker(preset)) return "'Helvetica World', 'ITC Avant Garde Gothic', sans-serif";
+  return "'ITC Avant Garde Gothic', sans-serif";
+}
+
+/**
  * Handle lockup (Instagram + Facebook + handle wordmark PNG) centred under the hook.
  * `width`/`height` describe a fixed layout box at the 720px canvas: the artwork is
  * contained inside it, so the box is reserved whether or not the PNG resolves and

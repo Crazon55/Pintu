@@ -19,7 +19,7 @@ import {
   getNewsTickerFitRatios,
   getNewsTickerBottomMarginRatio,
   getNewsTickerGradientHeight,
-  getNewsTickerBlackPadAbove,
+  getNewsTickerSolidTopOffset,
   getNewsTickerHandleLockup,
   isPlainTextNewsTicker,
 } from '../shared/headlineLayout.js';
@@ -191,6 +191,30 @@ let _otAvantGardeBold = null;
 try {
   if (existsSync(avantGardeBold)) { _otAvantGardeBold = opentypeLoad(avantGardeBold); console.log('✓ ITC Avant Garde Gothic Bold loaded via opentype.js'); }
 } catch (e) { console.warn('ITC Avant Garde Gothic opentype load failed:', e.message); }
+
+// Helvetica World Bold for indianfounderscore (ifc2-news). Drop the licensed file at
+// server/assets/fonts/HelveticaWorld-Bold.otf (or .ttf) — commercial Monotype face.
+const helveticaWorldBoldCandidates = [
+  resolve(fontsDir, 'HelveticaWorld-Bold.otf'),
+  resolve(fontsDir, 'HelveticaWorld-Bold.ttf'),
+  resolve(fontsDir, 'Helvetica World Bold.otf'),
+  resolve(fontsDir, 'Helvetica World Bold.ttf'),
+];
+const helveticaWorldBold = helveticaWorldBoldCandidates.find((p) => existsSync(p)) || null;
+let _otHelveticaWorldBold = null;
+try {
+  if (helveticaWorldBold) {
+    _otHelveticaWorldBold = opentypeLoad(helveticaWorldBold);
+    console.log('✓ Helvetica World Bold loaded via opentype.js:', helveticaWorldBold);
+  } else {
+    console.warn('Helvetica World Bold not found — ifc2-news will fall back to ITC Avant Garde');
+  }
+} catch (e) { console.warn('Helvetica World Bold opentype load failed:', e.message); }
+
+function newsTickerOpentypeFont(preset) {
+  if (isPlainTextNewsTicker(preset) && _otHelveticaWorldBold) return _otHelveticaWorldBold;
+  return _otAvantGardeBold;
+}
 
 function drawVerifiedBadge(ctx, cx, cy, sz) {
   const half = sz / 2;
@@ -808,11 +832,12 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   // keep video dominant like Canva (~bottom 28%)
   const maxTickerH = Math.round(canvasH * 0.28) - lockupBlockH;
   let cleanedHtml = cleanHTML(headline || '');
-  if (!_otAvantGardeBold) {
-    console.warn('[news_ticker] Avant Garde opentype missing — wrap metrics may be wrong');
+  const otFace = newsTickerOpentypeFont(preset);
+  if (!otFace) {
+    console.warn('[news_ticker] opentype face missing — wrap metrics may be wrong');
   }
   const measureWordAtSize = (text, fs) =>
-    _otAvantGardeBold ? _otAvantGardeBold.getAdvanceWidth(text, fs) : (() => {
+    otFace ? otFace.getAdvanceWidth(text, fs) : (() => {
       ctx.font = `bold ${fs}px Inter`;
       // Inter is narrower than Avant Garde — pad measurements so wrap stays conservative.
       return ctx.measureText(text).width * 1.22;
@@ -838,10 +863,10 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   );
   // Text / highlight top — the lockup hangs below the last line, inside the same stack
   let barY = canvasH - bottomMargin - lockupBlockH - totalBarsH - shiftY;
-  // Small solid pad above the first line so competitor captions can't peek
-  // through the last stretch of the gradient (especially IFC full-bleed).
-  const blackPadAbove = getNewsTickerBlackPadAbove(preset, fontSize);
-  const blackTop = Math.max(0, barY - blackPadAbove);
+  // Solid cover vs hook: plain-text ifc2 starts the bar under the hook (text on gradient);
+  // other tickers keep a solid pad above the first line.
+  const solidTopOffset = getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH);
+  const blackTop = Math.max(0, barY - solidTopOffset);
 
   const spaceW = measureWordAtSize(' ', fontSize);
 
@@ -947,8 +972,8 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
         : (isIBCNews || isIFCNews)
           ? (t.bold ? '#000000' : '#FFFFFF')
           : '#FFFFFF';
-      if (_otAvantGardeBold) {
-        drawOpentypeText(ctx, _otAvantGardeBold, t.text, x, baselineY, fontSize, color);
+      if (otFace) {
+        drawOpentypeText(ctx, otFace, t.text, x, baselineY, fontSize, color);
       } else {
         // Fallback only — metrics already padded above
         ctx.font = `bold ${fontSize}px Inter`;
