@@ -20,9 +20,13 @@ const DEFAULT_STYLE = {
   popDurationMs: 70,
   glow: true,
   glowBlur: 11,
+  reveal: 'accumulate',
+  riseOn: 'word',
+  riseY: 28,
+  riseMs: 140,
   posX: 360,
   posY: 900,
-  maxWordsPerBlock: 4,
+  maxWordsPerBlock: 3,
   maxBlockDuration: 2.0,
 };
 
@@ -36,6 +40,15 @@ function popScaleAt(time, word, style) {
   if (ms >= style.popDurationMs) return style.popToScale;
   const p = ms / style.popDurationMs;
   return style.popFromScale + (style.popToScale - style.popFromScale) * p;
+}
+
+/** Mirrors the ASS \move(...,posY+riseY, ..., posY, 0, riseMs) slide, in PlayRes px. */
+function riseOffsetAt(time, word, style) {
+  if (!word || !style.riseY) return 0;
+  const ms = (time - word.activeFrom) * 1000;
+  if (ms <= 0) return style.riseY;
+  if (ms >= style.riseMs) return 0;
+  return style.riseY * (1 - ms / style.riseMs);
 }
 
 function fmtTime(s) {
@@ -263,6 +276,14 @@ export default function TranscribeApp() {
     return idx;
   }, [activeBlock, time]);
 
+  // Matches the ASS reveal: 'accumulate' only shows the words spoken so far, so
+  // the sentence builds up instead of sitting there fully written.
+  const visibleWords = useMemo(() => {
+    if (!activeBlock) return [];
+    if (style.reveal === 'all') return activeBlock.words;
+    return activeBlock.words.slice(0, Math.max(activeWordIdx + 1, 1));
+  }, [activeBlock, activeWordIdx, style.reveal]);
+
   const scale = stageWidth ? stageWidth / PLAY_RES_X : 0;
   const setS = (patch) => setStyle((s) => ({ ...s, ...patch }));
 
@@ -330,15 +351,17 @@ export default function TranscribeApp() {
                   lineHeight: 1.15,
                 }}
               >
-                {activeBlock.words.map((w, i) => {
+                {visibleWords.map((w, i) => {
                   const isActive = i === activeWordIdx;
                   const s = isActive ? popScaleAt(time, w, style) / 100 : 1;
+                  const rises = style.riseOn === 'word' || (style.riseOn === 'block' && i === 0);
+                  const dy = isActive && rises ? riseOffsetAt(time, w, style) * scale : 0;
                   return (
                     <span
                       key={`${w.start}-${i}`}
                       style={{
                         display: 'inline-block',
-                        transform: `scale(${s})`,
+                        transform: `translateY(${dy}px) scale(${s})`,
                         color: isActive ? style.activeColor : style.baseColor,
                         WebkitTextStrokeWidth: `${style.outline * scale}px`,
                         WebkitTextStrokeColor: style.outlineColor,
@@ -346,7 +369,7 @@ export default function TranscribeApp() {
                         textShadow: isActive && style.glow
                           ? `0 0 ${style.glowBlur * scale}px ${style.activeColor}, 0 0 ${style.glowBlur * 2 * scale}px ${style.activeColor}`
                           : 'none',
-                        marginRight: i < activeBlock.words.length - 1 ? `${0.28 * style.fontSize * scale}px` : 0,
+                        marginRight: i < visibleWords.length - 1 ? `${0.28 * style.fontSize * scale}px` : 0,
                       }}
                     >
                       {w.text}
@@ -472,7 +495,32 @@ export default function TranscribeApp() {
               <Slider label="Max block time" value={style.maxBlockDuration} min={0.8} max={4} step={0.1} suffix="s" onChange={(v) => setS({ maxBlockDuration: v })} />
               <Slider label="Vertical position" value={style.posY} min={200} max={1200} step={10} onChange={(v) => setS({ posY: v })} />
 
+              <Slider label="Rise distance" value={style.riseY} min={0} max={80} onChange={(v) => setS({ riseY: v })} />
+              <Slider label="Rise speed" value={style.riseMs} min={40} max={500} step={10} suffix="ms" onChange={(v) => setS({ riseMs: v })} />
+              <label className="block">
+                <span className="block text-[11px] uppercase tracking-wider text-neutral-500 mb-1.5">Rise applies to</span>
+                <select
+                  value={style.riseOn}
+                  onChange={(e) => setS({ riseOn: e.target.value })}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-md px-2.5 py-1.5 text-xs
+                             text-neutral-200 focus:outline-none focus:border-neutral-600"
+                >
+                  <option value="word">Every word</option>
+                  <option value="block">First word of each sentence</option>
+                  <option value="none">No rise</option>
+                </select>
+              </label>
+
               <div className="col-span-2 md:col-span-3 flex flex-wrap items-end gap-5 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={style.reveal === 'accumulate'}
+                    onChange={(e) => setS({ reveal: e.target.checked ? 'accumulate' : 'all' })}
+                    className="w-3.5 h-3.5 rounded accent-red-500"
+                  />
+                  <span className="text-[11px] uppercase tracking-wider text-neutral-500">Build up word by word</span>
+                </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
