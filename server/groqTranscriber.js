@@ -1,8 +1,15 @@
 import Groq from 'groq-sdk';
 import { createReadStream } from 'fs';
+import { File as BufferFile } from 'node:buffer';
 import { join } from 'path';
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs/promises';
+
+// groq-sdk needs a global File to upload audio. Node 20+ has one; Node 18 (on the
+// deploy box) only exposes it from node:buffer. Its check runs per-call, so this is
+// in time as long as it happens before the first transcription.
+if (!globalThis.File) globalThis.File = BufferFile;
+
 let groq = null;
 function getGroq() {
   if (!groq) {
