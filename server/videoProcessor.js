@@ -14,9 +14,14 @@ import {
   getExportNewsMaxLineWidth,
   getNewsTickerLineStartX,
   fitNewsTickerFontSize,
-  NEWS_TICKER_BAR_LINE_HEIGHT,
-  NEWS_TICKER_LINE_GAP,
-  NEWS_TICKER_HIGHLIGHT_HEIGHT,
+  getNewsTickerLineMetrics,
+  getNewsTickerStackHeight,
+  getNewsTickerFitRatios,
+  getNewsTickerBottomMarginRatio,
+  getNewsTickerGradientHeight,
+  getNewsTickerBlackPadAbove,
+  getNewsTickerHandleLockup,
+  isPlainTextNewsTicker,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -783,7 +788,8 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const isIBCNews = (preset.name || '').toLowerCase() === 'indiabusinesscom-news';
   const isISSNews = (preset.name || '').toLowerCase() === 'indiastartupstory-news';
   const isIFCNews = (preset.name || '').toLowerCase() === 'ifc-news';
-  const isIFC2News = (preset.name || '').toLowerCase() === 'ifc2-news';
+  // Highlights are coloured text with no pill behind them (indianfounderscore style)
+  const isPlainText = isPlainTextNewsTicker(preset);
   // Derive canvas height from preset ratio (e.g. 4:5 → 900, 9:16 → 1280)
   const [wR, hR] = (preset.ratio || '9:16').split(':').map(Number);
   let canvasH = Math.round(720 * hR / wR);
@@ -795,7 +801,12 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   // Measure + draw with the same opentype face so wrap never drifts from FFmpeg.
   const maxLineW = getExportNewsMaxLineWidth(preset);
   const baseFontSize = Math.round(54 * (fontScale || 1));
-  const maxTickerH = Math.round(canvasH * 0.28); // keep video dominant like Canva (~bottom 28%)
+  // Handle lockup (IG + FB + wordmark) reserves a fixed box under the hook, so the
+  // text budget shrinks by it and the bottom margin still measures from the lockup.
+  const handleLockup = getNewsTickerHandleLockup(preset);
+  const lockupBlockH = handleLockup ? handleLockup.gap + handleLockup.height : 0;
+  // keep video dominant like Canva (~bottom 28%)
+  const maxTickerH = Math.round(canvasH * 0.28) - lockupBlockH;
   let cleanedHtml = cleanHTML(headline || '');
   if (!_otAvantGardeBold) {
     console.warn('[news_ticker] Avant Garde opentype missing — wrap metrics may be wrong');
@@ -815,37 +826,31 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     minFontSize: 22,
     maxLines: 3,
     maxTotalBarsH: maxTickerH,
+    ...getNewsTickerFitRatios(preset),
   });
 
-  const highlightH = Math.round(fontSize * NEWS_TICKER_HIGHLIGHT_HEIGHT);
-  const lineGap = Math.round(fontSize * NEWS_TICKER_LINE_GAP);
-  // IFC (Canva-style 9:16): keep hook tight to the bottom over a soft fade.
-  const bottomMargin = Math.round(canvasH * (isIFCNews ? 0.055 : 0.10));
-  const totalBarsH = lines.length === 0
-    ? 0
-    : lines.length * highlightH + Math.max(0, lines.length - 1) * lineGap;
+  const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fontSize);
+  const bottomMargin = Math.round(canvasH * getNewsTickerBottomMarginRatio(preset));
+  const totalBarsH = getNewsTickerStackHeight(preset, fontSize, lines.length);
   // headlinePosition.y = % of frame to raise the hook text + gradient
   const shiftY = Math.round(
     canvasH * Math.max(0, Math.min(48, Number(preset.headlinePosition?.y) || 0)) / 100,
   );
-  // Text / highlight top
-  let barY = canvasH - bottomMargin - totalBarsH - shiftY;
+  // Text / highlight top — the lockup hangs below the last line, inside the same stack
+  let barY = canvasH - bottomMargin - lockupBlockH - totalBarsH - shiftY;
   // Small solid pad above the first line so competitor captions can't peek
   // through the last stretch of the gradient (especially IFC full-bleed).
-  const blackPadAbove = Math.round(fontSize * (isIFCNews ? 0.35 : 0.12));
+  const blackPadAbove = getNewsTickerBlackPadAbove(preset, fontSize);
   const blackTop = Math.max(0, barY - blackPadAbove);
 
   const spaceW = measureWordAtSize(' ', fontSize);
 
-  console.log(`[news_ticker] ${preset.name} fs=${fontSize} lines=${lines.length} maxW=${maxLineW} gap=${lineGap} barY=${barY} shiftY=${shiftY}`,
+  console.log(`[news_ticker] ${preset.name} fs=${fontSize} lines=${lines.length} maxW=${maxLineW} gap=${lineGap} barY=${barY} shiftY=${shiftY} plain=${isPlainText} lockupH=${lockupBlockH}`,
     lines.map(l => l.map(t => t.text).join(' ')));
 
   // Gradient sits above the solid cover. Reach full black early so video text
   // in the fade zone gets smothered (Canva-like readability).
-  const gradientH = Math.min(
-    isIFCNews ? 260 : 160,
-    Math.round(canvasH * (isIFCNews ? 0.24 : 0.18)),
-  );
+  const gradientH = getNewsTickerGradientHeight(preset, canvasH);
   const fadeGrad = ctx.createLinearGradient(0, blackTop - gradientH, 0, blackTop);
   fadeGrad.addColorStop(0, 'rgba(0,0,0,0)');
   fadeGrad.addColorStop(0.45, 'rgba(0,0,0,0.55)');
@@ -873,9 +878,9 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     if (lineStartX + totalLineW > 720 - 16) {
       lineStartX = Math.max(16, 720 - 16 - totalLineW);
     }
-    // ISS / IFC2 use rounded-corner bars; others use plain rects
+    // ISS uses rounded-corner bars; others use plain rects
     const fillBar = (bx, bw) => {
-      if (isISSNews || isIFC2News) {
+      if (isISSNews) {
         const r = 6;
         ctx.beginPath();
         ctx.moveTo(bx + r, y); ctx.arcTo(bx + bw, y, bx + bw, y + highlightH, r);
@@ -890,14 +895,33 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     let runStartX = null;
     let runEndX = 0;
     let x = lineStartX;
-    for (let i = 0; i < lineTokens.length; i++) {
-      const t = lineTokens[i];
-      const w = wordWidths[i];
-      if (t.bold) {
-        if (runStartX === null) runStartX = x - 4;
-        runEndX = x + w + 4;
-      } else if (runStartX !== null) {
-        // end of a bold run — draw the bar
+    if (!isPlainText) {
+      for (let i = 0; i < lineTokens.length; i++) {
+        const t = lineTokens[i];
+        const w = wordWidths[i];
+        if (t.bold) {
+          if (runStartX === null) runStartX = x - 4;
+          runEndX = x + w + 4;
+        } else if (runStartX !== null) {
+          // end of a bold run — draw the bar
+          const runW = runEndX - runStartX;
+          if (isIBCNews) {
+            const grad = ctx.createLinearGradient(runStartX, 0, runEndX, 0);
+            grad.addColorStop(0, '#FF8932');
+            grad.addColorStop(0.5, '#F2EFE1');
+            grad.addColorStop(1, '#3AB26B');
+            ctx.fillStyle = grad;
+            fillBar(runStartX, runW);
+          } else {
+            ctx.fillStyle = preset.color || '#e31d38';
+            fillBar(runStartX, runW);
+          }
+          runStartX = null;
+        }
+        x += w + spaceW;
+      }
+      // close any trailing bold run
+      if (runStartX !== null) {
         const runW = runEndX - runStartX;
         if (isIBCNews) {
           const grad = ctx.createLinearGradient(runStartX, 0, runEndX, 0);
@@ -910,23 +934,6 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
           ctx.fillStyle = preset.color || '#e31d38';
           fillBar(runStartX, runW);
         }
-        runStartX = null;
-      }
-      x += w + spaceW;
-    }
-    // close any trailing bold run
-    if (runStartX !== null) {
-      const runW = runEndX - runStartX;
-      if (isIBCNews) {
-        const grad = ctx.createLinearGradient(runStartX, 0, runEndX, 0);
-        grad.addColorStop(0, '#FF8932');
-        grad.addColorStop(0.5, '#F2EFE1');
-        grad.addColorStop(1, '#3AB26B');
-        ctx.fillStyle = grad;
-        fillBar(runStartX, runW);
-      } else {
-        ctx.fillStyle = preset.color || '#e31d38';
-        fillBar(runStartX, runW);
       }
     }
 
@@ -935,9 +942,11 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     const baselineY = y + fontSize * 0.92;
     for (let i = 0; i < lineTokens.length; i++) {
       const t = lineTokens[i];
-      const color = (isIBCNews || isIFCNews || isIFC2News)
-        ? (t.bold ? '#000000' : '#FFFFFF')
-        : '#FFFFFF';
+      const color = isPlainText
+        ? (t.bold ? (preset.color || '#FFFFFF') : '#FFFFFF')
+        : (isIBCNews || isIFCNews)
+          ? (t.bold ? '#000000' : '#FFFFFF')
+          : '#FFFFFF';
       if (_otAvantGardeBold) {
         drawOpentypeText(ctx, _otAvantGardeBold, t.text, x, baselineY, fontSize, color);
       } else {
@@ -953,6 +962,31 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   }
 
   // News formats never render credits / footer lines.
+
+  // Handle lockup (Instagram + Facebook + wordmark) centred under the hook.
+  // The box was already reserved above, so a missing PNG shifts nothing.
+  if (handleLockup) {
+    const lockupPath = join(__dirname, 'assets', 'logos', handleLockup.file);
+    if (existsSync(lockupPath)) {
+      const lockupImg = await loadImage(lockupPath);
+      const scale = Math.min(
+        handleLockup.width / lockupImg.width,
+        handleLockup.height / lockupImg.height,
+      );
+      const drawW = Math.round(lockupImg.width * scale);
+      const drawH = Math.round(lockupImg.height * scale);
+      const boxTop = barY + totalBarsH + handleLockup.gap;
+      ctx.drawImage(
+        lockupImg,
+        Math.round((720 - drawW) / 2),
+        boxTop + Math.round((handleLockup.height - drawH) / 2),
+        drawW,
+        drawH,
+      );
+    } else {
+      console.warn(`[news_ticker] handle lockup missing: ${lockupPath}`);
+    }
+  }
 
   // Social strip (right-side vertical icons bar) for indiabusinesscom-news only
   if (isIBCNews) {
@@ -2517,4 +2551,4 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
   });
 }
 
-export { generateArollOverlay };
+export { generateArollOverlay, generateNewsTickerOverlay };

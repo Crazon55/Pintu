@@ -9,17 +9,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const preset = {
   id: 97,
   name: 'ifc2-news',
-  handle: '@indianfoundercore',
-  ratio: '4:5',
-  color: '#ffd412',
+  handle: '@indianfounderscore',
+  ratio: '9:16',
+  color: '#E0E140',
   layout: 'news_ticker',
-  logo: 'FoundersCORE-white.png',
-  headline: '<b>Khan Sir Celebrates RE-NEET 2026 Success with Students,</b><br>Dance Video Viral!',
+  logo: null,
+  headline: '<b>Raj shamani to donate all podcast earnings</b> to khan sir\'s hospital project',
   footer: 'Credit: The Founders Show', // must be stripped
-  showLogo: true,
+  showLogo: false,
   alignment: 'center',
   lineSpacing: 1.25,
-  rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 160, logoPadX: 28, logoPadY: 36 },
+  rules: { bottomMarginPct: 22, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 5 } },
 };
 
 async function main() {

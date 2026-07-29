@@ -254,6 +254,7 @@ export function getExportNewsMaxLineWidth(preset) {
   const name = (preset?.name || '').toLowerCase();
   // Leave room for left/right inset + bold bar padding (±4px) so lines never clip the frame.
   if (name === 'indiastartupstory-news') return 560; // startX 56 + right pad + bar padding
+  if (name === 'ifc2-news') return 500; // hook block spans ~68% of frame width in the reference
   return 600; // centered brands ~60px side margins + bar padding
 }
 
@@ -278,6 +279,89 @@ export const NEWS_TICKER_LINE_GAP = 0.24;
 
 /** Highlight pill height as a fraction of fontSize (shorter than line box → visible gaps). */
 export const NEWS_TICKER_HIGHLIGHT_HEIGHT = 1.12;
+
+/**
+ * Line advance for pill-less tickers, as a fraction of fontSize.
+ * Without pills there is nothing to keep apart, so lines stack tight (measured 1.00 off
+ * the indianfounderscore reference) rather than reserving pill height + gap.
+ */
+export const NEWS_TICKER_PLAIN_LINE_HEIGHT = 1.0;
+
+/**
+ * Tickers that paint highlights as coloured text instead of a filled pill behind
+ * black text. Drives line advance, so preview and export must agree.
+ */
+export function isPlainTextNewsTicker(preset) {
+  return (preset?.name || '').toLowerCase() === 'ifc2-news';
+}
+
+/** Full-bleed 9:16 tickers: taller fade and more solid pad, since there is no letterboxing. */
+function isFullBleedNewsTicker(preset) {
+  const name = (preset?.name || '').toLowerCase();
+  return name === 'ifc-news' || name === 'ifc2-news';
+}
+
+/** Per-line vertical metrics for a news ticker at a given font size. */
+export function getNewsTickerLineMetrics(preset, fontSize) {
+  const plain = isPlainTextNewsTicker(preset);
+  const highlightH = Math.round(
+    fontSize * (plain ? NEWS_TICKER_PLAIN_LINE_HEIGHT : NEWS_TICKER_HIGHLIGHT_HEIGHT),
+  );
+  const lineGap = plain ? 0 : Math.round(fontSize * NEWS_TICKER_LINE_GAP);
+  return { plain, highlightH, lineGap, lineAdvance: highlightH + lineGap };
+}
+
+/** Line-height ratios to hand to fitNewsTickerFontSize so its budget matches the render. */
+export function getNewsTickerFitRatios(preset) {
+  const plain = isPlainTextNewsTicker(preset);
+  return {
+    highlightHeightRatio: plain ? NEWS_TICKER_PLAIN_LINE_HEIGHT : NEWS_TICKER_HIGHLIGHT_HEIGHT,
+    lineGapRatio: plain ? 0 : NEWS_TICKER_LINE_GAP,
+  };
+}
+
+/** Height of a stacked block of `lineCount` ticker lines. */
+export function getNewsTickerStackHeight(preset, fontSize, lineCount) {
+  if (!lineCount) return 0;
+  const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fontSize);
+  return lineCount * highlightH + Math.max(0, lineCount - 1) * lineGap;
+}
+
+/** Fraction of frame height left empty below the ticker stack (Reels UI clearance). */
+export function getNewsTickerBottomMarginRatio(preset) {
+  const pct = Number(preset?.rules?.bottomMarginPct);
+  if (Number.isFinite(pct)) return Math.max(0, Math.min(60, pct)) / 100;
+  if ((preset?.name || '').toLowerCase() === 'ifc-news') return 0.055;
+  return 0.10;
+}
+
+/** Height of the fade that sits on top of the solid black cover. */
+export function getNewsTickerGradientHeight(preset, canvasH) {
+  const full = isFullBleedNewsTicker(preset);
+  return Math.min(full ? 260 : 160, Math.round(canvasH * (full ? 0.24 : 0.18)));
+}
+
+/** Solid black above the first ticker line, so captions can't peek through the fade's tail. */
+export function getNewsTickerBlackPadAbove(preset, fontSize) {
+  return Math.round(fontSize * (isFullBleedNewsTicker(preset) ? 0.35 : 0.12));
+}
+
+/**
+ * Handle lockup (Instagram + Facebook + handle wordmark PNG) centred under the hook.
+ * `width`/`height` describe a fixed layout box at the 720px canvas: the artwork is
+ * contained inside it, so the box is reserved whether or not the PNG resolves and
+ * preview geometry stays identical to export.
+ */
+export function getNewsTickerHandleLockup(preset) {
+  const rule = preset?.rules?.handleLockup;
+  if (!rule?.file) return null;
+  return {
+    file: rule.file,
+    width: Math.round(rule.width ?? 188),
+    height: Math.round(rule.height ?? 25),
+    gap: Math.round(rule.gap ?? 5),
+  };
+}
 
 /**
  * Largest font that keeps the news ticker compact like Canva:
