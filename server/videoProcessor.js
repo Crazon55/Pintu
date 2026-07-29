@@ -19,7 +19,7 @@ import {
   getNewsTickerFitRatios,
   getNewsTickerBottomMarginRatio,
   getNewsTickerGradientHeight,
-  getNewsTickerSolidTopOffset,
+  getNewsTickerSolidTopY,
   getNewsTickerHandleLockup,
   isPlainTextNewsTicker,
 } from '../shared/headlineLayout.js';
@@ -863,10 +863,9 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   );
   // Text / highlight top — the lockup hangs below the last line, inside the same stack
   let barY = canvasH - bottomMargin - lockupBlockH - totalBarsH - shiftY;
-  // Solid cover vs hook: plain-text ifc2 starts the bar under the hook (text on gradient);
-  // other tickers keep a solid pad above the first line.
-  const solidTopOffset = getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH);
-  const blackTop = Math.max(0, barY - solidTopOffset);
+  // Solid cover: plain-text presets use a fixed lower-third band so moving the
+  // hook/watermark does not drag the black box. Other tickers pad above the hook.
+  const blackTop = getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH);
 
   const spaceW = measureWordAtSize(' ', fontSize);
 
