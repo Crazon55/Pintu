@@ -19,7 +19,7 @@ import {
     getNewsTickerFitRatios,
     getNewsTickerBottomMarginRatio,
     getNewsTickerGradientHeight,
-    getNewsTickerSolidTopOffset,
+    getNewsTickerSolidTopY,
     getNewsTickerHandleLockup,
     getNewsTickerFontFamily,
     isPlainTextNewsTicker,
@@ -147,8 +147,8 @@ const INITIAL_PRESETS_RAW = [
     { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '4:5', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 46, logoPadY: 41 } },
     { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55 } },
     { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 38, textLogo: 'IFC.', logoPadX: 30, logoPadY: 56 } },
-    { id: 97, name: 'ifc2-news', handle: '@indianfounderscore', ratio: '9:16', color: '#E0E140', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 8, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 5 } } },
-    { id: 100, name: 'foundersinindia-news', handle: '@foundersinindia', ratio: '9:16', color: '#439eff', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 8, handleLockup: { file: 'foundersinindia.png', width: 170, height: 25, gap: 5 } } },
+    { id: 97, name: 'ifc2-news', handle: '@indianfounderscore', ratio: '9:16', color: '#E0E140', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 14, solidBandPct: 30, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 5 } } },
+    { id: 100, name: 'foundersinindia-news', handle: '@foundersinindia', ratio: '9:16', color: '#439eff', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 14, solidBandPct: 30, handleLockup: { file: 'foundersinindia.png', width: 170, height: 25, gap: 5 } } },
     { id: 98, name: '101xtechnology-aroll', handle: '@101xtechnology', ratio: '16:9', color: '#4898ab', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: '101xt.', highlightColors: ['#4898ab', '#90d46c'], topGlow: true } },
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
@@ -1682,14 +1682,17 @@ const PreviewCard = memo(({
                                     const bottomMarginPct = getNewsTickerBottomMarginRatio(preset) * 100;
                                     // headlinePosition.y = % to raise hook text + gradient
                                     const shiftUpPct = Math.max(0, Math.min(48, localHeadlinePos?.y || 0));
-                                    // Solid cover: plain-text ifc2 starts under the hook; others pad above it
-                                    const solidTopOffset = getNewsTickerSolidTopOffset(preset, fittedExportFs, totalBarsH);
-                                    const blackBandHPct = bottomMarginPct
-                                        + ((totalBarsH + lockupBlockH) / exportCanvasH) * 100
-                                        + (solidTopOffset / exportCanvasH) * 100;
+                                    // Solid cover — fixed band for plain-text; pad-above-hook for others
+                                    const barYPx = exportCanvasH
+                                        - (exportCanvasH * (bottomMarginPct + shiftUpPct) / 100)
+                                        - lockupBlockH
+                                        - totalBarsH;
+                                    const blackTopPx = getNewsTickerSolidTopY(
+                                        preset, exportCanvasH, barYPx, fittedExportFs, totalBarsH,
+                                    );
+                                    const solidBlackHPct = ((exportCanvasH - blackTopPx) / exportCanvasH) * 100;
                                     const gradientHPct = (getNewsTickerGradientHeight(preset, exportCanvasH) / exportCanvasH) * 100;
                                     const lineGapPx = lineGap * previewScale;
-                                    const solidBlackHPct = blackBandHPct + shiftUpPct;
                                     const gradientBottomPct = solidBlackHPct; // gradient sits on top of solid cover
 
                                     return (

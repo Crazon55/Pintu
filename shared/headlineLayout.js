@@ -353,12 +353,30 @@ export function getNewsTickerBlackPadAbove(preset, fontSize) {
 }
 
 /**
+ * Absolute Y (from top) where the solid black cover begins.
+ *
+ * Plain-text tickers (ifc2 / foundersinindia): fixed band from the frame bottom so
+ * moving the hook/watermark via bottomMargin does NOT drag the black box with it.
+ * Other tickers: pad above the first hook line (legacy behaviour).
+ */
+export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH) {
+  if (isPlainTextNewsTicker(preset)) {
+    const bandPct = Number(preset?.rules?.solidBandPct);
+    // Default ~30% of frame — matches the Canva lower-third slab.
+    const ratio = Number.isFinite(bandPct)
+      ? Math.max(0.15, Math.min(0.55, bandPct / 100))
+      : 0.30;
+    return Math.round(canvasH * (1 - ratio));
+  }
+  const offset = getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH);
+  return Math.max(0, barY - offset);
+}
+
+/**
  * Y offset of the solid black cover relative to the first hook line (barY).
  * Positive = solid starts above the hook (covers competitor captions under the text).
  * Negative = solid starts below the first line (hook sits on the gradient above the bar).
- *
- * indianfounderscore (plain-text): solid starts just under the last hook line so the
- * text rides the fade, kissing the top of the black bar — matching the Canva reference.
+ * Prefer getNewsTickerSolidTopY for plain-text presets.
  */
 export function getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH) {
   if (isPlainTextNewsTicker(preset)) {
