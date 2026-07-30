@@ -301,6 +301,22 @@ export function isPlainTextNewsTicker(preset) {
   return PLAIN_TEXT_NEWS_TICKER_NAMES.includes((preset?.name || '').toLowerCase());
 }
 
+/**
+ * News tickers whose hook sits just above a fixed lower-third black bar
+ * (same vertical treatment as indianfounderscore / foundersinindia).
+ * Does NOT change horizontal alignment or highlight style.
+ */
+export const BLACK_BAR_ANCHORED_NEWS_NAMES = [
+  'ifc2-news',
+  'foundersinindia-news',
+  'indiabusinesscom-news',
+  'indiastartupstory-news',
+];
+
+export function isBlackBarAnchoredNewsTicker(preset) {
+  return BLACK_BAR_ANCHORED_NEWS_NAMES.includes((preset?.name || '').toLowerCase());
+}
+
 /** Full-bleed 9:16 tickers: taller fade and more solid pad, since there is no letterboxing. */
 function isFullBleedNewsTicker(preset) {
   const name = (preset?.name || '').toLowerCase();
@@ -355,12 +371,11 @@ export function getNewsTickerBlackPadAbove(preset, fontSize) {
 /**
  * Absolute Y (from top) where the solid black cover begins.
  *
- * Plain-text tickers (ifc2 / foundersinindia): fixed band from the frame bottom so
- * moving the hook/watermark via bottomMargin does NOT drag the black box with it.
- * Other tickers: pad above the first hook line (legacy behaviour).
+ * Black-bar-anchored tickers: fixed band from the frame bottom so the hook can
+ * sit on the bar edge without dragging the slab. Other tickers: pad above hook.
  */
 export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH) {
-  if (isPlainTextNewsTicker(preset)) {
+  if (isBlackBarAnchoredNewsTicker(preset)) {
     const bandPct = Number(preset?.rules?.solidBandPct);
     // Default ~30% of frame — matches the Canva lower-third slab.
     const ratio = Number.isFinite(bandPct)
@@ -375,8 +390,9 @@ export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBar
 /**
  * Y of the first hook line (from top).
  *
- * Plain-text: pin the stack to the TOP of the solid black bar (slightly into the
- * gradient), so text isn't floating mid-slab. Other tickers: bottom-margin layout.
+ * Black-bar-anchored: pin the FIRST line to a shared height on the solid bar
+ * edge (2-line reference − thin kiss), so IBC/ISS/ifc2 tops match regardless of
+ * wrap count. Other tickers: bottom-margin layout.
  */
 export function getNewsTickerHookBarY(preset, {
   canvasH,
@@ -385,12 +401,16 @@ export function getNewsTickerHookBarY(preset, {
   lockupBlockH = 0,
   shiftY = 0,
 }) {
-  if (isPlainTextNewsTicker(preset)) {
+  if (isBlackBarAnchoredNewsTicker(preset)) {
     const blackTop = getNewsTickerSolidTopY(preset, canvasH, 0, fontSize, totalBarsH);
-    // Start a touch above the solid edge so the first line rides the fade.
-    const riseIntoGradient = Math.round(fontSize * 0.45);
-    let barY = blackTop - riseIntoGradient - shiftY;
-    // Keep a tiny floor so the handle never clips the frame bottom.
+    // Pin the FIRST line to a shared height so 2-line (IBC) and 3-line (ISS)
+    // hooks line up. Rise is "2-line stack + thin kiss into the solid" — a
+    // 2-line hook sits on the bar edge; longer hooks grow downward from that top.
+    const twoLineH = getNewsTickerStackHeight(preset, fontSize, 2);
+    const kissIntoSolid = Math.round(fontSize * 0.2);
+    const riseAboveBar = twoLineH - kissIntoSolid;
+    let barY = blackTop - riseAboveBar - shiftY;
+    // Keep a tiny floor so lockup / last line never clips the frame bottom.
     const minBottom = Math.round(canvasH * 0.04);
     const stackBottom = barY + totalBarsH + lockupBlockH;
     if (stackBottom > canvasH - minBottom) {
