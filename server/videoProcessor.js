@@ -861,7 +861,8 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const shiftY = Math.round(
     canvasH * Math.max(0, Math.min(48, Number(preset.headlinePosition?.y) || 0)) / 100,
   );
-  // Plain-text: pin hook to top of the solid black bar. Others: bottom-margin layout.
+  // Black-bar-anchored (IBC/ISS/ifc2/foundersinindia): same first-line height as preview.
+  // Others: bottom-margin layout. Geometry lives in shared/headlineLayout.js.
   let barY = getNewsTickerHookBarY(preset, {
     canvasH, fontSize, totalBarsH, lockupBlockH, shiftY,
   });
