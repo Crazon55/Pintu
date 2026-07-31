@@ -1376,7 +1376,13 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   // theprimefounder, aicracked, theevolvinggpt and related Poppins presets use Poppins; all other presets use Inter for headline/footer/watermark
   const headlineFontFamily = isPoppinsHeadlinePreset ? 'Poppins' : 'Inter';
   const richLines = hasHeadline ? calculateRichLines(ctx, rawHeadline, maxTextWidth, fontSize, adjSpacing, isAllBoldWhite, headlineFontFamily) : [];
-  const textH = hasHeadline ? (richLines.length * lineHeight) : 0;
+  // Match IFC hook_video: last line height = fontSize (not full line box), so the
+  // gap is glyph-bottom → video. ISS a-roll was leaving ~0.25em of line-box slack.
+  const textH = !hasHeadline
+    ? 0
+    : (isIndianStartupStory
+      ? (richLines.length === 0 ? 0 : (richLines.length - 1) * lineHeight + fontSize)
+      : richLines.length * lineHeight);
 
   // Optional plain line above hook (series / day counter) — same width rules as headline
   const showHookEyebrow = preset.showHookEyebrow === true;
