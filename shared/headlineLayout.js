@@ -302,6 +302,32 @@ export function isPlainTextNewsTicker(preset) {
 }
 
 /**
+ * News hooks that always render / store as ALL CAPS (IBC + indianfounderscore).
+ * Apply at editor input, preview, and export so paste/type never stays sentence case.
+ */
+export const UPPERCASE_NEWS_HOOK_NAMES = [
+  'indiabusinesscom-news',
+  'ifc2-news',
+];
+
+export function isUppercaseNewsHook(preset) {
+  return UPPERCASE_NEWS_HOOK_NAMES.includes((preset?.name || '').toLowerCase());
+}
+
+/** Uppercase text runs in headline HTML; leave tags (<b>, <br>, …) alone. */
+export function uppercaseHeadlineHtml(html) {
+  if (!html) return html;
+  return String(html).replace(/(<[^>]+>)|([^<]+)/g, (m, tag, text) => (
+    tag || text.toLocaleUpperCase('en-US')
+  ));
+}
+
+/** Apply preset casing rules to a headline HTML string. */
+export function applyNewsHookCasing(preset, html) {
+  return isUppercaseNewsHook(preset) ? uppercaseHeadlineHtml(html) : html;
+}
+
+/**
  * News tickers whose hook sits just above a fixed lower-third black bar
  * (same vertical treatment as indianfounderscore / foundersinindia).
  * Does NOT change horizontal alignment or highlight style.

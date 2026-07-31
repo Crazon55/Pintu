@@ -23,6 +23,9 @@ import {
     getNewsTickerHandleLockup,
     getNewsTickerFontFamily,
     isPlainTextNewsTicker,
+    isUppercaseNewsHook,
+    uppercaseHeadlineHtml,
+    applyNewsHookCasing,
 } from './shared/headlineLayout.js';
 // Inter is loaded globally via public/fonts/*.woff2 (see index.css)
 
@@ -357,9 +360,13 @@ const calculateFontSize = (textLength, scaleMultiplier = 1) => {
 };
 
 // Rich Text Editor Component
-const RichTextEditor = ({ value, onChange, placeholder, className }) => {
+const RichTextEditor = ({ value, onChange, placeholder, className, forceUppercase = false }) => {
     const editorRef = useRef(null);
     const [isFocused, setIsFocused] = useState(false);
+    const emit = useCallback((html) => {
+        if (!onChange) return;
+        onChange(forceUppercase ? uppercaseHeadlineHtml(html) : html);
+    }, [onChange, forceUppercase]);
 
     const handleBold = useCallback(() => {
         const editor = editorRef.current;
@@ -379,10 +386,8 @@ const RichTextEditor = ({ value, onChange, placeholder, className }) => {
         document.execCommand('bold', false, null);
 
         // Update value immediately
-        if (onChange && editorRef.current) {
-            onChange(editorRef.current.innerHTML);
-        }
-    }, [onChange]);
+        if (editorRef.current) emit(editorRef.current.innerHTML);
+    }, [emit]);
 
     useEffect(() => {
         const editor = editorRef.current;
@@ -398,31 +403,28 @@ const RichTextEditor = ({ value, onChange, placeholder, className }) => {
             if (e.key === 'Enter' && e.shiftKey) {
                 e.preventDefault();
                 document.execCommand('insertLineBreak');
-                if (onChange && editorRef.current) onChange(editorRef.current.innerHTML);
+                if (editorRef.current) emit(editorRef.current.innerHTML);
             } else if (e.key === 'Enter') {
                 requestAnimationFrame(() => {
-                    if (onChange && editorRef.current) onChange(editorRef.current.innerHTML);
+                    if (editorRef.current) emit(editorRef.current.innerHTML);
                 });
             }
         };
 
         editor.addEventListener('keydown', handleKeyDown);
         return () => editor.removeEventListener('keydown', handleKeyDown);
-    }, [handleBold]);
+    }, [handleBold, emit]);
 
     const handleInput = (e) => {
-        if (onChange) {
-            onChange(e.target.innerHTML);
-        }
+        emit(e.target.innerHTML);
     };
 
     const handlePaste = (e) => {
         e.preventDefault();
         const text = e.clipboardData.getData('text/plain');
-        document.execCommand('insertText', false, text);
-        if (onChange && editorRef.current) {
-            onChange(editorRef.current.innerHTML);
-        }
+        const insert = forceUppercase ? text.toLocaleUpperCase('en-US') : text;
+        document.execCommand('insertText', false, insert);
+        if (editorRef.current) emit(editorRef.current.innerHTML);
     };
 
     // Update content when value changes externally (skip while focused so typing stays live)
@@ -442,7 +444,10 @@ const RichTextEditor = ({ value, onChange, placeholder, className }) => {
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 className={className}
-                style={{ minHeight: '60px' }}
+                style={{
+                    minHeight: '60px',
+                    ...(forceUppercase ? { textTransform: 'uppercase' } : null),
+                }}
                 suppressContentEditableWarning
             />
         </div>
@@ -518,6 +523,7 @@ const PerBrandPresetCard = ({ p, fontScale, wordSpacing, setPresets, updateIndiv
                 <RichTextEditor
                     value={p.headline}
                     onChange={(html) => updateIndividualText(p.id, 'headline', html)}
+                    forceUppercase={isUppercaseNewsHook(p)}
                     placeholder="Hook....."
                     className="w-full bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded-lg p-4 text-sm text-[var(--pintu-text-primary)] focus:border-violet-500 focus:outline-none min-h-[100px]"
                 />
@@ -1659,6 +1665,7 @@ const PreviewCard = memo(({
                                     const isIFC = preset.name === 'ifc-news';
                                     const isIFC2 = isPlainTextNewsTicker(preset);
                                     const isPlainText = isPlainTextNewsTicker(preset);
+                                    // Bold (700) — Avant Garde / Helvetica World Bold files, not Black/ExtraBold
                                     const ntFontWeight = 700;
                                     const ntFontFamily = getNewsTickerFontFamily(preset);
                                     const [rw, rh] = (preset.ratio || '9:16').split(':').map(Number);
@@ -1666,8 +1673,9 @@ const PreviewCard = memo(({
                                     // Handle lockup reserves a fixed box under the hook (mirrors export)
                                     const handleLockup = getNewsTickerHandleLockup(preset);
                                     const lockupBlockH = handleLockup ? handleLockup.gap + handleLockup.height : 0;
+                                    const hookHeadline = applyNewsHookCasing(preset, preset.headline);
                                     // Same wrap budget as export (getExportNewsMaxLineWidth already leaves pad room)
-                                    const { fontSize: fittedExportFs, lines } = fitNewsTickerPreview(preset.headline, {
+                                    const { fontSize: fittedExportFs, lines } = fitNewsTickerPreview(hookHeadline, {
                                         baseFontSize: Math.round(54 * effectiveFontScale),
                                         maxWidth: getExportNewsMaxLineWidth(preset),
                                         fontFamily: ntFontFamily,
@@ -1746,6 +1754,7 @@ const PreviewCard = memo(({
                                                             justifyContent: (isIBC || isIFC || isIFC2) ? 'center' : 'flex-start',
                                                             fontFamily: ntFontFamily,
                                                             fontWeight: ntFontWeight,
+                                                            fontSynthesis: 'none',
                                                             fontSize: `${ntFontSize}px`,
                                                             lineHeight: highlightH / fittedExportFs,
                                                             whiteSpace: 'nowrap',
@@ -2400,7 +2409,7 @@ export default function App() {
         // (ifc 9:16, others 4:5) even after HMR / stale state.
         return INITIAL_PRESETS.filter(p => names.includes(p.name)).map(p => ({
             ...p,
-            headline,
+            headline: applyNewsHookCasing(p, headline),
             // News / hook_video / aroll never use credits
             footer: (format === 'news' || p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
                 ? ''
@@ -2687,9 +2696,10 @@ export default function App() {
         setGlobalHeadline(headline);
         setGlobalFooter(footer);
         // News / hook_video / aroll never use credits — don't stamp DEFAULT_FOOTER onto them.
+        // IBC / ifc2 store ALL CAPS so per-brand editors and export stay consistent.
         setPresets(prev => prev.map(p => ({
             ...p,
-            headline: headline,
+            headline: applyNewsHookCasing(p, headline),
             footer: (p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
                 ? ''
                 : footer,
@@ -2697,9 +2707,11 @@ export default function App() {
     };
 
     const updateIndividualText = (id, field, value) => {
-        setPresets(prev => prev.map(p =>
-            p.id === id ? { ...p, [field]: value } : p
-        ));
+        setPresets(prev => prev.map(p => {
+            if (p.id !== id) return p;
+            const next = field === 'headline' ? applyNewsHookCasing(p, value) : value;
+            return { ...p, [field]: next };
+        }));
     };
 
     const updateGlobalHookEyebrow = (text, show) => {
@@ -3133,7 +3145,7 @@ export default function App() {
                     font-display: swap;
                     src: url('/fonts/Poppins-Thin.ttf') format('truetype');
                 }
-                /* ITC Avant Garde Gothic Bold for the 4 "News formats" presets (served from public/fonts/) */
+                /* ITC Avant Garde Gothic Bold (700) — IFC / IBC / ISS. Not Black/ExtraBold. */
                 @font-face {
                     font-family: 'ITC Avant Garde Gothic';
                     font-style: normal;
@@ -3141,7 +3153,7 @@ export default function App() {
                     font-display: swap;
                     src: url('/fonts/ITCAvantGardeGothic-Bold.otf') format('opentype');
                 }
-                /* Helvetica World Bold for plain-text news tickers (ifc2 / foundersinindia). */
+                /* Helvetica World Bold (700) — ifc2 / foundersinindia. Not Black/ExtraBold. */
                 @font-face {
                     font-family: 'Helvetica World';
                     font-style: normal;
@@ -3377,6 +3389,7 @@ export default function App() {
                                             <RichTextEditor
                                                 value={globalHeadline}
                                                 onChange={(html) => updateGlobalText(html, globalFooter)}
+                                                forceUppercase={playbookFormat === 'news'}
                                                 placeholder="Hook....."
                                                 className="w-full bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded p-3 text-sm text-[var(--pintu-text-primary)] placeholder-[var(--pintu-text-faint)] focus:border-violet-500 focus:outline-none font-medium min-h-[80px]"
                                             />

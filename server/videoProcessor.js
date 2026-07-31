@@ -23,6 +23,7 @@ import {
   getNewsTickerHookBarY,
   getNewsTickerHandleLockup,
   isPlainTextNewsTicker,
+  applyNewsHookCasing,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -832,7 +833,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const lockupBlockH = handleLockup ? handleLockup.gap + handleLockup.height : 0;
   // keep video dominant like Canva (~bottom 28%)
   const maxTickerH = Math.round(canvasH * 0.28) - lockupBlockH;
-  let cleanedHtml = cleanHTML(headline || '');
+  let cleanedHtml = cleanHTML(applyNewsHookCasing(preset, headline || '') || '');
   const otFace = newsTickerOpentypeFont(preset);
   if (!otFace) {
     console.warn('[news_ticker] opentype face missing — wrap metrics may be wrong');
