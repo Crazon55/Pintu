@@ -23,9 +23,9 @@ import {
     getNewsTickerHandleLockup,
     getNewsTickerFontFamily,
     isPlainTextNewsTicker,
-    isUppercaseNewsHook,
+    isUppercaseArollHook,
     uppercaseHeadlineHtml,
-    applyNewsHookCasing,
+    applyHookCasing,
 } from './shared/headlineLayout.js';
 // Inter is loaded globally via public/fonts/*.woff2 (see index.css)
 
@@ -523,7 +523,7 @@ const PerBrandPresetCard = ({ p, fontScale, wordSpacing, setPresets, updateIndiv
                 <RichTextEditor
                     value={p.headline}
                     onChange={(html) => updateIndividualText(p.id, 'headline', html)}
-                    forceUppercase={isUppercaseNewsHook(p)}
+                    forceUppercase={isUppercaseArollHook(p)}
                     placeholder="Hook....."
                     className="w-full bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded-lg p-4 text-sm text-[var(--pintu-text-primary)] focus:border-violet-500 focus:outline-none min-h-[100px]"
                 />
@@ -1160,7 +1160,7 @@ const PreviewCard = memo(({
                                 const isInterBoldHook = preset.name === 'indiabusinesscom'
                                     || preset.name === 'indianfoundercore'
                                     || preset.name === 'indian-founders-co';
-                                const lines = buildPreviewLines(preset.headline, {
+                                const lines = buildPreviewLines(applyHookCasing(preset, preset.headline), {
                                     fontSize: previewFontSize,
                                     maxWidth: exportMaxTextW,
                                     wordSpacing: adjustedWordSpacing,
@@ -1673,9 +1673,8 @@ const PreviewCard = memo(({
                                     // Handle lockup reserves a fixed box under the hook (mirrors export)
                                     const handleLockup = getNewsTickerHandleLockup(preset);
                                     const lockupBlockH = handleLockup ? handleLockup.gap + handleLockup.height : 0;
-                                    const hookHeadline = applyNewsHookCasing(preset, preset.headline);
                                     // Same wrap budget as export (getExportNewsMaxLineWidth already leaves pad room)
-                                    const { fontSize: fittedExportFs, lines } = fitNewsTickerPreview(hookHeadline, {
+                                    const { fontSize: fittedExportFs, lines } = fitNewsTickerPreview(preset.headline, {
                                         baseFontSize: Math.round(54 * effectiveFontScale),
                                         maxWidth: getExportNewsMaxLineWidth(preset),
                                         fontFamily: ntFontFamily,
@@ -2409,7 +2408,7 @@ export default function App() {
         // (ifc 9:16, others 4:5) even after HMR / stale state.
         return INITIAL_PRESETS.filter(p => names.includes(p.name)).map(p => ({
             ...p,
-            headline: applyNewsHookCasing(p, headline),
+            headline: applyHookCasing(p, headline),
             // News / hook_video / aroll never use credits
             footer: (format === 'news' || p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
                 ? ''
@@ -2696,10 +2695,10 @@ export default function App() {
         setGlobalHeadline(headline);
         setGlobalFooter(footer);
         // News / hook_video / aroll never use credits — don't stamp DEFAULT_FOOTER onto them.
-        // IBC / ifc2 store ALL CAPS so per-brand editors and export stay consistent.
+        // A-roll indiabusinesscom + indianfoundercore store ALL CAPS for preview + export.
         setPresets(prev => prev.map(p => ({
             ...p,
-            headline: applyNewsHookCasing(p, headline),
+            headline: applyHookCasing(p, headline),
             footer: (p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
                 ? ''
                 : footer,
@@ -2709,7 +2708,7 @@ export default function App() {
     const updateIndividualText = (id, field, value) => {
         setPresets(prev => prev.map(p => {
             if (p.id !== id) return p;
-            const next = field === 'headline' ? applyNewsHookCasing(p, value) : value;
+            const next = field === 'headline' ? applyHookCasing(p, value) : value;
             return { ...p, [field]: next };
         }));
     };
@@ -3389,7 +3388,6 @@ export default function App() {
                                             <RichTextEditor
                                                 value={globalHeadline}
                                                 onChange={(html) => updateGlobalText(html, globalFooter)}
-                                                forceUppercase={playbookFormat === 'news'}
                                                 placeholder="Hook....."
                                                 className="w-full bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded p-3 text-sm text-[var(--pintu-text-primary)] placeholder-[var(--pintu-text-faint)] focus:border-violet-500 focus:outline-none font-medium min-h-[80px]"
                                             />

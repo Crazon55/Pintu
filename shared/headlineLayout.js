@@ -302,16 +302,21 @@ export function isPlainTextNewsTicker(preset) {
 }
 
 /**
- * News hooks that always render / store as ALL CAPS (IBC + indianfounderscore).
- * Apply at editor input, preview, and export so paste/type never stays sentence case.
+ * A-roll pages whose hooks are always ALL CAPS (IBC + indianfoundercore only).
+ * News formats and other a-roll brands keep typed casing.
  */
-export const UPPERCASE_NEWS_HOOK_NAMES = [
-  'indiabusinesscom-news',
-  'ifc2-news',
+export const UPPERCASE_AROLL_HOOK_NAMES = [
+  'indiabusinesscom',
+  'indianfoundercore',
 ];
 
+export function isUppercaseArollHook(preset) {
+  return UPPERCASE_AROLL_HOOK_NAMES.includes((preset?.name || '').toLowerCase());
+}
+
+/** @deprecated use isUppercaseArollHook */
 export function isUppercaseNewsHook(preset) {
-  return UPPERCASE_NEWS_HOOK_NAMES.includes((preset?.name || '').toLowerCase());
+  return isUppercaseArollHook(preset);
 }
 
 /** Uppercase text runs in headline HTML; leave tags (<b>, <br>, …) alone. */
@@ -322,9 +327,14 @@ export function uppercaseHeadlineHtml(html) {
   ));
 }
 
-/** Apply preset casing rules to a headline HTML string. */
+/** Apply a-roll ALL CAPS rule when the preset opts in. */
+export function applyHookCasing(preset, html) {
+  return isUppercaseArollHook(preset) ? uppercaseHeadlineHtml(html) : html;
+}
+
+/** @deprecated use applyHookCasing */
 export function applyNewsHookCasing(preset, html) {
-  return isUppercaseNewsHook(preset) ? uppercaseHeadlineHtml(html) : html;
+  return applyHookCasing(preset, html);
 }
 
 /**

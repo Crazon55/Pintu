@@ -23,7 +23,7 @@ import {
   getNewsTickerHookBarY,
   getNewsTickerHandleLockup,
   isPlainTextNewsTicker,
-  applyNewsHookCasing,
+  applyHookCasing,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -386,7 +386,8 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   ctx.fillRect(0, 0, 720, 1280);
 
   // --- Parse hook text (bold words get brand color, regular words white) ---
-  let cleanedHtml = cleanHTML(headline || '');
+  // indiabusinesscom + indianfoundercore always paint ALL CAPS.
+  let cleanedHtml = cleanHTML(applyHookCasing(preset, headline || '') || '');
   cleanedHtml = cleanedHtml.replace(/<\/?strong>/gi, (m) => m.toLowerCase().replace('strong', 'b'));
   cleanedHtml = cleanedHtml.replace(/<\/?b>/gi, (m) => m.toLowerCase());
 
@@ -833,7 +834,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const lockupBlockH = handleLockup ? handleLockup.gap + handleLockup.height : 0;
   // keep video dominant like Canva (~bottom 28%)
   const maxTickerH = Math.round(canvasH * 0.28) - lockupBlockH;
-  let cleanedHtml = cleanHTML(applyNewsHookCasing(preset, headline || '') || '');
+  let cleanedHtml = cleanHTML(headline || '');
   const otFace = newsTickerOpentypeFont(preset);
   if (!otFace) {
     console.warn('[news_ticker] opentype face missing — wrap metrics may be wrong');
