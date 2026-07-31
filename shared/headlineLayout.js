@@ -585,6 +585,8 @@ export function getHookVideoGap(preset) {
   // Remaining line-box slack is handled by measuring the last line to fontSize.
   if (preset?.layout === 'hook_video') return 18;
   if (preset?.layout === 'aroll') return 18;
+  // ISS a-roll: match IFC hook_video gap (was watermark default 20 + last-line slack).
+  if ((preset?.name || '').toLowerCase() === 'indiastartupstory') return 18;
 
   const name = preset?.name || '';
   const nameLower = name.toLowerCase();
