@@ -23,7 +23,7 @@ function getGroq() {
 /**
  * Extract audio from video as MP3.
  */
-function extractAudio(videoPath, outputPath) {
+export function extractAudio(videoPath, outputPath) {
   return new Promise((resolve, reject) => {
     ffmpeg(videoPath)
       .noVideo()
@@ -85,13 +85,24 @@ function transliterate(text) {
   return result;
 }
 
-function romanizeWord(word) {
+export function romanizeWord(word) {
   if (isDevanagari(word)) return transliterate(word);
   return word;
 }
 
 /**
- * Transcribe using Groq's Whisper API (fast, free, supports Hindi).
+ * Bias Whisper toward Roman-script Hinglish (code-switched Hindi + English).
+ * Forcing language=hi makes it emit Devanagari; a naive transliterator then
+ * mangles captions. Auto-detect + this prompt is the free path that used to
+ * work well for creator Hinglish.
+ */
+const HINGLISH_PROMPT =
+  'Hinglish conversation written in Roman script only, not Devanagari. ' +
+  'Words like: hai, kya, nahi, bhai, yaar, matlab, bohot, achha, theek, bas, ' +
+  'phir, kaise, kyun, toh, pehle, baad, wala, nahi, bilkul, sahi, dekh, sun.';
+
+/**
+ * Transcribe using Groq Whisper large-v3 (best free multilingual model on Groq).
  */
 export async function transcribeWithGroq(videoPath, tempDir, options = {}) {
   const language = options.language || 'en';
@@ -101,20 +112,29 @@ export async function transcribeWithGroq(videoPath, tempDir, options = {}) {
   console.log('[groq] Extracting audio...');
   await extractAudio(videoPath, audioPath);
 
-  console.log(`[groq] Transcribing (${hinglish ? 'Hinglish' : 'English'})...`);
+  console.log(`[groq] Transcribing with whisper-large-v3 (${hinglish ? 'Hinglish/roman' : 'English'})...`);
 
-  const transcription = await getGroq().audio.transcriptions.create({
+  const request = {
     file: createReadStream(audioPath),
     model: 'whisper-large-v3',
     response_format: 'verbose_json',
     timestamp_granularities: ['word', 'segment'],
-    language: hinglish ? 'hi' : 'en',
-  });
+    temperature: 0,
+  };
+
+  if (hinglish) {
+    // Omit language so Whisper can code-switch; prompt keeps output in Latin script.
+    request.prompt = HINGLISH_PROMPT;
+  } else {
+    request.language = 'en';
+  }
+
+  const transcription = await getGroq().audio.transcriptions.create(request);
 
   // Clean up audio
   await fs.unlink(audioPath).catch(() => {});
 
-  // Extract words with timestamps
+  // Extract words with timestamps; romanize any leftover Devanagari.
   const words = (transcription.words || []).map(w => {
     let text = (w.word || '').trim();
     if (hinglish && text) text = romanizeWord(text);
@@ -142,9 +162,26 @@ export async function transcribeWithGroq(videoPath, tempDir, options = {}) {
   console.log(`[groq] Done: ${chunks.length} segments, ${words.length} words`);
 
   return {
+    engine: 'groq-whisper-large-v3',
     language: hinglish ? 'hi' : 'en',
     duration: transcription.duration || 0,
     segments: chunks,
     words,
   };
+}
+
+/**
+ * Prefer ElevenLabs Scribe v2 when ELEVENLABS_API_KEY is set (best public match
+ * for Kalakar-style desi/Hinglish captions). Fall back to Groq Whisper large-v3.
+ */
+export async function transcribeVideo(videoPath, tempDir, options = {}) {
+  if (process.env.ELEVENLABS_API_KEY) {
+    try {
+      const { transcribeWithElevenLabs } = await import('./elevenLabsTranscriber.js');
+      return await transcribeWithElevenLabs(videoPath, tempDir, options);
+    } catch (err) {
+      console.warn('[transcribe] ElevenLabs failed, falling back to Groq:', err.message);
+    }
+  }
+  return transcribeWithGroq(videoPath, tempDir, options);
 }

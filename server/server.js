@@ -9,7 +9,7 @@ import { createWriteStream, existsSync } from 'fs';
 import archiver from 'archiver';
 import { createVideoProcessor } from './videoProcessor.js';
 import { createJobQueue } from './simpleQueue.js'; // Use your simpleQueue or Bull
-import { transcribeWithGroq } from './groqTranscriber.js';
+import { transcribeVideo } from './groqTranscriber.js';
 import {
   generateASS,
   generateIndianFounderASS,
@@ -287,9 +287,10 @@ jobQueue.process('transcribe', 1, async (job) => {
   const tempDir = join(__dirname, 'temp', `transcribe-${Date.now()}`);
   await fs.mkdir(tempDir, { recursive: true });
   job.progress({ step: 'transcribing', percent: 20 });
-  const result = await transcribeWithGroq(job.data.videoPath, tempDir, {
+  const result = await transcribeVideo(job.data.videoPath, tempDir, {
     language: job.data.language,
   });
+  console.log(`[transcribe] engine=${result.engine || 'unknown'}`);
   job.progress({ step: 'done', percent: 100 });
   // burn-subtitles needs the original video
   result.videoPath = job.data.videoPath;
