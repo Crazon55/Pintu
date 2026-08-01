@@ -8,22 +8,26 @@ import {
 const PLAY_RES_X = 720;
 const PLAY_RES_Y = 1280;
 
+// Motion is baked in (not a user knob): each word shoots up from below into
+// its exact sentence slot, then ease-out settles. Keep riseMs short.
 const DEFAULT_STYLE = {
   fontSize: 58,
   baseColor: '#FFFFFF',
   activeColor: '#FF0000',
   outlineColor: '#000000',
   outline: 4,
-  slantDeg: -6,
-  popFromScale: 85,
-  popToScale: 110,
-  popDurationMs: 70,
+  slantDeg: 0,
+  popFromScale: 88,
+  popToScale: 108,
+  popDurationMs: 90,
+  popSettleScale: 100,
+  popSettleMs: 110,
   glow: true,
   glowBlur: 11,
-  reveal: 'accumulate',
-  riseOn: 'word',
-  riseY: 28,
-  riseMs: 140,
+  reveal: 'accumulate', // future words invisible but keep width → fixed slots
+  riseOn: 'word',       // every word rises from below into its slot
+  riseY: 50,
+  riseMs: 120,          // fast start; easeOutQuint slows hard as it lands
   posX: 360,
   posY: 900,
   maxWordsPerBlock: 3,
@@ -32,23 +36,37 @@ const DEFAULT_STYLE = {
 
 const round3 = (n) => Math.round(n * 1000) / 1000;
 
-/** Mirrors the ASS \t(0,popDurationMs,\fscx..) ramp so preview timing matches. */
-function popScaleAt(time, word, style) {
-  if (!word) return style.popToScale;
-  const ms = (time - word.activeFrom) * 1000;
-  if (ms <= 0) return style.popFromScale;
-  if (ms >= style.popDurationMs) return style.popToScale;
-  const p = ms / style.popDurationMs;
-  return style.popFromScale + (style.popToScale - style.popFromScale) * p;
+/** Fast start → slow finish (strong settle into the word slot). */
+function easeOutQuint(t) {
+  const x = Math.min(1, Math.max(0, t));
+  return 1 - (1 - x) ** 5;
 }
 
-/** Mirrors the ASS \move(...,posY+riseY, ..., posY, 0, riseMs) slide, in PlayRes px. */
+/** Scale pop with ease-out, then settle back to 100%. */
+function popScaleAt(time, word, style) {
+  if (!word) return style.popSettleScale ?? 100;
+  const ms = (time - word.activeFrom) * 1000;
+  const settleTo = Number.isFinite(style.popSettleScale) ? style.popSettleScale : 100;
+  const settleMs = Number.isFinite(style.popSettleMs) ? style.popSettleMs : style.popDurationMs;
+  if (ms <= 0) return style.popFromScale;
+  if (ms < style.popDurationMs) {
+    const p = easeOutQuint(ms / style.popDurationMs);
+    return style.popFromScale + (style.popToScale - style.popFromScale) * p;
+  }
+  if (ms < style.popDurationMs + settleMs) {
+    const p = easeOutQuint((ms - style.popDurationMs) / settleMs);
+    return style.popToScale + (settleTo - style.popToScale) * p;
+  }
+  return settleTo;
+}
+
+/** Rise from below into the exact slot — decelerates hard as it lands. */
 function riseOffsetAt(time, word, style) {
   if (!word || !style.riseY) return 0;
   const ms = (time - word.activeFrom) * 1000;
   if (ms <= 0) return style.riseY;
   if (ms >= style.riseMs) return 0;
-  return style.riseY * (1 - ms / style.riseMs);
+  return style.riseY * (1 - easeOutQuint(ms / style.riseMs));
 }
 
 function fmtTime(s) {
@@ -117,6 +135,7 @@ export default function TranscribeApp() {
   const [serverVideoPath, setServerVideoPath] = useState(null);
   const [spec, setSpec] = useState(null);
   const [style, setStyle] = useState(DEFAULT_STYLE);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -294,7 +313,7 @@ export default function TranscribeApp() {
         <div className="flex items-center gap-2.5">
           <Type className="w-4 h-4 text-red-500" />
           <h1 className="text-sm font-semibold tracking-tight">Word-Level Captions</h1>
-          <span className="text-[11px] text-neutral-600 ml-1">Groq transcribe → ASS burn-in</span>
+          <span className="text-[11px] text-neutral-600 ml-1">Groq Whisper large-v3 → ASS burn-in</span>
         </div>
         <a href="/" className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors">
           ← Video Batcher
@@ -438,7 +457,7 @@ export default function TranscribeApp() {
                   className="bg-neutral-900 border border-neutral-800 rounded-md px-2.5 py-1.5 text-xs
                              text-neutral-200 focus:outline-none focus:border-neutral-600"
                 >
-                  <option value="hinglish">Hindi → Hinglish (romanized)</option>
+                  <option value="hinglish">Hinglish (Roman script)</option>
                   <option value="en">English</option>
                 </select>
               </label>
@@ -468,9 +487,9 @@ export default function TranscribeApp() {
             </div>
           </section>
 
-          {/* step 2 — style */}
+          {/* step 2 — style (simple; motion baked in) */}
           <section className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-1">
               <h2 className="text-xs font-semibold text-neutral-300">2 · Style</h2>
               <button
                 onClick={() => setStyle(DEFAULT_STYLE)}
@@ -479,66 +498,52 @@ export default function TranscribeApp() {
                 <RotateCcw className="w-3 h-3" /> Reset
               </button>
             </div>
+            <p className="text-[11px] text-neutral-600 mb-4">
+              Each word rises from below into its own spot in the sentence — fast up, then slows to settle.
+            </p>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-4">
-              <ColorInput label="Base" value={style.baseColor} onChange={(v) => setS({ baseColor: v })} />
               <ColorInput label="Active word" value={style.activeColor} onChange={(v) => setS({ activeColor: v })} />
-              <ColorInput label="Outline" value={style.outlineColor} onChange={(v) => setS({ outlineColor: v })} />
-
-              <Slider label="Font size" value={style.fontSize} min={28} max={96} onChange={(v) => setS({ fontSize: v })} />
-              <Slider label="Outline" value={style.outline} min={0} max={10} onChange={(v) => setS({ outline: v })} />
-              <Slider label="Slant" value={style.slantDeg} min={-15} max={15} suffix="°" onChange={(v) => setS({ slantDeg: v })} />
-
-              <Slider label="Pop from" value={style.popFromScale} min={50} max={100} suffix="%" onChange={(v) => setS({ popFromScale: v })} />
-              <Slider label="Pop to" value={style.popToScale} min={100} max={160} suffix="%" onChange={(v) => setS({ popToScale: v })} />
-              <Slider label="Pop speed" value={style.popDurationMs} min={20} max={300} step={10} suffix="ms" onChange={(v) => setS({ popDurationMs: v })} />
-
-              <Slider label="Words / block" value={style.maxWordsPerBlock} min={1} max={4} onChange={(v) => setS({ maxWordsPerBlock: v })} />
-              <Slider label="Max block time" value={style.maxBlockDuration} min={0.8} max={4} step={0.1} suffix="s" onChange={(v) => setS({ maxBlockDuration: v })} />
-              <Slider label="Vertical position" value={style.posY} min={200} max={1200} step={10} onChange={(v) => setS({ posY: v })} />
-
-              <Slider label="Rise distance" value={style.riseY} min={0} max={80} onChange={(v) => setS({ riseY: v })} />
-              <Slider label="Rise speed" value={style.riseMs} min={40} max={500} step={10} suffix="ms" onChange={(v) => setS({ riseMs: v })} />
-              <label className="block">
-                <span className="block text-[11px] uppercase tracking-wider text-neutral-500 mb-1.5">Rise applies to</span>
-                <select
-                  value={style.riseOn}
-                  onChange={(e) => setS({ riseOn: e.target.value })}
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded-md px-2.5 py-1.5 text-xs
-                             text-neutral-200 focus:outline-none focus:border-neutral-600"
-                >
-                  <option value="word">Every word</option>
-                  <option value="block">First word of each sentence</option>
-                  <option value="none">No rise</option>
-                </select>
+              <ColorInput label="Other words" value={style.baseColor} onChange={(v) => setS({ baseColor: v })} />
+              <label className="flex items-center gap-2 cursor-pointer self-end pb-1">
+                <input
+                  type="checkbox"
+                  checked={style.glow}
+                  onChange={(e) => setS({ glow: e.target.checked })}
+                  className="w-3.5 h-3.5 rounded accent-red-500"
+                />
+                <span className="text-[11px] uppercase tracking-wider text-neutral-500">Glow</span>
               </label>
 
-              <div className="col-span-2 md:col-span-3 flex flex-wrap items-end gap-5 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={style.reveal === 'accumulate'}
-                    onChange={(e) => setS({ reveal: e.target.checked ? 'accumulate' : 'all' })}
-                    className="w-3.5 h-3.5 rounded accent-red-500"
-                  />
-                  <span className="text-[11px] uppercase tracking-wider text-neutral-500">Build up word by word</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={style.glow}
-                    onChange={(e) => setS({ glow: e.target.checked })}
-                    className="w-3.5 h-3.5 rounded accent-red-500"
-                  />
-                  <span className="text-[11px] uppercase tracking-wider text-neutral-500">Glow</span>
-                </label>
+              <Slider label="Font size" value={style.fontSize} min={28} max={96} onChange={(v) => setS({ fontSize: v })} />
+              <Slider label="Caption height" value={style.posY} min={200} max={1200} step={10} onChange={(v) => setS({ posY: v })} />
+              <Slider label="Words per line" value={style.maxWordsPerBlock} min={1} max={4} onChange={(v) => setS({ maxWordsPerBlock: v })} />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="mt-4 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors"
+            >
+              {showAdvanced ? 'Hide advanced' : 'Show advanced'}
+            </button>
+
+            {showAdvanced && (
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-4 border-t border-neutral-900 pt-4">
+                <ColorInput label="Outline" value={style.outlineColor} onChange={(v) => setS({ outlineColor: v })} />
+                <Slider label="Outline width" value={style.outline} min={0} max={10} onChange={(v) => setS({ outline: v })} />
+                <Slider label="Slant" value={style.slantDeg} min={-15} max={15} suffix="°" onChange={(v) => setS({ slantDeg: v })} />
+                <Slider label="Pop from" value={style.popFromScale} min={50} max={100} suffix="%" onChange={(v) => setS({ popFromScale: v })} />
+                <Slider label="Pop to" value={style.popToScale} min={100} max={160} suffix="%" onChange={(v) => setS({ popToScale: v })} />
+                <Slider label="Pop speed" value={style.popDurationMs} min={20} max={300} step={10} suffix="ms" onChange={(v) => setS({ popDurationMs: v })} />
+                <Slider label="Rise distance" value={style.riseY} min={0} max={80} onChange={(v) => setS({ riseY: v })} />
+                <Slider label="Rise duration" value={style.riseMs} min={40} max={300} step={5} suffix="ms" onChange={(v) => setS({ riseMs: v })} />
+                <Slider label="Max line time" value={style.maxBlockDuration} min={0.8} max={4} step={0.1} suffix="s" onChange={(v) => setS({ maxBlockDuration: v })} />
                 {style.glow && (
-                  <div className="w-44">
-                    <Slider label="Glow blur" value={style.glowBlur} min={0} max={30} onChange={(v) => setS({ glowBlur: v })} />
-                  </div>
+                  <Slider label="Glow blur" value={style.glowBlur} min={0} max={30} onChange={(v) => setS({ glowBlur: v })} />
                 )}
               </div>
-            </div>
+            )}
           </section>
 
           {/* step 3 — transcript */}
