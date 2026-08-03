@@ -22,8 +22,10 @@ import {
   getNewsTickerSolidTopY,
   getNewsTickerHookBarY,
   getNewsTickerHandleLockup,
+  getNewsTickerBottomLogoY,
   isPlainTextNewsTicker,
   applyHookCasing,
+  clampNewsTickerShiftPx,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -859,10 +861,13 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fontSize);
   const totalBarsH = getNewsTickerStackHeight(preset, fontSize, lines.length);
-  // headlinePosition.y = % of frame to raise the hook text + gradient
-  const shiftY = Math.round(
-    canvasH * Math.max(0, Math.min(48, Number(preset.headlinePosition?.y) || 0)) / 100,
+  // headlinePosition.y = % of frame to raise (+) or lower (−) the hook + gradient
+  const rawShiftY = Math.round(
+    canvasH * Math.max(-22, Math.min(48, Number(preset.headlinePosition?.y) || 0)) / 100,
   );
+  const shiftY = clampNewsTickerShiftPx(preset, {
+    canvasH, fontSize, totalBarsH, lockupBlockH, shiftY: rawShiftY,
+  });
   // Black-bar-anchored (IBC/ISS/ifc2/foundersinindia): same first-line height as preview.
   // Others: bottom-margin layout. Geometry lives in shared/headlineLayout.js.
   let barY = getNewsTickerHookBarY(preset, {
@@ -1040,7 +1045,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     });
   }
 
-  // ISS-news: logo bottom-left in the margin under the ticker (match preview bottom: 12px)
+  // ISS-news: bottom-left logo sits under the hook with a gap (tracks drag; never overlaps)
   if (isISSNews && preset.logo && preset.showLogo !== false) {
     const logoFile = join(__dirname, 'assets', 'logos', preset.logo);
     if (existsSync(logoFile)) {
@@ -1048,8 +1053,14 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
       const logoH = Math.round(preset.rules?.logoSize || 55);
       const logoW = Math.round(logoImg.width * (logoH / logoImg.height));
       const logoX = preset.rules?.logoPadX ?? 59;
-      const logoPadBottom = 12;
-      const logoY = Math.max(0, canvasH - logoH - logoPadBottom);
+      const logoY = getNewsTickerBottomLogoY({
+        canvasH,
+        barY,
+        totalBarsH,
+        logoH,
+        gap: 14,
+        padBottom: 12,
+      });
       ctx.globalAlpha = preset.rules?.logoOpacity ?? 1;
       ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
       ctx.globalAlpha = 1;

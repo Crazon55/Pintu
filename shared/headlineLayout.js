@@ -501,6 +501,62 @@ export function getNewsTickerHandleLockup(preset) {
 }
 
 /**
+ * Bottom-left news logo (ISS): sit just under the hook stack with a gap so it
+ * never touches the text. Follows the hook as it moves; clamps to a bottom pad.
+ * Returns logo top Y in canvas pixels.
+ */
+export function getNewsTickerBottomLogoY({
+  canvasH,
+  barY,
+  totalBarsH,
+  logoH,
+  gap = 14,
+  padBottom = 12,
+}) {
+  const followY = Math.round(barY + totalBarsH + gap);
+  const maxY = Math.round(canvasH - logoH - padBottom);
+  return Math.max(0, Math.min(maxY, followY));
+}
+
+/** Presets whose bottom logo must track the hook (IBC has top logo only). */
+export function newsTickerHasDynamicBottomLogo(preset) {
+  const name = (preset?.name || '').toLowerCase();
+  return name === 'indiastartupstory-news'
+    || (preset?.rules?.logoPosition === 'bottom-left');
+}
+
+/**
+ * Clamp hook shift (px) so a dynamic bottom logo never collides with the text.
+ * Positive shift raises the stack; negative lowers it.
+ */
+export function clampNewsTickerShiftPx(preset, {
+  canvasH,
+  fontSize,
+  totalBarsH,
+  lockupBlockH = 0,
+  shiftY = 0,
+}) {
+  let s = Math.max(
+    Math.round(canvasH * -0.22),
+    Math.min(Math.round(canvasH * 0.48), Math.round(shiftY || 0)),
+  );
+  if (!newsTickerHasDynamicBottomLogo(preset)) return s;
+
+  const logoH = Math.round(Number(preset?.rules?.logoSize) || 55);
+  const gap = 14;
+  const padBottom = 12;
+  for (let i = 0; i < 4; i++) {
+    const barY = getNewsTickerHookBarY(preset, {
+      canvasH, fontSize, totalBarsH, lockupBlockH, shiftY: s,
+    });
+    const overflow = barY + totalBarsH + gap + logoH + padBottom - canvasH;
+    if (overflow <= 0) break;
+    s += Math.ceil(overflow); // raise stack so logo fits under hook
+  }
+  return s;
+}
+
+/**
  * Largest font that keeps the news ticker compact like Canva:
  * soft-wrap within maxLineW, prefer ≤ maxLines, and keep total bar stack ≤ maxTotalBarsH.
  * measureWordAtSize(text, fontSize) must use the same face as render.
