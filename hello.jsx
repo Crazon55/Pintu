@@ -150,11 +150,11 @@ const INITIAL_PRESETS_RAW = [
     { id: 81, name: 'startupbydog', handle: '@startupbydog', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'startupbydog.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 82, name: 'Entrepreneursindia.co', handle: '@entrepreneursindia.co', ratio: '4:3', color: '#6500D1', active: true, layout: 'social', logo: 'Entrepreneursindia.co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 92, name: 'indiabusinesscom', handle: '@indiabusinesscom', ratio: '4:3', color: '#FF5F07', active: true, layout: 'hook_video', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 22, logoPadY: 12 } },
-    { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '4:5', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 46, logoPadY: 41, solidBandPct: 30 } },
-    { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55, solidBandPct: 30 } },
-    { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 38, textLogo: 'IFC.', logoPadX: 30, logoPadY: 56 } },
-    { id: 97, name: 'ifc2-news', handle: '@indianfounderscore', ratio: '9:16', color: '#E0E140', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 5 } } },
-    { id: 100, name: 'foundersinindia-news', handle: '@foundersinindia', ratio: '9:16', color: '#439eff', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'foundersinindia.png', width: 170, height: 25, gap: 5 } } },
+    { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '4:5', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 46, logoPadY: 41, solidBandPct: 30 } },
+    { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55, solidBandPct: 30 } },
+    { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 38, textLogo: 'IFC.', logoPadX: 30, logoPadY: 56 } },
+    { id: 97, name: 'ifc2-news', handle: '@indianfounderscore', ratio: '9:16', color: '#E0E140', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 5 } } },
+    { id: 100, name: 'foundersinindia-news', handle: '@foundersinindia', ratio: '9:16', color: '#439eff', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'foundersinindia.png', width: 170, height: 25, gap: 5 } } },
     { id: 98, name: '101xtechnology-aroll', handle: '@101xtechnology', ratio: '16:9', color: '#4898ab', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: '101xt.', highlightColors: ['#4898ab', '#90d46c'], topGlow: true } },
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
@@ -648,11 +648,22 @@ const PreviewCard = memo(({
     const [localCreditPos, setLocalCreditPos] = useState(preset.creditPosition || { x: 0, y: -1.5 });
     const [localWatermarkPos, setLocalWatermarkPos] = useState(preset.watermarkPosition || { x: 50, y: 16 });
     const [localHeadlinePos, setLocalHeadlinePos] = useState(preset.headlinePosition || { x: 0, y: 0 });
-    const [localVideoScale, setLocalVideoScale] = useState(videoScale || 100);
+    // News: scale comes only from this preset. Never inherit global videoScale
+    // (that was forcing every card to the last-edited / sidebar value).
+    const isNewsCard = preset.layout === 'news_ticker';
+    const [localVideoScale, setLocalVideoScale] = useState(
+        () => (isNewsCard
+            ? (Number(preset.videoScale) || 100)
+            : (Number(videoScale) || 100))
+    );
 
     useEffect(() => {
-        setLocalVideoScale(videoScale || 100);
-    }, [videoScale]);
+        if (isNewsCard) {
+            setLocalVideoScale(Number(preset.videoScale) || 100);
+            return;
+        }
+        setLocalVideoScale(Number(videoScale) || 100);
+    }, [isNewsCard, preset.videoScale, videoScale]);
 
     const [ifcFontInfo, setIfcFontInfo] = useState(null);
     const containerRef = useRef(null);
@@ -752,7 +763,8 @@ const PreviewCard = memo(({
     const arollHasSidePad = preset.layout === 'aroll' && preset.ratio === '2:3';
 
     const handleMouseDown = (e) => {
-        // News RE-SIZE mode: drag pans (like Canva). Other layouts need Move toggle.
+        // News RE-SIZE: drag pans. Other layouts need the Move toggle. Skip resize handles.
+        if (e.target?.closest?.('[data-resize-handle]')) return;
         const canPan = isRepositioning || (isResizingVideo && preset.layout === 'news_ticker');
         if (!canPan) return;
         e.preventDefault();
@@ -829,6 +841,11 @@ const PreviewCard = memo(({
             newScale = Math.max(isNews ? 80 : 100, Math.min(maxZoom, newScale));
             currentScale = newScale;
             setLocalVideoScale(newScale);
+            // News: persist per-card zoom. A-roll / others: parent keeps global zoom only.
+            if (onVideoScaleChange) {
+                if (isNews) onVideoScaleChange(preset.id, Math.round(newScale));
+                else onVideoScaleChange(Math.round(newScale));
+            }
 
             // News RE-SIZE: bias crop toward the TOP as you zoom so competitor
             // bottom captions leave the frame first (Canva-style cover), not the face.
@@ -836,6 +853,9 @@ const PreviewCard = memo(({
                 const t = (newScale - 100) / (maxZoom - 100);
                 currentPosY = Math.max(isFullBleedNews ? 8 : 5, 50 * (1 - t * 0.85));
                 setLocalPos(prev => ({ ...prev, y: currentPosY }));
+                if (onPositionChange) {
+                    onPositionChange(preset.id, { x: currentPosX, y: currentPosY });
+                }
             }
         };
 
@@ -844,7 +864,10 @@ const PreviewCard = memo(({
             document.removeEventListener('mouseup', onUp);
             const next = Math.round(currentScale);
             setLocalVideoScale(next);
-            if (onVideoScaleChange) onVideoScaleChange(next);
+            if (onVideoScaleChange) {
+                if (isNews) onVideoScaleChange(preset.id, next);
+                else onVideoScaleChange(next);
+            }
             if (isNews && onPositionChange) {
                 onPositionChange(preset.id, { x: currentPosX, y: currentPosY });
             }
@@ -1531,42 +1554,50 @@ const PreviewCard = memo(({
                         <>
                             {/* Corner handles */}
                             <div
+                                data-resize-handle
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nwse-resize z-[60]"
                                 style={{ top: '2px', left: '2px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'nw')}
                             />
                             <div
+                                data-resize-handle
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nesw-resize z-[60]"
                                 style={{ top: '2px', right: '2px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'ne')}
                             />
                             <div
+                                data-resize-handle
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nwse-resize z-[60]"
                                 style={{ bottom: '2px', left: '2px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'sw')}
                             />
                             <div
+                                data-resize-handle
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nesw-resize z-[60]"
                                 style={{ bottom: '2px', right: '2px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'se')}
                             />
                             {/* Edge handles (Canva-style) */}
                             <div
+                                data-resize-handle
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ns-resize z-[60]"
                                 style={{ top: '2px', left: '50%', transform: 'translateX(-50%)' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'n')}
                             />
                             <div
+                                data-resize-handle
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ns-resize z-[60]"
                                 style={{ bottom: '2px', left: '50%', transform: 'translateX(-50%)' }}
                                 onMouseDown={(e) => handleResizeStart(e, 's')}
                             />
                             <div
+                                data-resize-handle
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ew-resize z-[60]"
                                 style={{ left: '2px', top: '50%', transform: 'translateY(-50%)' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'w')}
                             />
                             <div
+                                data-resize-handle
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ew-resize z-[60]"
                                 style={{ right: '2px', top: '50%', transform: 'translateY(-50%)' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'e')}
@@ -2481,6 +2512,8 @@ export default function App() {
             footer: (format === 'news' || p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
                 ? ''
                 : footer,
+            // Each news card starts with its own scale (not shared)
+            videoScale: p.layout === 'news_ticker' ? (p.videoScale ?? 100) : p.videoScale,
             hookEyebrow,
             showHookEyebrow,
             hookEyebrowAlignment,
@@ -2515,8 +2548,15 @@ export default function App() {
     const [fontScale, setFontScale] = useState(1);
     const [editMode, setEditMode] = useState('global');
     const [videoScale, setVideoScale] = useState(100); // Video scale in percentage (100 = 100%)
+    const videoScaleRef = useRef(100); // latest scale for export (avoids stale closure / mouseup races)
+    const fitModeRef = useRef('cover');
+    const presetsRef = useRef(presets);
     const [showCredit, setShowCredit] = useState(false); // Credit UI removed; keep hidden by default
     const [wordSpacing, setWordSpacing] = useState(0.25); // Word spacing multiplier (0.25 = 25% of normal space width for very tight, natural spacing)
+
+    useEffect(() => { videoScaleRef.current = videoScale; }, [videoScale]);
+    useEffect(() => { fitModeRef.current = fitMode; }, [fitMode]);
+    useEffect(() => { presetsRef.current = presets; }, [presets]);
 
     // Global Text State
     const [globalHeadline, setGlobalHeadline] = useState(DEFAULT_HEADLINE);
@@ -2802,9 +2842,13 @@ export default function App() {
     };
 
     const handlePositionChange = useCallback((id, pos) => {
-        setPresets(prev => prev.map(p =>
-            p.id === id ? { ...p, position: pos } : p
-        ));
+        setPresets(prev => {
+            const updated = prev.map(p =>
+                p.id === id ? { ...p, position: pos } : p
+            );
+            presetsRef.current = updated;
+            return updated;
+        });
     }, []);
 
     const handleCreditPositionChange = useCallback((id, pos) => {
@@ -2825,25 +2869,49 @@ export default function App() {
         ));
     }, []);
 
+    // A-roll only: one global zoom for every preset.
     const handleVideoScaleChange = useCallback((scale) => {
-        const minZ = playbookFormat === 'news' ? 80 : 100;
-        const next = Math.max(minZ, Math.min(300, Math.round(scale)));
+        const next = Math.max(100, Math.min(300, Math.round(scale)));
+        videoScaleRef.current = next;
         setVideoScale(next);
-        // News RE-SIZE via sidebar: same top-bias as card handles so captions
-        // drop under the hook without needing extreme zoom (esp. full-bleed ifc).
-        if (playbookFormat === 'news' && next > 100) {
-            const t = (next - 100) / 200;
-            setPresets(prev => prev.map(p => {
-                if (p.layout !== 'news_ticker') return p;
+    }, []);
+
+    // News card RE-SIZE: ONLY this preset — never writes global zoom / other cards.
+    const handleNewsPresetVideoScaleChange = useCallback((id, scale) => {
+        const next = Math.max(80, Math.min(300, Math.round(scale)));
+
+        const applyScale = (list) => list.map(p => {
+            if (p.id !== id || p.layout !== 'news_ticker') return p;
+            let position = p.position || { x: 50, y: 50 };
+            if (next > 100) {
                 const nameLower = (p.name || '').toLowerCase();
                 const isFullBleed = nameLower === 'ifc-news' || nameLower === 'ifc2-news' || nameLower === 'foundersinindia-news';
                 const maxZ = isFullBleed ? 220 : 300;
                 const tt = Math.min(1, (next - 100) / (maxZ - 100));
                 const y = Math.max(isFullBleed ? 8 : 5, 50 * (1 - tt * 0.85));
-                return { ...p, position: { ...(p.position || { x: 50, y: 50 }), y } };
-            }));
+                position = { ...position, y };
+            }
+            return { ...p, videoScale: next, position };
+        });
+
+        if (presetsRef.current?.length) {
+            presetsRef.current = applyScale(presetsRef.current);
         }
-    }, [playbookFormat]);
+        setPresets(prev => {
+            const updated = applyScale(prev);
+            presetsRef.current = updated;
+            return updated;
+        });
+    }, []);
+
+    // PreviewCard calls (id, scale) for news, or (scale) for a-roll
+    const handleCardVideoScaleChange = useCallback((idOrScale, maybeScale) => {
+        if (typeof maybeScale === 'number') {
+            handleNewsPresetVideoScaleChange(idOrScale, maybeScale);
+            return;
+        }
+        handleVideoScaleChange(idOrScale);
+    }, [handleNewsPresetVideoScaleChange, handleVideoScaleChange]);
 
     const togglePlay = useCallback(() => {
         // Play/pause every preset preview, regardless of export-selection state
@@ -2904,21 +2972,31 @@ export default function App() {
         setFontScale(1);
         setWordSpacing(0.25);
         setVideoScale(100);
+        videoScaleRef.current = 100;
         setFitMode('cover');
+        fitModeRef.current = 'cover';
         setShowCredit(false);
-        setPresets(prev => prev.map(p => ({
-            ...p,
-            active: false,
-            headline: DEFAULT_HEADLINE,
-            footer: (p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
-                ? ''
-                : DEFAULT_FOOTER,
-            hookEyebrow: '',
-            showHookEyebrow: false,
-            hookEyebrowAlignment: 'left',
-            hookEyebrowSizeScale: 1.1,
-            hookEyebrowGapScale: 7.0,
-        })));
+        setPresets(prev => {
+            const updated = prev.map(p => ({
+                ...p,
+                active: false,
+                // Reset personal zoom only on news cards — leave a-roll alone
+                ...(p.layout === 'news_ticker'
+                    ? { videoScale: 100, position: { x: 50, y: 50 } }
+                    : {}),
+                headline: DEFAULT_HEADLINE,
+                footer: (p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
+                    ? ''
+                    : DEFAULT_FOOTER,
+                hookEyebrow: '',
+                showHookEyebrow: false,
+                hookEyebrowAlignment: 'left',
+                hookEyebrowSizeScale: 1.1,
+                hookEyebrowGapScale: 7.0,
+            }));
+            presetsRef.current = updated;
+            return updated;
+        });
     }, []);
 
     const pollExportJob = useCallback(async (localId, jobId, signal) => {
@@ -3039,9 +3117,30 @@ export default function App() {
 
     // --- SERVER-SIDE EXPORT LOGIC (pipeline: non-blocking, up to 5 jobs) ---
     const startExportJob = async () => {
-        const activePresets = presets
+        // Prefer refs so RE-SIZE / pan from the latest drag frame is exported
+        // even if React hasn't re-rendered yet.
+        const latestPresets = presetsRef.current?.length ? presetsRef.current : presets;
+        const fallbackScale = Number(videoScaleRef.current) || videoScale || 100;
+        const snapshotFitMode = fitModeRef.current || fitMode || 'cover';
+        const activePresets = latestPresets
             .filter(p => p.active)
-            .map(p => p.layout === 'news_ticker' ? { ...p, footer: '' } : p);
+            .map(p => {
+                const base = p.layout === 'news_ticker' ? { ...p, footer: '' } : { ...p };
+                // News only: each card keeps its own zoom. A-roll uses global zoom.
+                const presetScale = Number(base.videoScale);
+                const exportScale = base.layout === 'news_ticker'
+                    && Number.isFinite(presetScale)
+                    && presetScale > 0
+                    ? presetScale
+                    : fallbackScale;
+                return {
+                    ...base,
+                    videoScale: exportScale,
+                    fitMode: snapshotFitMode,
+                    position: base.position || { x: 50, y: 50 },
+                };
+            });
+        const snapshotVideoScale = fallbackScale;
         if (!videoSrc || activePresets.length === 0) return;
         if (exportJobs.length >= MAX_PIPELINE_JOBS) return;
 
@@ -3063,8 +3162,6 @@ export default function App() {
         const snapshotHeadline = globalHeadline;
         const snapshotFontScale = fontScale;
         const snapshotWordSpacing = wordSpacing;
-        const snapshotVideoScale = videoScale;
-        const snapshotFitMode = fitMode;
         const snapshotShowCredit = showCredit;
         const snapshotIdeaName = ideaName || '';
         const snapshotPresets = activePresets;
@@ -3097,7 +3194,7 @@ export default function App() {
             formData.append('headline', snapshotHeadline);
             formData.append('fontScale', snapshotFontScale.toString());
             formData.append('wordSpacing', snapshotWordSpacing.toString());
-            formData.append('videoScale', snapshotVideoScale.toString());
+            formData.append('videoScale', String(snapshotVideoScale));
             formData.append('fitMode', snapshotFitMode);
             formData.append('showCredit', snapshotShowCredit.toString());
             formData.append('ideaName', snapshotIdeaName);
@@ -3108,7 +3205,10 @@ export default function App() {
                 fileName: videoFile.name,
                 fileSize: (videoFile.size / 1024 / 1024).toFixed(2) + ' MB',
                 fileType: videoFile.type,
-                presetCount: snapshotPresets.length
+                presetCount: snapshotPresets.length,
+                videoScale: snapshotVideoScale,
+                fitMode: snapshotFitMode,
+                positions: snapshotPresets.map(p => ({ name: p.name, position: p.position, videoScale: p.videoScale })),
             });
 
             updateExportJob(localId, { statusText: 'Uploading video file...' });
@@ -3368,35 +3468,39 @@ export default function App() {
                                         <video
                                             src={videoSrc}
                                             className="w-full h-full object-cover"
-                                            style={{ transform: `scale(${videoScale / 100})`, transformOrigin: 'center' }}
+                                            style={{ transform: `scale(${playbookFormat === 'news' ? 1 : videoScale / 100})`, transformOrigin: 'center' }}
                                             muted
                                             loop
                                             autoPlay
                                             playsInline
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-xs text-[var(--pintu-text-secondary)] font-semibold tracking-wide">
-                                                {playbookFormat === 'news' ? 'RE-SIZE' : 'Zoom'}
-                                            </label>
-                                            <span className="text-xs text-[var(--pintu-text-muted)]">{videoScale}%</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min={playbookFormat === 'news' ? '80' : '100'}
-                                            max="300"
-                                            step="1"
-                                            value={videoScale}
-                                            onChange={(e) => handleVideoScaleChange(parseInt(e.target.value, 10))}
-                                            className="w-full h-1 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
-                                        />
+                                    {playbookFormat === 'news' ? (
                                         <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">
-                                            {playbookFormat === 'news'
-                                                ? 'Scale & drag the video so competitor captions sit under your hook — same idea as Canva. Double-click a card or hit RE-SIZE.'
-                                                : 'Zooms the video across every preset preview.'}
+                                            Each news card has its own zoom — hit <span className="text-violet-400 font-semibold">RE-SIZE</span> on that card and drag the handles. Scaling one format never changes the others.
                                         </p>
-                                    </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs text-[var(--pintu-text-secondary)] font-semibold tracking-wide">
+                                                    Zoom
+                                                </label>
+                                                <span className="text-xs text-[var(--pintu-text-muted)]">{videoScale}%</span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min="100"
+                                                max="300"
+                                                step="1"
+                                                value={videoScale}
+                                                onChange={(e) => handleVideoScaleChange(parseInt(e.target.value, 10))}
+                                                className="w-full h-1 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                            />
+                                            <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">
+                                                Zooms the video across every preset preview.
+                                            </p>
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -3703,7 +3807,7 @@ export default function App() {
                                                     videoRef={i === 0 ? videoRef : null}
                                                     isMain={i === 0}
                                                     fitMode={fitMode}
-                                                    videoScale={videoScale}
+                                                    videoScale={p.layout === 'news_ticker' ? (p.videoScale ?? 100) : videoScale}
                                                     showCredit={showCredit}
                                                     onToggle={togglePresetActive}
                                                     fontScaleGlobal={fontScale}
@@ -3711,7 +3815,7 @@ export default function App() {
                                                     onCreditPositionChange={handleCreditPositionChange}
                                                     onWatermarkPositionChange={handleWatermarkPositionChange}
                                                     onHeadlinePositionChange={handleHeadlinePositionChange}
-                                                    onVideoScaleChange={handleVideoScaleChange}
+                                                    onVideoScaleChange={handleCardVideoScaleChange}
                                                     isMuted={isMuted}
                                                     newsFontReady={newsFontReady}
                                                     wordSpacing={wordSpacing}
