@@ -407,17 +407,18 @@ export function getNewsTickerBlackPadAbove(preset, fontSize) {
 /**
  * Absolute Y (from top) where the solid black cover begins.
  *
- * Black-bar-anchored tickers: fixed band from the frame bottom so the hook can
- * sit on the bar edge without dragging the slab. Other tickers: pad above hook.
+ * Black-bar-anchored tickers: lower-third band from the frame bottom, shifted
+ * up with the hook (`shiftY`) so text + black + gradient move together.
+ * Other tickers: pad above the hook bar.
  */
-export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH) {
+export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH, shiftY = 0) {
   if (isBlackBarAnchoredNewsTicker(preset)) {
     const bandPct = Number(preset?.rules?.solidBandPct);
     // Default ~30% of frame — matches the Canva lower-third slab.
     const ratio = Number.isFinite(bandPct)
       ? Math.max(0.15, Math.min(0.55, bandPct / 100))
       : 0.30;
-    return Math.round(canvasH * (1 - ratio));
+    return Math.max(0, Math.round(canvasH * (1 - ratio)) - (shiftY || 0));
   }
   const offset = getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH);
   return Math.max(0, barY - offset);
@@ -438,14 +439,15 @@ export function getNewsTickerHookBarY(preset, {
   shiftY = 0,
 }) {
   if (isBlackBarAnchoredNewsTicker(preset)) {
-    const blackTop = getNewsTickerSolidTopY(preset, canvasH, 0, fontSize, totalBarsH);
+    // shiftY lifts solid + hook together (passed into solid top)
+    const blackTop = getNewsTickerSolidTopY(preset, canvasH, 0, fontSize, totalBarsH, shiftY);
     // Pin the FIRST line to a shared height so 2-line (IBC) and 3-line (ISS)
     // hooks line up. Rise is "2-line stack + thin kiss into the solid" — a
     // 2-line hook sits on the bar edge; longer hooks grow downward from that top.
     const twoLineH = getNewsTickerStackHeight(preset, fontSize, 2);
     const kissIntoSolid = Math.round(fontSize * 0.2);
     const riseAboveBar = twoLineH - kissIntoSolid;
-    let barY = blackTop - riseAboveBar - shiftY;
+    let barY = blackTop - riseAboveBar;
     // Keep a tiny floor so lockup / last line never clips the frame bottom.
     const minBottom = Math.round(canvasH * 0.04);
     const stackBottom = barY + totalBarsH + lockupBlockH;

@@ -868,7 +868,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   let barY = getNewsTickerHookBarY(preset, {
     canvasH, fontSize, totalBarsH, lockupBlockH, shiftY,
   });
-  const blackTop = getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH);
+  const blackTop = getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH, shiftY);
 
   const spaceW = measureWordAtSize(' ', fontSize);
 
