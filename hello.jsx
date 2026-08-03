@@ -21,6 +21,9 @@ import {
     getNewsTickerSolidTopY,
     getNewsTickerHookBarY,
     getNewsTickerHandleLockup,
+    getNewsTickerBottomLogoY,
+    newsTickerHasDynamicBottomLogo,
+    clampNewsTickerShiftPx,
     getNewsTickerFontFamily,
     isPlainTextNewsTicker,
     isUppercaseArollHook,
@@ -949,10 +952,11 @@ const PreviewCard = memo(({
             const dX = evt.clientX - startX;
             const dY = evt.clientY - startY;
             if (isNewsHook) {
-                // Drag up → raise hook stack (gradient + black + text) together
+                // Drag up → raise stack; drag down → lower stack (gradient + black + text)
+                // Negative y allowed so IBC/ISS can push the hook toward the bottom logo.
                 const sens = 1.1;
                 let nY = startPosY - (dY / rect.height * 100 * sens);
-                nY = Math.max(0, Math.min(48, nY));
+                nY = Math.max(-22, Math.min(48, nY));
                 if (Math.abs(nY - lastY) > 0.1) {
                     lastY = nY;
                     setLocalHeadlinePos({ x: 0, y: nY });
@@ -1640,19 +1644,12 @@ const PreviewCard = memo(({
                                     >
                                         {preset.rules.textLogo}
                                     </div>
-                                ) : getLogoUrl(preset.logo) ? (
-                                    <div className="absolute z-50" style={preset.rules?.logoPosition === 'bottom-left'
-                                        ? { bottom: `${Math.round(12 * previewScale)}px`, left: canvasPxToPercent(preset.rules?.logoPadX ?? 59) }
-                                        : { top: canvasPxToPercent(preset.rules?.logoPadY ?? 41), left: canvasPxToPercent(preset.rules?.logoPadX ?? 46) }}>
-                                        {/* Export locks ISS by height (55px @720); others by width. Use previewScale px so % height never collapses to intrinsic size. */}
+                                ) : getLogoUrl(preset.logo) && preset.rules?.logoPosition !== 'bottom-left' ? (
+                                    <div className="absolute z-50" style={{ top: canvasPxToPercent(preset.rules?.logoPadY ?? 41), left: canvasPxToPercent(preset.rules?.logoPadX ?? 46) }}>
                                         <img
                                             src={getLogoUrl(preset.logo)}
                                             alt=""
-                                            style={
-                                                preset.rules?.logoPosition === 'bottom-left'
-                                                    ? { height: `${Math.round((preset.rules?.logoSize || 55) * previewScale)}px`, width: 'auto', maxWidth: '70%', objectFit: 'contain', display: 'block', opacity: preset.rules?.logoOpacity ?? 1 }
-                                                    : { width: canvasPxToPercent(preset.rules?.logoSize || 48), height: 'auto', objectFit: 'contain', display: 'block', opacity: preset.rules?.logoOpacity ?? 1 }
-                                            }
+                                            style={{ width: canvasPxToPercent(preset.rules?.logoSize || 48), height: 'auto', objectFit: 'contain', display: 'block', opacity: preset.rules?.logoOpacity ?? 1 }}
                                         />
                                     </div>
                                 ) : null}
@@ -1712,9 +1709,15 @@ const PreviewCard = memo(({
                                     // Mirror generateNewsTickerOverlay geometry (percent of frame height)
                                     const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fittedExportFs);
                                     const totalBarsH = getNewsTickerStackHeight(preset, fittedExportFs, lines.length);
-                                    // headlinePosition.y = % to raise hook text
-                                    const shiftUpPct = Math.max(0, Math.min(48, localHeadlinePos?.y || 0));
-                                    const shiftYPx = Math.round(exportCanvasH * shiftUpPct / 100);
+                                    // headlinePosition.y = % to raise (+) or lower (−) hook stack
+                                    const shiftUpPct = Math.max(-22, Math.min(48, localHeadlinePos?.y || 0));
+                                    const shiftYPx = clampNewsTickerShiftPx(preset, {
+                                        canvasH: exportCanvasH,
+                                        fontSize: fittedExportFs,
+                                        totalBarsH,
+                                        lockupBlockH,
+                                        shiftY: Math.round(exportCanvasH * shiftUpPct / 100),
+                                    });
                                     const barYPx = getNewsTickerHookBarY(preset, {
                                         canvasH: exportCanvasH,
                                         fontSize: fittedExportFs,
@@ -1732,6 +1735,21 @@ const PreviewCard = memo(({
                                     // CSS bottom-%: text block ends at last line; lockup sits under it with gap
                                     const textBottomPct = ((exportCanvasH - (barYPx + totalBarsH)) / exportCanvasH) * 100;
                                     const lockupBottomPct = ((exportCanvasH - (barYPx + totalBarsH + lockupBlockH)) / exportCanvasH) * 100;
+                                    // ISS bottom logo tracks under the hook with a gap (never overlaps)
+                                    const bottomLogoH = Math.round(preset.rules?.logoSize || 55);
+                                    const bottomLogoY = newsTickerHasDynamicBottomLogo(preset) && getLogoUrl(preset.logo)
+                                        ? getNewsTickerBottomLogoY({
+                                            canvasH: exportCanvasH,
+                                            barY: barYPx,
+                                            totalBarsH,
+                                            logoH: bottomLogoH,
+                                            gap: 14,
+                                            padBottom: 12,
+                                        })
+                                        : null;
+                                    const bottomLogoTopPct = bottomLogoY != null
+                                        ? (bottomLogoY / exportCanvasH) * 100
+                                        : null;
 
                                     return (
                                         <>
@@ -1821,6 +1839,30 @@ const PreviewCard = memo(({
                                                             height: '100%',
                                                             objectFit: 'contain',
                                                             display: 'block',
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                            {/* ISS / bottom-left logo — tracks under hook, never touches text */}
+                                            {bottomLogoTopPct != null && (
+                                                <div
+                                                    className="absolute z-20 pointer-events-none"
+                                                    style={{
+                                                        top: `${bottomLogoTopPct}%`,
+                                                        left: canvasPxToPercent(preset.rules?.logoPadX ?? 59),
+                                                        height: `${(bottomLogoH / exportCanvasH) * 100}%`,
+                                                    }}
+                                                >
+                                                    <img
+                                                        src={getLogoUrl(preset.logo)}
+                                                        alt=""
+                                                        style={{
+                                                            height: '100%',
+                                                            width: 'auto',
+                                                            maxWidth: '70%',
+                                                            objectFit: 'contain',
+                                                            display: 'block',
+                                                            opacity: preset.rules?.logoOpacity ?? 1,
                                                         }}
                                                     />
                                                 </div>
