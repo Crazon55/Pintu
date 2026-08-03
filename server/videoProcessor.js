@@ -1152,6 +1152,7 @@ export function createVideoProcessor() {
         throw new Error(`Video file not found: ${videoPathAbs}`);
       }
       console.log(`[processVideo] Starting: video=${videoPathAbs}, presets=${presets.length} (${presets.map(p => p?.name).join(', ')})`);
+      console.log(`[processVideo] scales: ${presets.map(p => `${p?.name}=${p?.videoScale ?? videoScale ?? 100}% pos=${p?.position?.x ?? 50},${p?.position?.y ?? 50}`).join(' | ')}`);
 
       for (let i = 0; i < presets.length; i++) {
         throwIfCancelled();
@@ -2200,14 +2201,16 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
     const sx = Math.round(layout.videoX || 0);
     const sy = Math.round(layout.videoY);
 
-    const posX = preset.position?.x ?? 50;
-    const posY = preset.position?.y ?? 50;
+    const posX = Math.max(0, Math.min(100, Number(preset.position?.x ?? 50)));
+    const posY = Math.max(0, Math.min(100, Number(preset.position?.y ?? 50)));
 
     // Cover mode: scale up to cover the frame, then crop using posX/posY (0-100).
     // Formula matches CSS object-position: cropOffset = overflow * pos / 100
     // videoScale (>100) zooms further — used in news RE-SIZE to push competitor
     // captions under our hook/gradient (Canva-style layer scale).
-    const zoom = Math.max(0.5, Math.min(3, (Number(videoScale) || 100) / 100));
+    // Prefer per-preset videoScale (baked into export payload) over job-level field.
+    const scalePct = Number(preset.videoScale ?? videoScale);
+    const zoom = Math.max(0.5, Math.min(3, ((Number.isFinite(scalePct) ? scalePct : 100) / 100)));
     const targetAspect = sw / sh;
     const originalAspect = originalWidth / originalHeight;
     let scaledWidth, scaledHeight;
@@ -2233,8 +2236,10 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
     }
     const cropX = Math.max(0, Math.min(scaledWidth - sw, Math.round((scaledWidth - sw) * posX / 100)));
     const cropY = Math.max(0, Math.min(scaledHeight - sh, Math.round((scaledHeight - sh) * posY / 100)));
-    const vFilter = `scale=${scaledWidth}:${scaledHeight}:force_original_aspect_ratio=increase,crop=${sw}:${sh}:${cropX}:${cropY}`;
-    console.log(`[processFFmpeg] "${preset.name}" zoom=${zoom} scale=${scaledWidth}x${scaledHeight} crop=${sw}x${sh}@${cropX},${cropY}`);
+    // Exact pixel scale (dimensions already preserve AR). Avoid force_original_aspect_ratio
+    // so zoomed WxH is honored 1:1, matching CSS transform: scale() in the preview.
+    const vFilter = `scale=${scaledWidth}:${scaledHeight},crop=${sw}:${sh}:${cropX}:${cropY}`;
+    console.log(`[processFFmpeg] "${preset.name}" videoScale=${scalePct}% zoom=${zoom} pos=${posX},${posY} scale=${scaledWidth}x${scaledHeight} crop=${sw}x${sh}@${cropX},${cropY}`);
 
     // Check if preset has rounded corners
     const borderRadius = preset.rules?.videoBorderRadius || 0;

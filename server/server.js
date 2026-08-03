@@ -114,17 +114,28 @@ app.post('/api/export', upload.single('video'), async (req, res) => {
       });
     }
 
-    console.log(`Processing ${validPresets.length} valid presets:`, validPresets.map(p => p.name));
+    const parsedVideoScale = Number.parseFloat(videoScale);
+    const safeVideoScale = Number.isFinite(parsedVideoScale) ? parsedVideoScale : 100;
+    // Prefer per-preset baked videoScale from the client; fall back to top-level field
+    const presetsWithScale = validPresets.map(p => ({
+      ...p,
+      videoScale: Number.isFinite(Number(p.videoScale)) ? Number(p.videoScale) : safeVideoScale,
+      fitMode: p.fitMode || fitMode || 'cover',
+    }));
+
+    console.log(`Processing ${presetsWithScale.length} valid presets:`, presetsWithScale.map(p => p.name));
+    console.log(`[export] videoScale=${safeVideoScale} fitMode=${fitMode} perPreset=`,
+      presetsWithScale.map(p => `${p.name}:${p.videoScale}%@${p.position?.x ?? 50},${p.position?.y ?? 50}`).join(' | '));
 
     const showCredit = req.body.showCredit === 'true' || req.body.showCredit === true;
     
     const jobData = {
       videoPath: req.file.path,
-      presets: validPresets,
+      presets: presetsWithScale,
       headline,
       fontScale: parseFloat(fontScale),
       wordSpacing: parseFloat(wordSpacing),
-      videoScale: parseFloat(videoScale),
+      videoScale: safeVideoScale,
       fitMode,
       showCredit,
       ideaName: typeof ideaName === 'string' ? ideaName : ''
