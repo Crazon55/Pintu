@@ -822,7 +822,8 @@ const PreviewCard = memo(({
             const scaleChange = ((currentDistance - startDistance) / Math.min(rect.width, rect.height)) * 200;
 
             let newScale = startScale + scaleChange;
-            newScale = Math.max(100, Math.min(maxZoom, newScale));
+            // News: allow slight zoom-out so RE-SIZE can scale both ways
+            newScale = Math.max(isNews ? 80 : 100, Math.min(maxZoom, newScale));
             currentScale = newScale;
             setLocalVideoScale(newScale);
 
@@ -830,7 +831,7 @@ const PreviewCard = memo(({
             // bottom captions leave the frame first (Canva-style cover), not the face.
             if (isNews && newScale > 100) {
                 const t = (newScale - 100) / (maxZoom - 100);
-                currentPosY = Math.max(isIfc ? 8 : 5, 50 * (1 - t * 0.85));
+                currentPosY = Math.max(isFullBleedNews ? 8 : 5, 50 * (1 - t * 0.85));
                 setLocalPos(prev => ({ ...prev, y: currentPosY }));
             }
         };
@@ -1487,11 +1488,13 @@ const PreviewCard = memo(({
                 {/* 3. VIDEO CONTAINER (aroll: inset with left/right padding to match export) */}
                 <div
                     ref={containerRef}
-                    className={`relative bg-black shrink-0 group overflow-hidden ${preset.layout === 'aroll' ? 'mx-auto' : 'w-full'} ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : newsResizeActive ? 'cursor-move ring-2 ring-violet-500 z-50' : isResizingVideo ? 'ring-2 ring-blue-500 z-50' : 'cursor-pointer'} ''}`}
+                    className={`relative bg-black shrink-0 group ${preset.layout === 'aroll' ? 'mx-auto' : 'w-full'} ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : newsResizeActive ? 'cursor-move ring-2 ring-violet-500 z-50' : isResizingVideo ? 'ring-2 ring-blue-500 z-50' : 'cursor-pointer'} ''}`}
                     style={{
                         ...(preset.layout === 'aroll' ? { width: arollHasSidePad ? '87.8%' : '100%' } : {}),
                         // Video band ratio only — outer card stays 9:16 for every preset.
                         ...getAspectRatioStyle(preset.ratio),
+                        // Keep handles clickable while RE-SIZE is on (overflow clips -7px handles)
+                        overflow: isResizingVideo ? 'visible' : 'hidden',
                     }}
                     onDoubleClick={() => {
                         if (isNewsFormat) {
@@ -1519,49 +1522,49 @@ const PreviewCard = memo(({
                         </div>
                     )}
 
-                    {/* Resize Handles — Canva-style corners + edges for news RE-SIZE */}
+                    {/* Resize Handles — inset so they stay clickable even if a parent clips */}
                     {isResizingVideo && (
                         <>
                             {/* Corner handles */}
                             <div
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nwse-resize z-[60]"
-                                style={{ top: '-7px', left: '-7px' }}
+                                style={{ top: '2px', left: '2px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'nw')}
                             />
                             <div
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nesw-resize z-[60]"
-                                style={{ top: '-7px', right: '-7px' }}
+                                style={{ top: '2px', right: '2px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'ne')}
                             />
                             <div
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nwse-resize z-[60]"
-                                style={{ bottom: '-7px', left: '-7px' }}
+                                style={{ bottom: '2px', left: '2px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'sw')}
                             />
                             <div
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-nesw-resize z-[60]"
-                                style={{ bottom: '-7px', right: '-7px' }}
+                                style={{ bottom: '2px', right: '2px' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'se')}
                             />
                             {/* Edge handles (Canva-style) */}
                             <div
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ns-resize z-[60]"
-                                style={{ top: '-7px', left: '50%', transform: 'translateX(-50%)' }}
+                                style={{ top: '2px', left: '50%', transform: 'translateX(-50%)' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'n')}
                             />
                             <div
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ns-resize z-[60]"
-                                style={{ bottom: '-7px', left: '50%', transform: 'translateX(-50%)' }}
+                                style={{ bottom: '2px', left: '50%', transform: 'translateX(-50%)' }}
                                 onMouseDown={(e) => handleResizeStart(e, 's')}
                             />
                             <div
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ew-resize z-[60]"
-                                style={{ left: '-7px', top: '50%', transform: 'translateY(-50%)' }}
+                                style={{ left: '2px', top: '50%', transform: 'translateY(-50%)' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'w')}
                             />
                             <div
                                 className="absolute w-3.5 h-3.5 bg-white border-2 border-violet-500 rounded-full cursor-ew-resize z-[60]"
-                                style={{ right: '-7px', top: '50%', transform: 'translateY(-50%)' }}
+                                style={{ right: '2px', top: '50%', transform: 'translateY(-50%)' }}
                                 onMouseDown={(e) => handleResizeStart(e, 'e')}
                             />
                         </>
@@ -1609,7 +1612,7 @@ const PreviewCard = memo(({
                         {preset.layout === 'news_ticker' && (
                             <div
                                 className="absolute inset-0 z-30"
-                                style={{ pointerEvents: isRepositioningHeadline ? 'auto' : 'none' }}
+                                style={{ pointerEvents: 'none' }}
                             >
                                 {preset.rules?.textLogo ? (
                                     <div
@@ -1659,7 +1662,30 @@ const PreviewCard = memo(({
                                     </div>
                                 )}
                                 {(() => {
-                                    if (!newsFontReady) return null;
+                                    if (!newsFontReady) {
+                                        // Font still loading — still allow HOOK drag so controls aren't dead
+                                        if (!isRepositioningHeadline) return null;
+                                        return (
+                                            <div
+                                                ref={headlineRef}
+                                                className="absolute left-0 right-0 z-[90] cursor-ns-resize"
+                                                style={{
+                                                    bottom: 0,
+                                                    height: '40%',
+                                                    pointerEvents: 'auto',
+                                                    touchAction: 'none',
+                                                    background: 'rgba(139, 92, 246, 0.12)',
+                                                    boxShadow: 'inset 0 0 0 2px rgba(167, 139, 250, 0.9)',
+                                                }}
+                                                onMouseDown={handleHeadlineMouseDown}
+                                                title="Drag up/down to move hook"
+                                            >
+                                                <div className="absolute top-1.5 left-1/2 -translate-x-1/2 pointer-events-none bg-violet-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap">
+                                                    Drag hook
+                                                </div>
+                                            </div>
+                                        );
+                                    }
                                     const isIBC = preset.name === 'indiabusinesscom-news';
                                     const isISS = preset.name === 'indiastartupstory-news';
                                     const isIFC = preset.name === 'ifc-news';
@@ -1697,7 +1723,7 @@ const PreviewCard = memo(({
                                         shiftY: shiftYPx,
                                     });
                                     const blackTopPx = getNewsTickerSolidTopY(
-                                        preset, exportCanvasH, barYPx, fittedExportFs, totalBarsH,
+                                        preset, exportCanvasH, barYPx, fittedExportFs, totalBarsH, shiftYPx,
                                     );
                                     const solidBlackHPct = ((exportCanvasH - blackTopPx) / exportCanvasH) * 100;
                                     const gradientHPct = (getNewsTickerGradientHeight(preset, exportCanvasH) / exportCanvasH) * 100;
@@ -2758,7 +2784,8 @@ export default function App() {
     }, []);
 
     const handleVideoScaleChange = useCallback((scale) => {
-        const next = Math.max(100, Math.min(300, Math.round(scale)));
+        const minZ = playbookFormat === 'news' ? 80 : 100;
+        const next = Math.max(minZ, Math.min(300, Math.round(scale)));
         setVideoScale(next);
         // News RE-SIZE via sidebar: same top-bias as card handles so captions
         // drop under the hook without needing extreme zoom (esp. full-bleed ifc).
@@ -2766,10 +2793,11 @@ export default function App() {
             const t = (next - 100) / 200;
             setPresets(prev => prev.map(p => {
                 if (p.layout !== 'news_ticker') return p;
-                const isIfc = (p.name || '').toLowerCase() === 'ifc-news';
-                const maxZ = isIfc ? 220 : 300;
+                const nameLower = (p.name || '').toLowerCase();
+                const isFullBleed = nameLower === 'ifc-news' || nameLower === 'ifc2-news' || nameLower === 'foundersinindia-news';
+                const maxZ = isFullBleed ? 220 : 300;
                 const tt = Math.min(1, (next - 100) / (maxZ - 100));
-                const y = Math.max(isIfc ? 8 : 5, 50 * (1 - tt * 0.85));
+                const y = Math.max(isFullBleed ? 8 : 5, 50 * (1 - tt * 0.85));
                 return { ...p, position: { ...(p.position || { x: 50, y: 50 }), y } };
             }));
         }
@@ -3314,7 +3342,7 @@ export default function App() {
                                         </div>
                                         <input
                                             type="range"
-                                            min="100"
+                                            min={playbookFormat === 'news' ? '80' : '100'}
                                             max="300"
                                             step="1"
                                             value={videoScale}
