@@ -355,6 +355,8 @@ function measureTokenWidth(ctx, text, fontSize, bold, fontFamily) {
   return w;
 }
 
+const EMOJI_SIZE_RATIO = 0.85;
+
 // Pre-load all emoji images found in rich lines
 async function preloadEmojis(richLines) {
   const promises = [];
@@ -369,6 +371,60 @@ async function preloadEmojis(richLines) {
     }
   }
   await Promise.all(promises);
+}
+
+/** Preload Twemoji for an arbitrary list of strings (news / hook / aroll tokens). */
+async function preloadEmojisFromTexts(texts) {
+  const promises = [];
+  const seen = new Set();
+  for (const text of texts) {
+    if (!text || !textHasEmoji(text)) continue;
+    for (const p of splitEmojiText(text)) {
+      if (p.type === 'emoji' && !seen.has(p.value)) {
+        seen.add(p.value);
+        promises.push(loadTwemoji(p.value));
+      }
+    }
+  }
+  await Promise.all(promises);
+}
+
+/** Measure text that may contain emoji; plain bits use measurePlain(text) → width. */
+function measureMixedWidth(text, fontSize, measurePlain) {
+  if (!text) return 0;
+  if (!textHasEmoji(text)) return measurePlain(text);
+  let w = 0;
+  for (const p of splitEmojiText(text)) {
+    w += p.type === 'emoji'
+      ? fontSize * EMOJI_SIZE_RATIO
+      : (p.value ? measurePlain(p.value) : 0);
+  }
+  return w;
+}
+
+/**
+ * Draw mixed text+emoji. drawPlain(plain, x) must paint glyphs and return advance width.
+ * emojiTopY = top of Twemoji square (use top+0.15*fs for top baseline, baseline-0.85*fs for alphabetic).
+ */
+function drawMixedText(ctx, text, x, fontSize, { drawPlain, emojiTopY }) {
+  if (!text) return 0;
+  if (!textHasEmoji(text)) {
+    const adv = drawPlain(text, x);
+    return typeof adv === 'number' ? adv : 0;
+  }
+  const emojiSize = fontSize * EMOJI_SIZE_RATIO;
+  let cx = x;
+  for (const p of splitEmojiText(text)) {
+    if (p.type === 'emoji') {
+      const img = emojiCache[emojiCodepoint(p.value)];
+      if (img) ctx.drawImage(img, cx, emojiTopY, emojiSize, emojiSize);
+      cx += emojiSize;
+    } else if (p.value) {
+      const adv = drawPlain(p.value, cx);
+      cx += typeof adv === 'number' ? adv : 0;
+    }
+  }
+  return cx - x;
 }
 
 // Clean HTML entities, normalize <br> to newline — shared with preview via shared/headlineLayout.js
@@ -407,7 +463,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
 
   // Tokenize + wrap, preserving explicit newlines (<br> / Line Layout editor) as hard line breaks.
   const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
-  const measureHookWord = (text, bold) => {
+  const measureHookWordPlain = (text, bold) => {
     let mFamily, mWeight;
     if (_isIFC || _isIFCore || _isIBC) {
       mFamily = interBold ? 'InterBold' : 'Inter';
@@ -419,7 +475,10 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     ctx.font = `${mWeight} ${fontSize}px ${mFamily}`;
     return ctx.measureText(text).width;
   };
+  const measureHookWord = (text, bold) =>
+    measureMixedWidth(text, fontSize, (plain) => measureHookWordPlain(plain, bold));
   const lines = layoutHeadlineLines(cleanedHtml, measureHookWord, maxTextW, spacing);
+  await preloadEmojisFromTexts(lines.flatMap(line => line.tokens.map(t => t.text)));
 
   const showHookEyebrow = preset.showHookEyebrow === true;
   const hookEyebrowPlain = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
@@ -517,7 +576,6 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
         fontFamily = 'Inter';
         fontWeight = t.bold ? 'bold' : 'normal';
       }
-      ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
       // Color: IBC uses orange→green dual groups; others use hookColor for bold, white for normal
       let fillColor;
       if (isIBC) {
@@ -525,8 +583,16 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
       } else {
         fillColor = t.bold ? hookColor : '#FFFFFF';
       }
-      ctx.fillStyle = fillColor;
-      ctx.fillText(t.text, drawX, drawY);
+      ctx.textBaseline = 'top';
+      drawMixedText(ctx, t.text, drawX, fontSize, {
+        emojiTopY: drawY + fontSize * 0.15,
+        drawPlain: (plain, px) => {
+          ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+          ctx.fillStyle = fillColor;
+          ctx.fillText(plain, px, drawY);
+          return measureHookWordPlain(plain, t.bold);
+        },
+      });
       drawX += t.measuredWidth + spacing;
     }
     drawY += lineHeight;
@@ -621,17 +687,20 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
     ? (existsSync(interBold) ? 'InterBold' : hookCanvasFF)
     : hookCanvasFF;
 
-  const measureHookWord = (text, bold) => {
+  const measureHookWordPlain = (text, bold) => {
     if (isLogoSocial) {
       const f = bold ? hookOtBold : hookOtFont;
       return f ? measureOtWidth(f, text, fontSize) : (ctx.font = `${bold ? 'bold' : 'normal'} ${fontSize}px Inter`, ctx.measureText(text).width);
     }
     return hookOtFont ? measureOtWidth(hookOtFont, text, fontSize) : (ctx.font = `normal ${fontSize}px ${hookCanvasFF}`, ctx.measureText(text).width);
   };
+  const measureHookWord = (text, bold) =>
+    measureMixedWidth(text, fontSize, (plain) => measureHookWordPlain(plain, bold));
 
   const hookMaxW = isLogoSocial ? 620 : maxTextW;
   const hookStartX = textStartX;
   const lines = layoutHeadlineLines(cleanedHtml, measureHookWord, hookMaxW, spacing);
+  await preloadEmojisFromTexts(lines.flatMap(line => line.tokens.map(t => t.text)));
 
   // --- Vertical stack layout ---
   const LOGO_SOCIAL_SZ = 70;
@@ -761,7 +830,7 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
     }
   }
 
-  // Hook text
+  // Hook text (+ Twemoji — Poppins/Inter have no emoji glyphs)
   let drawY = hookTextStartY;
   for (const line of lines) {
     let drawX = hookStartX;
@@ -769,26 +838,35 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
     for (const t of line.tokens) {
       const otFont = isLogoSocial ? (t.bold ? hookOtBold : hookOtFont) : hookOtFont;
       const hookBaselineLine = otFont ? middleToBaseline(otFont, fontSize, lineMidY) : drawY;
-      if (otFont) {
-        if (!isLogoSocial && t.bold) {
-          drawOpentypeGradientText(ctx, otFont, t.text, drawX, hookBaselineLine, fontSize, hlColors[0], hlColors[1]);
-        } else {
-          drawOpentypeText(ctx, t.bold ? hookOtBold : hookOtFont, t.text, drawX, hookBaselineLine, fontSize, '#FFFFFF');
-        }
-      } else {
-        ctx.textBaseline = 'top';
-        ctx.font = `${t.bold ? 'bold' : 'normal'} ${fontSize}px ${t.bold ? hookCanvasBoldFF : hookCanvasFF}`;
-        if (!isLogoSocial && t.bold) {
-          const bbW = ctx.measureText(t.text).width;
-          const grad = ctx.createLinearGradient(drawX, drawY, drawX + bbW, drawY);
-          grad.addColorStop(0, hlColors[0]);
-          grad.addColorStop(1, hlColors[1]);
-          ctx.fillStyle = grad;
-        } else {
-          ctx.fillStyle = '#FFFFFF';
-        }
-        ctx.fillText(t.text, drawX, drawY);
-      }
+      const emojiTopY = otFont
+        ? (hookBaselineLine - fontSize * EMOJI_SIZE_RATIO)
+        : (drawY + fontSize * 0.15);
+      drawMixedText(ctx, t.text, drawX, fontSize, {
+        emojiTopY,
+        drawPlain: (plain, px) => {
+          if (otFont) {
+            if (!isLogoSocial && t.bold) {
+              drawOpentypeGradientText(ctx, otFont, plain, px, hookBaselineLine, fontSize, hlColors[0], hlColors[1]);
+            } else {
+              drawOpentypeText(ctx, t.bold ? hookOtBold : hookOtFont, plain, px, hookBaselineLine, fontSize, '#FFFFFF');
+            }
+            return measureHookWordPlain(plain, t.bold);
+          }
+          ctx.textBaseline = 'top';
+          ctx.font = `${t.bold ? 'bold' : 'normal'} ${fontSize}px ${t.bold ? hookCanvasBoldFF : hookCanvasFF}`;
+          if (!isLogoSocial && t.bold) {
+            const bbW = ctx.measureText(plain).width;
+            const grad = ctx.createLinearGradient(px, drawY, px + bbW, drawY);
+            grad.addColorStop(0, hlColors[0]);
+            grad.addColorStop(1, hlColors[1]);
+            ctx.fillStyle = grad;
+          } else {
+            ctx.fillStyle = '#FFFFFF';
+          }
+          ctx.fillText(plain, px, drawY);
+          return ctx.measureText(plain).width;
+        },
+      });
       drawX += t.measuredWidth + spacing;
     }
     drawY += lineHeight;
@@ -841,12 +919,15 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   if (!otFace) {
     console.warn('[news_ticker] opentype face missing — wrap metrics may be wrong');
   }
-  const measureWordAtSize = (text, fs) =>
+  const measurePlainWordAtSize = (text, fs) =>
     otFace ? otFace.getAdvanceWidth(text, fs) : (() => {
       ctx.font = `bold ${fs}px Inter`;
       // Inter is narrower than Avant Garde — pad measurements so wrap stays conservative.
       return ctx.measureText(text).width * 1.22;
     })();
+  // Emoji-aware: Inter/Avant Garde have no emoji glyphs — measure Twemoji slots instead.
+  const measureWordAtSize = (text, fs) =>
+    measureMixedWidth(text, fs, (plain) => measurePlainWordAtSize(plain, fs));
   // Keep min size low so long hooks can always fit — don't let UI fontScale block shrink.
   const { fontSize, lines } = fitNewsTickerFontSize({
     cleanedHtml,
@@ -858,6 +939,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     maxTotalBarsH: maxTickerH,
     ...getNewsTickerFitRatios(preset),
   });
+  await preloadEmojisFromTexts(lines.flatMap(line => line.map(t => t.text)));
 
   const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fontSize);
   const totalBarsH = getNewsTickerStackHeight(preset, fontSize, lines.length);
@@ -969,9 +1051,10 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
       }
     }
 
-    // Draw words with opentype — identical advance widths to the wrap pass
+    // Draw words with opentype (+ Twemoji for emoji) — widths match the wrap pass
     x = lineStartX;
     const baselineY = y + fontSize * 0.92;
+    const emojiTopY = baselineY - fontSize * EMOJI_SIZE_RATIO;
     for (let i = 0; i < lineTokens.length; i++) {
       const t = lineTokens[i];
       const color = isPlainText
@@ -979,15 +1062,20 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
         : (isIBCNews || isIFCNews)
           ? (t.bold ? '#000000' : '#FFFFFF')
           : '#FFFFFF';
-      if (otFace) {
-        drawOpentypeText(ctx, otFace, t.text, x, baselineY, fontSize, color);
-      } else {
-        // Fallback only — metrics already padded above
-        ctx.font = `bold ${fontSize}px Inter`;
-        ctx.fillStyle = color;
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText(t.text, x, baselineY);
-      }
+      drawMixedText(ctx, t.text, x, fontSize, {
+        emojiTopY,
+        drawPlain: (plain, px) => {
+          if (otFace) {
+            drawOpentypeText(ctx, otFace, plain, px, baselineY, fontSize, color);
+            return measurePlainWordAtSize(plain, fontSize);
+          }
+          ctx.font = `bold ${fontSize}px Inter`;
+          ctx.fillStyle = color;
+          ctx.textBaseline = 'alphabetic';
+          ctx.fillText(plain, px, baselineY);
+          return ctx.measureText(plain).width * 1.22;
+        },
+      });
       x += wordWidths[i] + spaceW;
     }
     y += highlightH + lineGap;
