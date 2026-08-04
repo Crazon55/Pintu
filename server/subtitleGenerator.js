@@ -3,54 +3,95 @@
  * ASS supports bold, outline, shadow, positioning — perfect for reel-style subtitles.
  */
 
-import { createCanvas, registerFont } from 'canvas';
 import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { loadSync as opentypeLoad } from 'opentype.js';
 
 const __subtitleDir = dirname(fileURLToPath(import.meta.url));
-let _captionMeasureCtx = null;
-let _captionFontReady = false;
+let _otCaptionBold = null;
+let _otCaptionTried = false;
 
-function ensureCaptionFont() {
-  if (_captionFontReady) return;
-  _captionFontReady = true;
+function getCaptionFont() {
+  if (_otCaptionTried) return _otCaptionBold;
+  _otCaptionTried = true;
   const fontPath = join(__subtitleDir, 'assets', 'fonts', 'Montserrat-ExtraBold.ttf');
   if (existsSync(fontPath)) {
     try {
-      // Same family name videoProcessor registers — reuse if already loaded.
-      registerFont(fontPath, { family: 'MontserratExtraBold', weight: 'normal' });
-    } catch {
-      /* already registered */
+      _otCaptionBold = opentypeLoad(fontPath);
+      console.log('✓ Caption layout font: Montserrat ExtraBold (opentype)');
+    } catch (e) {
+      console.warn('Caption opentype load failed:', e.message);
     }
   }
+  return _otCaptionBold;
 }
 
-/** Advance width for caption layout (matches Montserrat ExtraBold burn font). */
+/** Advance width matching the ASS burn font (Montserrat ExtraBold). */
 function measureCaptionWidth(text, fontSize) {
-  ensureCaptionFont();
-  if (!_captionMeasureCtx) {
-    _captionMeasureCtx = createCanvas(4, 4).getContext('2d');
+  const font = getCaptionFont();
+  const str = String(text || '');
+  if (font) {
+    try {
+      const w = font.getAdvanceWidth(str, fontSize);
+      if (Number.isFinite(w) && w > 0) return w;
+    } catch { /* fall through */ }
   }
-  _captionMeasureCtx.font = `${fontSize}px MontserratExtraBold`;
-  const w = _captionMeasureCtx.measureText(String(text || '')).width;
-  return w > 1 ? w : String(text || '').length * fontSize * 0.55;
+  // Conservative fallback — slightly wide so words don't collide.
+  return str.length * fontSize * 0.62;
 }
 
 /**
- * Center-X for each word in a block so every token rises into its own slot.
- * Gap matches the preview (0.28 × fontSize).
+ * Multi-line caption layout: wrap to stay on-screen, centre each line, stack
+ * upward from posY (bottom of the caption block). Returns per-word {x,y,line}.
  */
-function wordCenterXs(texts, fontSize, posX) {
-  const gap = fontSize * 0.28;
+function layoutCaptionWords(texts, {
+  fontSize = 58,
+  posX = 360,
+  posY = 1020,
+  resX = 720,
+  maxLineWidth = null,
+  lineHeightMul = 1.22,
+  wordGapMul = 0.7,
+} = {}) {
+  // Real inter-word gap in px. Outline (~4) + italic need headroom.
+  const gap = Math.max(18, Math.round(fontSize * wordGapMul));
+  const maxW = maxLineWidth ?? Math.round(resX * 0.86);
   const widths = texts.map((t) => measureCaptionWidth(t, fontSize));
-  const total = widths.reduce((a, b) => a + b, 0) + gap * Math.max(0, widths.length - 1);
-  let left = posX - total / 2;
-  return widths.map((w) => {
-    const cx = left + w / 2;
-    left += w + gap;
-    return Math.round(cx);
+
+  const lines = [];
+  let cur = { indices: [], width: 0 };
+  for (let i = 0; i < texts.length; i++) {
+    const w = widths[i];
+    const next = cur.indices.length === 0 ? w : cur.width + gap + w;
+    if (cur.indices.length > 0 && next > maxW) {
+      lines.push(cur);
+      cur = { indices: [i], width: w };
+    } else {
+      cur.indices.push(i);
+      cur.width = next;
+    }
+  }
+  if (cur.indices.length) lines.push(cur);
+
+  const lineH = fontSize * lineHeightMul;
+  // Last line sits on posY; earlier lines stack above (bottom-anchored block).
+  const firstY = posY - lineH * (lines.length - 1);
+  const positions = texts.map(() => ({ x: posX, y: posY, line: 0 }));
+
+  lines.forEach((line, li) => {
+    const y = Math.round(firstY + li * lineH);
+    let left = posX - line.width / 2;
+    for (const idx of line.indices) {
+      positions[idx] = {
+        x: Math.round(left + widths[idx] / 2),
+        y,
+        line: li,
+      };
+      left += widths[idx] + gap;
+    }
   });
+  return positions;
 }
 
 /**
@@ -257,9 +298,9 @@ const ASS_ESCAPE = (s) => String(s)
  */
 export function buildCaptionBlocks(words, options = {}) {
   const {
-    maxWordsPerBlock = 4,
-    maxBlockDuration = 2.0,
-    lingerAfterLast = 0.18,
+    maxWordsPerBlock = 8,
+    maxBlockDuration = 3.5,
+    lingerAfterLast = 0.6, // how long the finished sentence stays before clear
     minWordDuration = 0.12,
   } = options;
 
@@ -273,7 +314,7 @@ export function buildCaptionBlocks(words, options = {}) {
     if (!Number.isFinite(start) || start < 0) continue;
     let end = Number(w.end);
     if (!Number.isFinite(end) || end <= start) end = start + minWordDuration;
-    normalized.push({ text, start, end });
+    normalized.push({ text, start, end, highlight: !!w.highlight });
   }
   normalized.sort((a, b) => a.start - b.start);
 
@@ -308,24 +349,43 @@ export function buildCaptionBlocks(words, options = {}) {
  * Renderer-agnostic caption spec (JSON) for the same layout the ASS output uses.
  * Useful for driving a non-FFmpeg renderer or for validating groupings.
  */
-/** Fast start → slow finish (strong settle). Matches preview / ASS rise. */
-function easeOutQuint(t) {
+/** Fast from the bottom, smooth decelerate into the slot. Matches preview. */
+function easeOutCubic(t) {
   const x = Math.min(1, Math.max(0, t));
-  return 1 - (1 - x) ** 5;
+  return 1 - (1 - x) ** 3;
+}
+
+/** Opacity ramps 0→1 over the first 70% of travel distance. */
+function opacityFromTravel(travel) {
+  if (travel >= 0.7) return 1;
+  if (travel <= 0) return 0;
+  return travel / 0.7;
+}
+
+function assAlphaHex(opacity) {
+  const a = Math.round((1 - Math.min(1, Math.max(0, opacity))) * 255);
+  return a.toString(16).padStart(2, '0').toUpperCase();
 }
 
 /**
  * ASS \move is linear only. Approximate ease-out rise with short linear segments
  * along the ease-out curve so words shoot up then decelerate into their slot.
+ * Each segment also carries start/end opacity for the 0→100 fade by 70% travel.
+ *
+ * ASS timestamps only have centisecond precision — keep each segment ≥20ms so
+ * events don't collapse into zero-duration (which makes the rise look linear).
  */
 function risingMoveSegments(posX, posY, riseY, riseMs, steps = 8) {
   const segs = [];
-  const n = Math.max(3, steps | 0);
+  const maxByTime = Math.max(4, Math.floor(riseMs / 20));
+  const n = Math.max(4, Math.min(steps | 0, maxByTime));
   for (let i = 0; i < n; i++) {
     const u0 = i / n;
     const u1 = (i + 1) / n;
-    const y0 = Math.round(posY + riseY * (1 - easeOutQuint(u0)));
-    const y1 = Math.round(posY + riseY * (1 - easeOutQuint(u1)));
+    const travel0 = easeOutCubic(u0);
+    const travel1 = easeOutCubic(u1);
+    const y0 = Math.round(posY + riseY * (1 - travel0));
+    const y1 = Math.round(posY + riseY * (1 - travel1));
     const t0 = Math.round(riseMs * u0);
     const t1 = Math.round(riseMs * u1);
     segs.push({
@@ -334,7 +394,9 @@ function risingMoveSegments(posX, posY, riseY, riseMs, steps = 8) {
       y1,
       t0,
       t1,
-      dur: Math.max(1, t1 - t0),
+      dur: Math.max(20, t1 - t0),
+      op0: opacityFromTravel(travel0),
+      op1: opacityFromTravel(travel1),
     });
   }
   return segs;
@@ -348,17 +410,21 @@ export function buildCaptionSpec(words, options = {}) {
     activeColor = '#FF0000',
     outlineColor = '#000000',
     slantDeg = 0,
-    popFromScale = 88,
-    popToScale = 108,
-    popDurationMs = 90,
+    popFromScale = 100,
+    popToScale = 100,
+    popDurationMs = 0,
     popSettleScale = 100,
-    popSettleMs = 110,
+    popSettleMs = 0,
     reveal = 'accumulate',
     riseOn = 'word',
-    riseY = 50,
-    riseMs = 120,
+    riseY = 44,
+    riseMs = 220,
+    posX = 360,
+    posY = 1020,
     resX = 720,
     resY = 1280,
+    maxLineWidth = null,
+    wordGapMul = 0.7,
   } = options;
 
   const blocks = buildCaptionBlocks(words, options);
@@ -368,27 +434,37 @@ export function buildCaptionSpec(words, options = {}) {
       resX, resY, fontName, fontSize,
       baseColor, activeColor, outlineColor,
       slantDeg, popFromScale, popToScale, popDurationMs, popSettleScale, popSettleMs,
-      reveal, riseOn, riseY, riseMs,
-      wordsPerBlockMax: options.maxWordsPerBlock ?? 4,
+      reveal, riseOn, riseY, riseMs, posX, posY,
+      wordsPerBlockMax: options.maxWordsPerBlock ?? 8,
+      maxLineWidth: maxLineWidth ?? Math.round(resX * 0.86),
+      wordGapMul,
     },
     blockCount: blocks.length,
     wordCount: blocks.reduce((n, b) => n + b.words.length, 0),
-    blocks: blocks.map(b => ({
-      index: b.index,
-      start: +b.start.toFixed(3),
-      end: +b.end.toFixed(3),
-      text: b.words.map(w => w.text).join(' '),
-      words: b.words.map((w, i) => ({
-        text: w.text,
-        start: +w.start.toFixed(3),
-        end: +w.end.toFixed(3),
-        // window during which this word is the highlighted one
-        activeFrom: +w.start.toFixed(3),
-        activeTo: +(i + 1 < b.words.length ? b.words[i + 1].start : b.end).toFixed(3),
-        activeColor,
-        baseColor,
-      })),
-    })),
+    blocks: blocks.map(b => {
+      const layout = layoutCaptionWords(b.words.map((w) => w.text), {
+        fontSize, posX, posY, resX, maxLineWidth, wordGapMul,
+      });
+      return {
+        index: b.index,
+        start: +b.start.toFixed(3),
+        end: +b.end.toFixed(3),
+        text: b.words.map(w => w.text).join(' '),
+        words: b.words.map((w, i) => ({
+          text: w.text,
+          start: +w.start.toFixed(3),
+          end: +w.end.toFixed(3),
+          highlight: !!w.highlight,
+          x: layout[i].x,
+          y: layout[i].y,
+          line: layout[i].line,
+          activeFrom: +w.start.toFixed(3),
+          activeTo: +(i + 1 < b.words.length ? b.words[i + 1].start : b.end).toFixed(3),
+          activeColor,
+          baseColor,
+        })),
+      };
+    }),
   };
 }
 
@@ -411,28 +487,30 @@ export function generateWordHighlightASS(words, options = {}) {
     bold = false,                      // that file's subfamily is Regular; forcing bold causes fallback
     fontSize = 58,
     baseColor = '#FFFFFF',
-    activeColor = '#FF0000',
+    activeColor = '#FF0000',           // highlighted / active words — red + italic
     outlineColor = '#000000',
     outline = 4,
     shadow = 2,
     slantDeg = 0,         // flat by default; set negative for CapCut-style tilt
-    popFromScale = 88,
-    popToScale = 108,
-    popDurationMs = 90,
-    popSettleScale = 100,  // ease back to resting size as the word lands
-    popSettleMs = 110,
+    popFromScale = 100,    // no size pop — words arrive at full size
+    popToScale = 100,
+    popDurationMs = 0,
+    popSettleScale = 100,
+    popSettleMs = 0,
     glow = true,
-    glowBlur = 11,
+    glowBlur = 14,
     glowBorder = 7,
     glowColor = null,      // defaults to activeColor
     reveal = 'accumulate', // 'accumulate' builds the line word by word; 'all' shows the whole block
     riseOn = 'word',       // which words slide up: every 'word', only each 'block', or 'none'
-    riseY = 50,            // distance the incoming word travels upward, in PlayRes px
-    riseMs = 120,          // fast start; ease-out segments slow the settle into the slot
+    riseY = 44,            // distance the incoming word travels upward, in PlayRes px
+    riseMs = 220,          // smooth rise; ease-out segments slow the settle into the slot
     posX = 360,
-    posY = 900,
+    posY = 1020,           // bottom-anchored caption block
     resX = 720,
     resY = 1280,
+    maxLineWidth = null,
+    wordGapMul = 0.7,
   } = options;
 
   const base = toAssColor(baseColor);
@@ -460,106 +538,92 @@ Style: Default,${fontName},${fontSize},${base},${base},${outlineC},&H80000000,${
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`;
 
-  // Scale pop: shoot up with ease-out, then settle to resting size with ease-out.
-  // When the rising word is split across Dialogue events, each event must resume
-  // the pop timeline from the elapsed ms since word onset (\t is per-event).
-  const settleTo = Number.isFinite(popSettleScale) ? popSettleScale : 100;
-  const settleMs = Number.isFinite(popSettleMs) ? popSettleMs : popDurationMs;
-  const scaleAt = (ms) => {
-    if (ms <= 0) return popFromScale;
-    if (ms < popDurationMs) {
-      const p = easeOutQuint(ms / popDurationMs);
-      return popFromScale + (popToScale - popFromScale) * p;
-    }
-    if (ms < popDurationMs + settleMs) {
-      const p = easeOutQuint((ms - popDurationMs) / settleMs);
-      return popToScale + (settleTo - popToScale) * p;
-    }
-    return settleTo;
-  };
-  const popTagsFrom = (elapsedMs) => {
-    const total = popDurationMs + settleMs;
-    const cur = Math.round(scaleAt(elapsedMs));
-    if (elapsedMs >= total) return `\\fscx${settleTo}\\fscy${settleTo}`;
-    if (elapsedMs < popDurationMs) {
-      return `\\fscx${cur}\\fscy${cur}` +
-        `\\t(0,${popDurationMs - elapsedMs},${EASE_OUT},\\fscx${popToScale}\\fscy${popToScale})` +
-        `\\t(${popDurationMs - elapsedMs},${total - elapsedMs},${EASE_OUT},\\fscx${settleTo}\\fscy${settleTo})`;
-    }
-    return `\\fscx${cur}\\fscy${cur}` +
-      `\\t(0,${total - elapsedMs},${EASE_OUT},\\fscx${settleTo}\\fscy${settleTo})`;
-  };
+  // No scale pop — words always land at full size (rise + fade only).
+  const popTagsFrom = () => '\\fscx100\\fscy100';
 
-  const accumulate = reveal !== 'all';
   const blocks = buildCaptionBlocks(words, options);
   const dialogues = [];
 
+  // Fade alpha from op0→op1 within a rise segment (0→100 by 70% travel).
+  const fadeTags = (op0, op1, dur, fill, outlineCol, bord, blur) => {
+    const a0 = assAlphaHex(op0);
+    const a1 = assAlphaHex(op1);
+    const baseTags = `\\alpha&H${a0}&\\c${fill}\\3c${outlineCol}\\bord${bord}\\blur${blur}`;
+    if (a0 === a1) return baseTags;
+    return `${baseTags}\\t(0,${dur},\\alpha&H${a1}&)`;
+  };
+
   for (const block of blocks) {
     const ws = block.words;
-    const centers = wordCenterXs(ws.map((w) => w.text), fontSize, posX);
+    const layout = layoutCaptionWords(ws.map((w) => w.text), {
+      fontSize, posX, posY, resX, maxLineWidth, wordGapMul,
+    });
+    const blockEndT = toASSTime(block.end);
 
     for (let j = 0; j < ws.length; j++) {
       const evStart = ws[j].start;
-      const evEnd = (j + 1 < ws.length) ? ws[j + 1].start : block.end;
-      if (evEnd <= evStart) continue;
+      const nextStart = (j + 1 < ws.length) ? ws[j + 1].start : block.end;
+      if (nextStart <= evStart) continue;
 
       const rises = riseOn === 'word' || (riseOn === 'block' && j === 0);
-      const cx = centers[j];
-      const start = toASSTime(evStart);
-      const end = toASSTime(evEnd);
+      const cx = layout[j].x;
+      const cy = layout[j].y;
+      const isHighlight = !!ws[j].highlight;
       const wordText = ASS_ESCAPE(ws[j].text);
-
       const paintWord = (anchor, colorTags, scaleTags) => (
         `{${anchor}\\frz${frz}${colorTags}${scaleTags}}${wordText}`
       );
 
-      // Settled neighbours stay at their own X — never ride the rising move.
-      for (let k = 0; k < ws.length; k++) {
-        if (k === j) continue;
-        const show = accumulate ? k < j : true;
-        if (!show) continue;
-        const settled = ASS_ESCAPE(ws[k].text);
-        dialogues.push(
-          `Dialogue: 1,${start},${end},Default,,0,0,0,,` +
-          `{\\pos(${centers[k]},${posY})\\frz${frz}\\alpha&H00&\\c${base}\\3c${outlineC}\\bord${outline}\\blur0\\fscx100\\fscy100}${settled}`,
-        );
-      }
+      // Highlighted words stay red + italic; plain words are white.
+      const solidPlain = `\\alpha&H00&\\c${base}\\3c${outlineC}\\bord${outline}\\blur0\\i0`;
+      const solidHi = `\\alpha&H00&\\c${active}\\3c${outlineC}\\bord${outline}\\blur0\\i1`;
+      const solidGlow = (fill) => (
+        `\\alpha&H00&\\c${fill}\\3c${fill}\\bord${glowBorder}\\blur${glowBlur}`
+      );
 
-      const activeColorTags = `\\alpha&H00&\\c${active}\\3c${outlineC}\\bord${outline}\\blur0`;
-      const glowColorTags = `\\alpha&H00&\\c${glowC}\\3c${glowC}\\bord${glowBorder}\\blur${glowBlur}`;
+      let holdFrom = evStart;
+
+      // Play the FULL riseMs the user set — do not clamp to the next word's
+      // audio start (that made rise-speed / rise-height sliders look dead).
+      const riseEndAbs = Math.min(block.end, evStart + (riseMs > 0 ? riseMs / 1000 : 0));
 
       if (rises && riseY > 0 && riseMs > 0) {
-        const segs = risingMoveSegments(cx, posY, riseY, riseMs, 8);
+        const segs = risingMoveSegments(cx, cy, riseY, riseMs, 8);
         for (const seg of segs) {
           const segStart = evStart + seg.t0 / 1000;
-          const segEnd = Math.min(evEnd, evStart + seg.t1 / 1000);
-          if (segEnd <= segStart) continue;
-          const move = `\\move(${seg.x},${seg.y0},${seg.x},${seg.y1},0,${seg.dur})`;
+          let segEnd = Math.min(block.end, evStart + seg.t1 / 1000);
+          if (segEnd - segStart < 0.01) segEnd = segStart + 0.01;
+          if (segEnd <= segStart || segStart >= block.end) continue;
+          const eventMs = Math.max(20, Math.round((segEnd - segStart) * 1000));
+          const move = `\\move(${seg.x},${seg.y0},${seg.x},${seg.y1},0,${eventMs})`;
           const scaleTags = popTagsFrom(seg.t0);
           const s = toASSTime(segStart);
           const e = toASSTime(segEnd);
+          if (s === e) continue;
+          // Rising word is always the "active" emphasis: red + italic.
+          const riseFill = active;
+          const activeTags = fadeTags(seg.op0, seg.op1, eventMs, riseFill, outlineC, outline, 0) + '\\i1';
+          const glowTags = fadeTags(seg.op0, seg.op1, eventMs, glowC, glowC, glowBorder, glowBlur);
           if (glow) {
-            dialogues.push(`Dialogue: 0,${s},${e},Default,,0,0,0,,${paintWord(move, glowColorTags, scaleTags)}`);
+            dialogues.push(`Dialogue: 0,${s},${e},Default,,0,0,0,,${paintWord(move, glowTags, scaleTags)}`);
           }
-          dialogues.push(`Dialogue: 2,${s},${e},Default,,0,0,0,,${paintWord(move, activeColorTags, scaleTags)}`);
+          dialogues.push(`Dialogue: 2,${s},${e},Default,,0,0,0,,${paintWord(move, activeTags, scaleTags)}`);
         }
-        const riseEnd = evStart + riseMs / 1000;
-        if (riseEnd < evEnd) {
-          const s = toASSTime(riseEnd);
-          const scaleTags = popTagsFrom(riseMs);
-          const fixed = `\\pos(${cx},${posY})`;
-          if (glow) {
-            dialogues.push(`Dialogue: 0,${s},${end},Default,,0,0,0,,${paintWord(fixed, glowColorTags, scaleTags)}`);
-          }
-          dialogues.push(`Dialogue: 2,${s},${end},Default,,0,0,0,,${paintWord(fixed, activeColorTags, scaleTags)}`);
+        holdFrom = riseEndAbs;
+      }
+
+      // Hold in its own multi-line slot until the entire sentence finishes
+      // (block.end already includes lingerAfterLast from style).
+      // No glow on the hold copy — a second blurred layer looked like a ghost.
+      if (holdFrom < block.end) {
+        const hs = toASSTime(holdFrom);
+        if (hs !== blockEndT) {
+          const fixed = `\\pos(${cx},${cy})`;
+          const holdTags = isHighlight ? solidHi : solidPlain;
+          dialogues.push(
+            `Dialogue: 1,${hs},${blockEndT},Default,,0,0,0,,${paintWord(fixed, holdTags, '\\fscx100\\fscy100')}`,
+          );
         }
-      } else {
-        const scaleTags = popTagsFrom(0);
-        const fixed = `\\pos(${cx},${posY})`;
-        if (glow) {
-          dialogues.push(`Dialogue: 0,${start},${end},Default,,0,0,0,,${paintWord(fixed, glowColorTags, scaleTags)}`);
-        }
-        dialogues.push(`Dialogue: 2,${start},${end},Default,,0,0,0,,${paintWord(fixed, activeColorTags, scaleTags)}`);
       }
     }
   }

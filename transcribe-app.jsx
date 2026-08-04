@@ -8,38 +8,119 @@ import {
 const PLAY_RES_X = 720;
 const PLAY_RES_Y = 1280;
 
-// Motion is baked in (not a user knob): each word shoots up from below into
-// its exact sentence slot, then ease-out settles. Keep riseMs short.
+let _measureCanvas = null;
+function measurePreviewWidth(text, fontSize) {
+  if (typeof document === 'undefined') return String(text || '').length * fontSize * 0.62;
+  if (!_measureCanvas) _measureCanvas = document.createElement('canvas');
+  const ctx = _measureCanvas.getContext('2d');
+  ctx.font = `800 ${fontSize}px Montserrat, "Arial Black", sans-serif`;
+  const w = ctx.measureText(String(text || '')).width;
+  return w > 1 ? w : String(text || '').length * fontSize * 0.62;
+}
+
+/** Client layout — same rules as server so Word gap slider updates live. */
+function layoutPreviewWords(texts, style) {
+  const fontSize = style.fontSize || 52;
+  const posX = style.posX ?? 360;
+  const posY = style.posY ?? 1020;
+  const maxW = style.maxLineWidth ?? Math.round(PLAY_RES_X * 0.86);
+  const gap = Math.max(18, Math.round(fontSize * (style.wordGapMul ?? 0.7)));
+  const widths = texts.map((t) => measurePreviewWidth(t, fontSize));
+
+  const lines = [];
+  let cur = { indices: [], width: 0 };
+  for (let i = 0; i < texts.length; i++) {
+    const w = widths[i];
+    const next = cur.indices.length === 0 ? w : cur.width + gap + w;
+    if (cur.indices.length > 0 && next > maxW) {
+      lines.push(cur);
+      cur = { indices: [i], width: w };
+    } else {
+      cur.indices.push(i);
+      cur.width = next;
+    }
+  }
+  if (cur.indices.length) lines.push(cur);
+
+  const lineH = fontSize * 1.22;
+  const firstY = posY - lineH * (lines.length - 1);
+  const positions = texts.map(() => ({ x: posX, y: posY, line: 0 }));
+  lines.forEach((line, li) => {
+    const y = Math.round(firstY + li * lineH);
+    let left = posX - line.width / 2;
+    for (const idx of line.indices) {
+      positions[idx] = { x: Math.round(left + widths[idx] / 2), y, line: li };
+      left += widths[idx] + gap;
+    }
+  });
+  return positions;
+}
+
+// Motion is baked in: each word rises from below into its own slot (ease-out),
+// fades in by 70% travel, then stays until the whole sentence ends.
 const DEFAULT_STYLE = {
-  fontSize: 58,
+  fontSize: 52,
   baseColor: '#FFFFFF',
-  activeColor: '#FF0000',
+  activeColor: '#FF0000', // highlighted + active words (red italic)
   outlineColor: '#000000',
   outline: 4,
   slantDeg: 0,
-  popFromScale: 88,
-  popToScale: 108,
-  popDurationMs: 90,
+  popFromScale: 100, // no size pop — words arrive at full size
+  popToScale: 100,
+  popDurationMs: 0,
   popSettleScale: 100,
-  popSettleMs: 110,
+  popSettleMs: 0,
   glow: true,
-  glowBlur: 11,
-  reveal: 'accumulate', // future words invisible but keep width → fixed slots
-  riseOn: 'word',       // every word rises from below into its slot
-  riseY: 50,
-  riseMs: 120,          // fast start; easeOutQuint slows hard as it lands
+  glowBlur: 14,
+  reveal: 'accumulate', // build sentence; each word keeps its slot
+  riseOn: 'word',
+  riseY: 44,
+  riseMs: 220,          // rise duration — lower = faster flow
+  lingerAfterLast: 0.6, // how long the formed sentence stays on screen
   posX: 360,
-  posY: 900,
-  maxWordsPerBlock: 3,
-  maxBlockDuration: 2.0,
+  posY: 1020,           // bottom-anchored multi-line block
+  maxWordsPerBlock: 8,
+  maxBlockDuration: 3.5,
+  maxLineWidth: 620,    // wrap before edges (~86% of 720)
+  wordGapMul: 0.7,      // space between words (fraction of font size)
 };
 
 const round3 = (n) => Math.round(n * 1000) / 1000;
 
-/** Fast start → slow finish (strong settle into the word slot). */
-function easeOutQuint(t) {
+/** Merge defaults so older sessions / partial style still drive motion sliders. */
+function normalizeStyle(s = {}) {
+  const out = { ...DEFAULT_STYLE, ...s };
+  out.riseMs = Math.max(40, Number(out.riseMs) || DEFAULT_STYLE.riseMs);
+  out.riseY = Number.isFinite(Number(out.riseY)) ? Number(out.riseY) : DEFAULT_STYLE.riseY;
+  out.lingerAfterLast = Math.max(0, Number(out.lingerAfterLast) || DEFAULT_STYLE.lingerAfterLast);
+  out.maxBlockDuration = Math.max(0.4, Number(out.maxBlockDuration) || DEFAULT_STYLE.maxBlockDuration);
+  out.maxWordsPerBlock = Math.max(1, Number(out.maxWordsPerBlock) || DEFAULT_STYLE.maxWordsPerBlock);
+  out.fontSize = Math.max(12, Number(out.fontSize) || DEFAULT_STYLE.fontSize);
+  out.posY = Number.isFinite(Number(out.posY)) ? Number(out.posY) : DEFAULT_STYLE.posY;
+  out.posX = Number.isFinite(Number(out.posX)) ? Number(out.posX) : DEFAULT_STYLE.posX;
+  out.wordGapMul = Math.max(0.2, Number(out.wordGapMul) || DEFAULT_STYLE.wordGapMul);
+  // Never scale-pop — words always render at full size.
+  out.popFromScale = 100;
+  out.popToScale = 100;
+  out.popDurationMs = 0;
+  out.popSettleScale = 100;
+  out.popSettleMs = 0;
+  return out;
+}
+
+/** Fast from the bottom, smooth decelerate into the slot (not linear). */
+function easeOutCubic(t) {
   const x = Math.min(1, Math.max(0, t));
-  return 1 - (1 - x) ** 5;
+  return 1 - (1 - x) ** 3;
+}
+
+/** 0 at bottom → 1 at final position (eased travel fraction). */
+function riseTravelAt(time, word, style) {
+  if (!word || !style.riseMs) return 1;
+  const ms = (time - word.activeFrom) * 1000;
+  if (ms <= 0) return 0;
+  if (ms >= style.riseMs) return 1;
+  return easeOutCubic(ms / style.riseMs);
 }
 
 /** Scale pop with ease-out, then settle back to 100%. */
@@ -50,11 +131,11 @@ function popScaleAt(time, word, style) {
   const settleMs = Number.isFinite(style.popSettleMs) ? style.popSettleMs : style.popDurationMs;
   if (ms <= 0) return style.popFromScale;
   if (ms < style.popDurationMs) {
-    const p = easeOutQuint(ms / style.popDurationMs);
+    const p = easeOutCubic(ms / style.popDurationMs);
     return style.popFromScale + (style.popToScale - style.popFromScale) * p;
   }
   if (ms < style.popDurationMs + settleMs) {
-    const p = easeOutQuint((ms - style.popDurationMs) / settleMs);
+    const p = easeOutCubic((ms - style.popDurationMs) / settleMs);
     return style.popToScale + (settleTo - style.popToScale) * p;
   }
   return settleTo;
@@ -63,10 +144,17 @@ function popScaleAt(time, word, style) {
 /** Rise from below into the exact slot — decelerates hard as it lands. */
 function riseOffsetAt(time, word, style) {
   if (!word || !style.riseY) return 0;
-  const ms = (time - word.activeFrom) * 1000;
-  if (ms <= 0) return style.riseY;
-  if (ms >= style.riseMs) return 0;
-  return style.riseY * (1 - easeOutQuint(ms / style.riseMs));
+  return style.riseY * (1 - riseTravelAt(time, word, style));
+}
+
+/**
+ * Fade in over the first 70% of travel distance; fully opaque for the settle.
+ */
+function riseOpacityAt(time, word, style, isRising) {
+  if (!isRising || !style.riseY) return 1;
+  const travel = riseTravelAt(time, word, style);
+  if (travel >= 0.7) return 1;
+  return travel / 0.7;
 }
 
 function fmtTime(s) {
@@ -180,7 +268,12 @@ export default function TranscribeApp() {
         if (job.progress) setProgress(job.progress);
         if (job.state === 'completed') {
           const rv = job.returnvalue || {};
-          setWords((rv.words || []).map((w) => ({ text: w.text, start: w.start, end: w.end })));
+          setWords((rv.words || []).map((w) => ({
+            text: w.text,
+            start: w.start,
+            end: w.end,
+            highlight: !!w.highlight,
+          })));
           setServerVideoPath(rv.videoPath || null);
           setPhase('ready');
           setProgress(null);
@@ -205,14 +298,14 @@ export default function TranscribeApp() {
         const res = await fetch('/api/caption-spec', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ words, style }),
+          body: JSON.stringify({ words, style: normalizeStyle(style) }),
         });
         const data = await res.json();
         if (res.ok) setSpec(data);
       } catch { /* preview-only; ignore */ }
-    }, 250);
+    }, 180);
     return () => clearTimeout(t);
-  }, [words, style.maxWordsPerBlock, style.maxBlockDuration, style.activeColor, style.baseColor]);
+  }, [words, style]);
 
   // --- playback clock -----------------------------------------------------
   useEffect(() => {
@@ -257,6 +350,12 @@ export default function TranscribeApp() {
     setWords((prev) => prev.map((w, i) => (i === idx ? { ...w, text } : w)));
   };
 
+  const toggleHighlight = (idx) => {
+    setWords((prev) => prev.map((w, i) => (
+      i === idx ? { ...w, highlight: !w.highlight } : w
+    )));
+  };
+
   // --- burn ---------------------------------------------------------------
   const burn = useCallback(async () => {
     if (!serverVideoPath || !words.length) return;
@@ -268,7 +367,7 @@ export default function TranscribeApp() {
         body: JSON.stringify({
           videoPath: serverVideoPath,
           words,
-          style,
+          style: normalizeStyle(style),
           captionStyle: 'word-highlight',
         }),
       });
@@ -283,6 +382,7 @@ export default function TranscribeApp() {
   }, [serverVideoPath, words, style]);
 
   // --- derived preview state ---------------------------------------------
+  const sStyle = useMemo(() => normalizeStyle(style), [style]);
   const blocks = spec?.blocks || [];
   const activeBlock = useMemo(
     () => blocks.find((b) => time >= b.start && time < b.end) || null,
@@ -295,15 +395,23 @@ export default function TranscribeApp() {
     return idx;
   }, [activeBlock, time]);
 
-  // Matches the ASS reveal: unspoken future words stay in the layout (invisible
-  // but still taking width) so earlier words keep their fixed left/mid/right slots.
+  // Live layout from current style (Word gap / font size update immediately).
   const layoutWords = useMemo(() => {
     if (!activeBlock) return [];
-    return activeBlock.words;
-  }, [activeBlock]);
+    const positions = layoutPreviewWords(
+      activeBlock.words.map((w) => w.text),
+      sStyle,
+    );
+    return activeBlock.words.map((w, i) => ({
+      ...w,
+      x: positions[i].x,
+      y: positions[i].y,
+      line: positions[i].line,
+    }));
+  }, [activeBlock, sStyle]);
 
   const scale = stageWidth ? stageWidth / PLAY_RES_X : 0;
-  const setS = (patch) => setStyle((s) => ({ ...s, ...patch }));
+  const setS = (patch) => setStyle((prev) => normalizeStyle({ ...prev, ...patch }));
 
   const busy = phase === 'transcribing' || phase === 'burning';
 
@@ -355,42 +463,51 @@ export default function TranscribeApp() {
               </label>
             )}
 
-            {/* caption overlay — mirrors the ASS layout */}
+            {/* caption overlay — multi-line slots from server layout */}
             {activeBlock && scale > 0 && (
               <div
-                className="absolute pointer-events-none whitespace-nowrap"
+                className="absolute inset-0 pointer-events-none"
                 style={{
-                  left: `${(style.posX / PLAY_RES_X) * 100}%`,
-                  top: `${(style.posY / PLAY_RES_Y) * 100}%`,
-                  transform: `translate(-50%, -50%) rotate(${-style.slantDeg}deg)`,
                   fontFamily: 'Montserrat, sans-serif',
                   fontWeight: 800,
-                  fontSize: `${style.fontSize * scale}px`,
-                  lineHeight: 1.15,
+                  fontSize: `${sStyle.fontSize * scale}px`,
                 }}
               >
                 {layoutWords.map((w, i) => {
-                  const spoken = style.reveal === 'all' || i <= activeWordIdx;
+                  // Spoken words stay for the whole sentence; each word runs its
+                  // own rise timeline from activeFrom (not cut short by next word).
+                  const spoken = sStyle.reveal === 'all' || i <= activeWordIdx;
                   const isActive = i === activeWordIdx;
-                  const s = isActive ? popScaleAt(time, w, style) / 100 : 1;
-                  const rises = style.riseOn === 'word' || (style.riseOn === 'block' && i === 0);
-                  const dy = isActive && rises ? riseOffsetAt(time, w, style) * scale : 0;
+                  const rises = sStyle.riseOn === 'word' || (sStyle.riseOn === 'block' && i === 0);
+                  const travel = spoken ? riseTravelAt(time, w, sStyle) : 1;
+                  const isRising = rises && spoken && sStyle.riseY > 0 && travel < 1;
+                  const isHi = !!w.highlight || isActive || isRising;
+                  const dy = isRising ? riseOffsetAt(time, w, sStyle) * scale : 0;
+                  const opacity = !spoken
+                    ? 0
+                    : (isRising ? riseOpacityAt(time, w, sStyle, true) : 1);
+                  const color = isHi ? sStyle.activeColor : sStyle.baseColor;
+                  const x = Number.isFinite(w.x) ? w.x : sStyle.posX;
+                  const y = Number.isFinite(w.y) ? w.y : sStyle.posY;
                   return (
                     <span
                       key={`${w.start}-${i}`}
                       style={{
+                        position: 'absolute',
+                        left: `${(x / PLAY_RES_X) * 100}%`,
+                        top: `${(y / PLAY_RES_Y) * 100}%`,
                         display: 'inline-block',
-                        // opacity:0 still occupies width — that's what locks each word's x slot
-                        opacity: spoken ? 1 : 0,
-                        transform: `translateY(${dy}px) scale(${s})`,
-                        color: isActive ? style.activeColor : style.baseColor,
-                        WebkitTextStrokeWidth: `${style.outline * scale}px`,
-                        WebkitTextStrokeColor: style.outlineColor,
+                        opacity,
+                        transform: `translate(-50%, -50%) rotate(${-sStyle.slantDeg}deg) translateY(${dy}px)`,
+                        color,
+                        fontStyle: isHi ? 'italic' : 'normal',
+                        WebkitTextStrokeWidth: `${sStyle.outline * scale}px`,
+                        WebkitTextStrokeColor: sStyle.outlineColor,
                         paintOrder: 'stroke fill',
-                        textShadow: isActive && style.glow
-                          ? `0 0 ${style.glowBlur * scale}px ${style.activeColor}, 0 0 ${style.glowBlur * 2 * scale}px ${style.activeColor}`
+                        textShadow: sStyle.glow && opacity > 0.05
+                          ? `0 0 ${sStyle.glowBlur * scale}px ${color}, 0 0 ${sStyle.glowBlur * 1.8 * scale}px ${color}`
                           : 'none',
-                        marginRight: i < layoutWords.length - 1 ? `${0.28 * style.fontSize * scale}px` : 0,
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {w.text}
@@ -499,26 +616,66 @@ export default function TranscribeApp() {
               </button>
             </div>
             <p className="text-[11px] text-neutral-600 mb-4">
-              Each word rises from below into its own spot in the sentence — fast up, then slows to settle.
+              Motion updates live in the preview. Re-burn to bake changes into the export.
             </p>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-4">
-              <ColorInput label="Active word" value={style.activeColor} onChange={(v) => setS({ activeColor: v })} />
-              <ColorInput label="Other words" value={style.baseColor} onChange={(v) => setS({ baseColor: v })} />
+              <ColorInput label="Highlight" value={sStyle.activeColor} onChange={(v) => setS({ activeColor: v })} />
+              <ColorInput label="Other words" value={sStyle.baseColor} onChange={(v) => setS({ baseColor: v })} />
               <label className="flex items-center gap-2 cursor-pointer self-end pb-1">
                 <input
                   type="checkbox"
-                  checked={style.glow}
+                  checked={sStyle.glow}
                   onChange={(e) => setS({ glow: e.target.checked })}
                   className="w-3.5 h-3.5 rounded accent-red-500"
                 />
                 <span className="text-[11px] uppercase tracking-wider text-neutral-500">Glow</span>
               </label>
 
-              <Slider label="Font size" value={style.fontSize} min={28} max={96} onChange={(v) => setS({ fontSize: v })} />
-              <Slider label="Caption height" value={style.posY} min={200} max={1200} step={10} onChange={(v) => setS({ posY: v })} />
-              <Slider label="Words per line" value={style.maxWordsPerBlock} min={1} max={4} onChange={(v) => setS({ maxWordsPerBlock: v })} />
+              <Slider label="Font size" value={sStyle.fontSize} min={28} max={96} onChange={(v) => setS({ fontSize: v })} />
+              <Slider label="Caption height" value={sStyle.posY} min={200} max={1200} step={10} onChange={(v) => setS({ posY: v })} />
+              <Slider label="Words / sentence" value={sStyle.maxWordsPerBlock} min={2} max={12} onChange={(v) => setS({ maxWordsPerBlock: v })} />
+
+              <Slider
+                label="Rise speed"
+                value={sStyle.riseMs}
+                min={60}
+                max={500}
+                step={10}
+                suffix="ms"
+                onChange={(v) => setS({ riseMs: v })}
+              />
+              <Slider
+                label="Rise height"
+                value={sStyle.riseY}
+                min={0}
+                max={100}
+                onChange={(v) => setS({ riseY: v })}
+              />
+              <Slider
+                label="Sentence hold"
+                value={sStyle.lingerAfterLast}
+                min={0.1}
+                max={2.5}
+                step={0.1}
+                suffix="s"
+                onChange={(v) => setS({ lingerAfterLast: v })}
+              />
+              <Slider
+                label="Word gap"
+                value={Math.round(sStyle.wordGapMul * 100)}
+                min={40}
+                max={120}
+                step={5}
+                suffix="%"
+                onChange={(v) => setS({ wordGapMul: v / 100 })}
+              />
             </div>
+
+            <p className="mt-3 text-[10px] text-neutral-600 leading-relaxed">
+              Rise speed: lower = faster. Rise height: travel distance.
+              Sentence hold: how long the finished line stays before the next one.
+            </p>
 
             <button
               type="button"
@@ -530,17 +687,12 @@ export default function TranscribeApp() {
 
             {showAdvanced && (
               <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-4 border-t border-neutral-900 pt-4">
-                <ColorInput label="Outline" value={style.outlineColor} onChange={(v) => setS({ outlineColor: v })} />
-                <Slider label="Outline width" value={style.outline} min={0} max={10} onChange={(v) => setS({ outline: v })} />
-                <Slider label="Slant" value={style.slantDeg} min={-15} max={15} suffix="°" onChange={(v) => setS({ slantDeg: v })} />
-                <Slider label="Pop from" value={style.popFromScale} min={50} max={100} suffix="%" onChange={(v) => setS({ popFromScale: v })} />
-                <Slider label="Pop to" value={style.popToScale} min={100} max={160} suffix="%" onChange={(v) => setS({ popToScale: v })} />
-                <Slider label="Pop speed" value={style.popDurationMs} min={20} max={300} step={10} suffix="ms" onChange={(v) => setS({ popDurationMs: v })} />
-                <Slider label="Rise distance" value={style.riseY} min={0} max={80} onChange={(v) => setS({ riseY: v })} />
-                <Slider label="Rise duration" value={style.riseMs} min={40} max={300} step={5} suffix="ms" onChange={(v) => setS({ riseMs: v })} />
-                <Slider label="Max line time" value={style.maxBlockDuration} min={0.8} max={4} step={0.1} suffix="s" onChange={(v) => setS({ maxBlockDuration: v })} />
-                {style.glow && (
-                  <Slider label="Glow blur" value={style.glowBlur} min={0} max={30} onChange={(v) => setS({ glowBlur: v })} />
+                <ColorInput label="Outline" value={sStyle.outlineColor} onChange={(v) => setS({ outlineColor: v })} />
+                <Slider label="Outline width" value={sStyle.outline} min={0} max={10} onChange={(v) => setS({ outline: v })} />
+                <Slider label="Slant" value={sStyle.slantDeg} min={-15} max={15} suffix="°" onChange={(v) => setS({ slantDeg: v })} />
+                <Slider label="Max sentence time" value={sStyle.maxBlockDuration} min={0.8} max={5} step={0.1} suffix="s" onChange={(v) => setS({ maxBlockDuration: v })} />
+                {sStyle.glow && (
+                  <Slider label="Glow blur" value={sStyle.glowBlur} min={0} max={30} onChange={(v) => setS({ glowBlur: v })} />
                 )}
               </div>
             )}
@@ -551,7 +703,7 @@ export default function TranscribeApp() {
             <section className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-4">
               <h2 className="text-xs font-semibold text-neutral-300 mb-1">3 · Transcript</h2>
               <p className="text-[11px] text-neutral-600 mb-3">
-                Click any word to fix it. Timings stay locked to the audio.
+                Click a word to toggle red italic highlight. Double-click to edit text.
               </p>
               <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
                 {blocks.map((b) => {
@@ -571,6 +723,8 @@ export default function TranscribeApp() {
                         {b.words.map((w) => {
                           const idx = indexByStart.get(round3(w.start));
                           const isEditing = editing === idx && idx !== undefined;
+                          const src = idx !== undefined ? words[idx] : null;
+                          const isHi = !!src?.highlight;
                           const isActiveWord = isNow &&
                             activeBlock.words[activeWordIdx]?.start === w.start;
                           if (isEditing) {
@@ -593,10 +747,17 @@ export default function TranscribeApp() {
                           return (
                             <button
                               key={w.start}
-                              onClick={(e) => { e.stopPropagation(); if (idx !== undefined) setEditing(idx); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (idx !== undefined) toggleHighlight(idx);
+                              }}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                if (idx !== undefined) setEditing(idx);
+                              }}
                               className={`text-xs rounded px-1 py-0.5 transition-colors ${
-                                isActiveWord
-                                  ? 'text-red-400 font-semibold'
+                                isHi || isActiveWord
+                                  ? 'text-red-400 italic font-semibold'
                                   : 'text-neutral-300 hover:bg-neutral-700/60'
                               }`}
                             >
@@ -642,6 +803,7 @@ export default function TranscribeApp() {
               </div>
               <p className="mt-2.5 text-[11px] text-neutral-600">
                 Encodes at the source resolution with libx264 · one job at a time.
+                Change sliders, then burn again to see them in the download.
               </p>
             </section>
           )}
