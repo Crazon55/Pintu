@@ -579,7 +579,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
       // Color: IBC uses orange→green dual groups; others use hookColor for bold, white for normal
       let fillColor;
       if (isIBC) {
-        fillColor = grp === 1 ? '#FF5F07' : grp >= 2 ? '#46DB27' : '#FFFFFF';
+        fillColor = grp === 1 ? '#FF7838' : grp >= 2 ? '#46DB27' : '#FFFFFF';
       } else {
         fillColor = t.bold ? hookColor : '#FFFFFF';
       }
