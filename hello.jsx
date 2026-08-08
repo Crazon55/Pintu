@@ -763,9 +763,9 @@ const PreviewCard = memo(({
     const arollHasSidePad = preset.layout === 'aroll' && preset.ratio === '2:3';
 
     const handleMouseDown = (e) => {
-        // News RE-SIZE: drag pans. Other layouts need the Move toggle. Skip resize handles.
+        // RE-SIZE: drag pans (any layout), handles zoom. Skip resize handles.
         if (e.target?.closest?.('[data-resize-handle]')) return;
-        const canPan = isRepositioning || (isResizingVideo && preset.layout === 'news_ticker');
+        const canPan = isRepositioning || isResizingVideo;
         if (!canPan) return;
         e.preventDefault();
         const startX = e.clientX;
@@ -1117,7 +1117,9 @@ const PreviewCard = memo(({
     const clampedVideoScale = Math.max(localVideoScale || 100, 60);
     const previewVideoScale = clampedVideoScale / 100;
     const isNewsFormat = preset.layout === 'news_ticker';
-    const newsResizeActive = isNewsFormat && isResizingVideo;
+    // Canva-style: while RE-SIZE is on, dragging the body pans and the handles zoom —
+    // for every layout, not just news cards.
+    const resizeActive = isResizingVideo;
 
     const mainHookLines = useMemo(() => {
         const fontFamily = isPoppinsFont ? "'Poppins', sans-serif" : "'Inter', sans-serif";
@@ -1515,7 +1517,7 @@ const PreviewCard = memo(({
                 {/* 3. VIDEO CONTAINER (aroll: inset with left/right padding to match export) */}
                 <div
                     ref={containerRef}
-                    className={`relative bg-black shrink-0 group ${preset.layout === 'aroll' ? 'mx-auto' : 'w-full'} ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : newsResizeActive ? 'cursor-move ring-2 ring-violet-500 z-50' : isResizingVideo ? 'ring-2 ring-blue-500 z-50' : 'cursor-pointer'} ''}`}
+                    className={`relative bg-black shrink-0 group ${preset.layout === 'aroll' ? 'mx-auto' : 'w-full'} ${isRepositioning ? 'cursor-move ring-2 ring-yellow-500 z-50' : resizeActive ? 'cursor-move ring-2 ring-violet-500 z-50' : 'cursor-pointer'} ''}`}
                     style={{
                         ...(preset.layout === 'aroll' ? { width: arollHasSidePad ? '87.8%' : '100%' } : {}),
                         // Video band ratio only — outer card stays 9:16 for every preset.
@@ -1544,7 +1546,7 @@ const PreviewCard = memo(({
                     {isResizingVideo && (
                         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
                             <div className="bg-violet-600/90 text-white text-[10px] px-2 py-1 rounded backdrop-blur flex items-center gap-1 whitespace-nowrap">
-                                <Maximize size={10} /> {isNewsFormat ? 'RE-SIZE — drag to move · handles to zoom' : 'Drag corners to resize'}
+                                <Maximize size={10} /> RE-SIZE — drag to move · handles to zoom
                             </div>
                         </div>
                     )}
