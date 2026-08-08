@@ -7,64 +7,115 @@ import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { loadSync as opentypeLoad } from 'opentype.js';
+import { findCaptionFont } from '../captionFonts.js';
 
 const __subtitleDir = dirname(fileURLToPath(import.meta.url));
-let _otCaptionBold = null;
-let _otCaptionTried = false;
+const _otCache = new Map();
 
-function getCaptionFont() {
-  if (_otCaptionTried) return _otCaptionBold;
-  _otCaptionTried = true;
-  const fontPath = join(__subtitleDir, 'assets', 'fonts', 'Montserrat-ExtraBold.ttf');
-  if (existsSync(fontPath)) {
-    try {
-      _otCaptionBold = opentypeLoad(fontPath);
-      console.log('✓ Caption layout font: Montserrat ExtraBold (opentype)');
-    } catch (e) {
-      console.warn('Caption opentype load failed:', e.message);
-    }
+function loadOtFontFile(fileName) {
+  if (!fileName) return null;
+  if (_otCache.has(fileName)) return _otCache.get(fileName);
+  const fontPath = join(__subtitleDir, 'assets', 'fonts', fileName);
+  if (!existsSync(fontPath)) {
+    _otCache.set(fileName, null);
+    return null;
   }
-  return _otCaptionBold;
+  try {
+    const font = opentypeLoad(fontPath);
+    _otCache.set(fileName, font);
+    console.log(`✓ Caption layout font: ${fileName} (opentype)`);
+    return font;
+  } catch (e) {
+    console.warn(`Caption opentype load failed (${fileName}):`, e.message);
+    _otCache.set(fileName, null);
+    return null;
+  }
 }
 
-/** Advance width matching the ASS burn font (Montserrat ExtraBold). */
-function measureCaptionWidth(text, fontSize) {
-  const font = getCaptionFont();
+function resolveFontMeta(assOrId, fallbackFile) {
+  const meta = findCaptionFont(assOrId);
+  if (meta) return meta;
+  return {
+    assName: assOrId || 'Montserrat Black',
+    file: fallbackFile,
+    style: 'normal',
+    weight: 700,
+  };
+}
+
+/** Advance width matching the ASS burn font for each word type. */
+function measureCaptionWidth(text, fontSize, highlight = false, fontFile = null, letterSpacing = 0) {
+  const fallback = highlight ? 'PlayfairDisplay-BoldItalic.ttf' : 'Montserrat-Black.ttf';
+  const font = loadOtFontFile(fontFile || fallback);
   const str = String(text || '');
+  let w = 0;
   if (font) {
     try {
-      const w = font.getAdvanceWidth(str, fontSize);
-      if (Number.isFinite(w) && w > 0) return w;
+      const adv = font.getAdvanceWidth(str, fontSize);
+      if (Number.isFinite(adv) && adv > 0) w = adv;
     } catch { /* fall through */ }
   }
-  // Conservative fallback — slightly wide so words don't collide.
-  return str.length * fontSize * 0.62;
+  if (!(w > 0)) {
+    w = str.length * fontSize * (highlight ? 0.58 : 0.62);
+  }
+  const spacing = Number(letterSpacing) || 0;
+  if (spacing && str.length > 1) w += (str.length - 1) * spacing;
+  return w;
 }
 
 /**
- * Multi-line caption layout: wrap to stay on-screen, centre each line, stack
- * upward from posY (bottom of the caption block). Returns per-word {x,y,line}.
+ * Multi-line caption layout: wrap to stay on-screen.
+ * EVERY line is center-aligned as a group (1 word, 2 words, or a full sentence).
+ * Wrapped line 2+ stays centered under line 1 (tucked-in look).
+ * Returns per-word {x,y,line}.
  */
-function layoutCaptionWords(texts, {
+function layoutCaptionWords(wordInputs, {
   fontSize = 58,
   posX = 360,
   posY = 1020,
   resX = 720,
   maxLineWidth = null,
   lineHeightMul = 1.22,
-  wordGapMul = 0.7,
+  wordGapMul = 0.35,
+  outline = 2,
+  highlightScale = 125,
+  highlightWeight = 0,
+  lineStartX = 80,
+  maxLines = 1,
+  letterSpacing = 0,
+  baseFontFile = 'Montserrat-Black.ttf',
+  highlightFontFile = 'PlayfairDisplay-BoldItalic.ttf',
 } = {}) {
-  // Real inter-word gap in px. Outline (~4) + italic need headroom.
-  const gap = Math.max(18, Math.round(fontSize * wordGapMul));
-  const maxW = maxLineWidth ?? Math.round(resX * 0.86);
-  const widths = texts.map((t) => measureCaptionWidth(t, fontSize));
+  const texts = wordInputs.map((w) => (typeof w === 'string' ? w : w.text));
+  const highlights = wordInputs.map((w) => (typeof w === 'object' ? !!w.highlight : false));
+  const gap = Math.max(6, Math.round(fontSize * wordGapMul));
+  const startX = Math.max(10, Number(lineStartX) || 80);
+  const maxW = maxLineWidth ?? Math.max(200, Math.round(resX - startX - 40));
+  const lineCap = Math.max(1, Math.min(4, Number(maxLines) || 1));
+  const hiMul = Math.max(0.8, (Number(highlightScale) || 125) / 100);
+  const spacing = Number(letterSpacing) || 0;
+  const padBase = Math.max(4, Math.round(outline * 2.5));
+  const padHi = Math.max(2, Math.round(hiMul * 2));
+  const widths = texts.map((t, i) => {
+    const raw = measureCaptionWidth(
+      t,
+      fontSize,
+      highlights[i],
+      highlights[i] ? highlightFontFile : baseFontFile,
+      spacing,
+    );
+    return raw * (highlights[i] ? hiMul : 1) + (highlights[i] ? padHi : padBase);
+  });
+
+  if (texts.length === 0) return [];
 
   const lines = [];
   let cur = { indices: [], width: 0 };
   for (let i = 0; i < texts.length; i++) {
     const w = widths[i];
     const next = cur.indices.length === 0 ? w : cur.width + gap + w;
-    if (cur.indices.length > 0 && next > maxW) {
+    const canWrap = lines.length + 1 < lineCap;
+    if (cur.indices.length > 0 && next > maxW && canWrap) {
       lines.push(cur);
       cur = { indices: [i], width: w };
     } else {
@@ -75,13 +126,12 @@ function layoutCaptionWords(texts, {
   if (cur.indices.length) lines.push(cur);
 
   const lineH = fontSize * lineHeightMul;
-  // Last line sits on posY; earlier lines stack above (bottom-anchored block).
-  const firstY = posY - lineH * (lines.length - 1);
-  const positions = texts.map(() => ({ x: posX, y: posY, line: 0 }));
+  const positions = texts.map(() => ({ x: Math.round(resX / 2), y: posY, line: 0 }));
 
   lines.forEach((line, li) => {
-    const y = Math.round(firstY + li * lineH);
-    let left = posX - line.width / 2;
+    const y = Math.round(posY + li * lineH);
+    // Always center the whole line group on the frame.
+    let left = Math.round(resX / 2 - line.width / 2);
     for (const idx of line.indices) {
       positions[idx] = {
         x: Math.round(left + widths[idx] / 2),
@@ -287,6 +337,54 @@ const ASS_ESCAPE = (s) => String(s)
   .replace(/\{/g, '\\{')
   .replace(/\}/g, '\\}');
 
+function otHasGlyph(font, ch) {
+  if (!font || !ch) return false;
+  try {
+    const g = font.charToGlyph(ch);
+    return !!(g && g.index > 0 && g.name !== '.notdef');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Escape ASS text; for glyphs missing from the burn font (e.g. ₹ in Helvetica World),
+ * temporarily switch to Inter so libass can draw them.
+ */
+function assEscapeWithGlyphFallback(
+  text,
+  primaryFile,
+  primaryAssName,
+  fallbackFile = 'Inter_18pt-Bold.ttf',
+  fallbackAssName = 'Inter 18pt',
+) {
+  const str = String(text ?? '');
+  if (!str) return '';
+  const primary = loadOtFontFile(primaryFile);
+  const fallback = loadOtFontFile(fallbackFile);
+  if (!primary || !fallback || primaryFile === fallbackFile) return ASS_ESCAPE(str);
+
+  let out = '';
+  let run = '';
+  let usingFallback = null;
+  const flush = () => {
+    if (!run) return;
+    const escaped = ASS_ESCAPE(run);
+    out += usingFallback
+      ? `{\\fn${fallbackAssName}}${escaped}{\\fn${primaryAssName}}`
+      : escaped;
+    run = '';
+  };
+  for (const ch of str) {
+    const needFb = !otHasGlyph(primary, ch) && otHasGlyph(fallback, ch);
+    if (usingFallback !== null && needFb !== usingFallback) flush();
+    usingFallback = needFb;
+    run += ch;
+  }
+  flush();
+  return out;
+}
+
 /**
  * Group word-level timestamps into short on-screen blocks.
  *
@@ -300,49 +398,70 @@ export function buildCaptionBlocks(words, options = {}) {
   const {
     maxWordsPerBlock = 8,
     maxBlockDuration = 3.5,
-    lingerAfterLast = 0.6, // how long the finished sentence stays before clear
+    lingerAfterLast = 2.5, // how long the finished sentence stays before clear
     minWordDuration = 0.12,
+    manualGrouping = false, // honor breakBefore + array order (user-edited sentences)
   } = options;
 
   const PUNCT = /[.,!?;:—]$/;
 
   const normalized = [];
-  for (const w of words || []) {
+  for (let i = 0; i < (words || []).length; i++) {
+    const w = words[i];
     const text = String(w?.text ?? w?.word ?? '').trim();
     if (!text) continue;
     const start = Number(w.start);
     if (!Number.isFinite(start) || start < 0) continue;
     let end = Number(w.end);
     if (!Number.isFinite(end) || end <= start) end = start + minWordDuration;
-    normalized.push({ text, start, end, highlight: !!w.highlight });
+    normalized.push({
+      text,
+      start,
+      end,
+      highlight: !!w.highlight,
+      breakBefore: !!w.breakBefore,
+      id: w.id || `w-${i}-${start}`,
+    });
   }
-  normalized.sort((a, b) => a.start - b.start);
 
   const grouped = [];
   let current = [];
   const flush = () => { if (current.length) { grouped.push(current); current = []; } };
-  for (const w of normalized) {
-    current.push(w);
-    const spanned = w.end - current[0].start;
-    if (current.length >= maxWordsPerBlock || spanned >= maxBlockDuration || PUNCT.test(w.text)) {
-      flush();
+
+  if (manualGrouping) {
+    // User-defined sentences: preserve order, split only on breakBefore.
+    for (let i = 0; i < normalized.length; i++) {
+      const w = normalized[i];
+      if (i > 0 && w.breakBefore) flush();
+      current.push(w);
     }
+    flush();
+  } else {
+    normalized.sort((a, b) => a.start - b.start);
+    for (const w of normalized) {
+      current.push(w);
+      const spanned = w.end - current[0].start;
+      if (current.length >= maxWordsPerBlock || spanned >= maxBlockDuration || PUNCT.test(w.text)) {
+        flush();
+      }
+    }
+    flush();
   }
-  flush();
 
   const blocks = grouped.map((ws, index) => ({
     index,
-    start: ws[0].start,
-    end: ws[ws.length - 1].end + lingerAfterLast,
+    start: Math.min(...ws.map((w) => w.start)),
+    end: Math.max(...ws.map((w) => w.end)) + lingerAfterLast,
     words: ws,
   }));
 
   // Never leave two blocks on screen at once.
+  blocks.sort((a, b) => a.start - b.start);
   for (let i = 0; i < blocks.length - 1; i++) {
     if (blocks[i].end > blocks[i + 1].start) blocks[i].end = blocks[i + 1].start;
   }
 
-  return blocks.filter(b => b.end > b.start);
+  return blocks.filter((b) => b.end > b.start);
 }
 
 /**
@@ -402,13 +521,49 @@ function risingMoveSegments(posX, posY, riseY, riseMs, steps = 8) {
   return segs;
 }
 
+/**
+ * Two-phase reveal only when a block has Playfair (highlight) words:
+ *   1. Montserrat words rise at their audio time
+ *   2. Playfair words rise after every Montserrat word has landed
+ * Blocks with no highlights keep normal one-word-at-a-time flow.
+ */
+export function computeRevealStarts(ws, { riseMs = 500 } = {}) {
+  const riseSec = riseMs > 0 ? riseMs / 1000 : 0;
+  if (!ws.some((w) => w.highlight)) {
+    return ws.map((w) => w.start);
+  }
+
+  const starts = ws.map((w) => w.start);
+
+  let regularPhaseEnd = 0;
+  let hasRegular = false;
+  for (let j = 0; j < ws.length; j++) {
+    if (!ws[j].highlight) {
+      starts[j] = ws[j].start;
+      hasRegular = true;
+      regularPhaseEnd = Math.max(regularPhaseEnd, ws[j].start + riseSec);
+    }
+  }
+
+  let highlightCursor = hasRegular ? regularPhaseEnd : 0;
+  for (let j = 0; j < ws.length; j++) {
+    if (ws[j].highlight) {
+      starts[j] = Math.max(ws[j].start, highlightCursor);
+      highlightCursor = starts[j] + riseSec;
+    }
+  }
+  return starts;
+}
+
 export function buildCaptionSpec(words, options = {}) {
   const {
-    fontName = 'Montserrat ExtraBold',
-    fontSize = 58,
-    baseColor = '#FFFFFF',
-    activeColor = '#FF0000',
-    outlineColor = '#000000',
+    fontName = options.baseFontName || 'Montserrat Black',
+    baseFontName = fontName,
+    highlightFontName = 'Playfair Bold Italic',
+    fontSize = 56,
+    baseColor = '#EDEAE3',
+    activeColor = '#FF7A00',
+    outlineColor = '#141414',
     slantDeg = 0,
     popFromScale = 100,
     popToScale = 100,
@@ -417,34 +572,68 @@ export function buildCaptionSpec(words, options = {}) {
     popSettleMs = 0,
     reveal = 'accumulate',
     riseOn = 'word',
-    riseY = 44,
-    riseMs = 220,
+    riseY = 36,
+    riseMs = 460,
     posX = 360,
     posY = 1020,
     resX = 720,
     resY = 1280,
     maxLineWidth = null,
-    wordGapMul = 0.7,
+    wordGapMul = 0.35,
+    highlightScale = 125,
+    highlightWeight = 0,
+    lineStartX = 80,
+    maxLines = 1,
+    letterSpacing = 0,
   } = options;
 
   const blocks = buildCaptionBlocks(words, options);
+  const startX = Math.max(10, Number(lineStartX) || 80);
+  const linesCap = Math.max(1, Math.min(4, Number(maxLines) || 1));
+  const spacing = Number(letterSpacing) || 0;
+  const baseMeta = resolveFontMeta(baseFontName || fontName, 'Montserrat-Black.ttf');
+  const hiMeta = resolveFontMeta(highlightFontName, 'PlayfairDisplay-BoldItalic.ttf');
+  const resolvedBase = baseMeta.assName;
+  const resolvedHi = hiMeta.assName;
 
   return {
     meta: {
-      resX, resY, fontName, fontSize,
+      resX, resY,
+      fontName: resolvedBase,
+      baseFontName: resolvedBase,
+      highlightFontName: resolvedHi,
+      fontSize,
       baseColor, activeColor, outlineColor,
       slantDeg, popFromScale, popToScale, popDurationMs, popSettleScale, popSettleMs,
-      reveal, riseOn, riseY, riseMs, posX, posY,
+      reveal, riseOn, riseY, riseMs, posX, posY, lineStartX: startX, maxLines: linesCap,
       wordsPerBlockMax: options.maxWordsPerBlock ?? 8,
-      maxLineWidth: maxLineWidth ?? Math.round(resX * 0.86),
+      maxLineWidth: maxLineWidth ?? Math.max(200, Math.round(resX - startX - 40)),
       wordGapMul,
+      letterSpacing: spacing,
+      lingerAfterLast: options.lingerAfterLast ?? 2.5,
+      highlightScale,
+      highlightWeight: 0,
+      glow: options.glow !== false,
+      glowBlur: options.glowBlur ?? 10,
+      glowBorder: options.glowBorder ?? 6,
+      baseGlowStrength: options.baseGlowStrength ?? options.glowStrength ?? 35,
+      highlightGlowStrength: options.highlightGlowStrength ?? options.glowStrength ?? 35,
     },
     blockCount: blocks.length,
     wordCount: blocks.reduce((n, b) => n + b.words.length, 0),
     blocks: blocks.map(b => {
-      const layout = layoutCaptionWords(b.words.map((w) => w.text), {
+      const layout = layoutCaptionWords(b.words, {
         fontSize, posX, posY, resX, maxLineWidth, wordGapMul,
+        outline: options.outline ?? 2,
+        highlightScale,
+        highlightWeight: 0,
+        lineStartX: startX,
+        maxLines: linesCap,
+        letterSpacing: spacing,
+        baseFontFile: baseMeta.file,
+        highlightFontFile: hiMeta.file,
       });
+      const revealStarts = computeRevealStarts(b.words, { riseMs });
       return {
         index: b.index,
         start: +b.start.toFixed(3),
@@ -458,8 +647,8 @@ export function buildCaptionSpec(words, options = {}) {
           x: layout[i].x,
           y: layout[i].y,
           line: layout[i].line,
-          activeFrom: +w.start.toFixed(3),
-          activeTo: +(i + 1 < b.words.length ? b.words[i + 1].start : b.end).toFixed(3),
+          activeFrom: +revealStarts[i].toFixed(3),
+          activeTo: +(i + 1 < b.words.length ? revealStarts[i + 1] : b.end).toFixed(3),
           activeColor,
           baseColor,
         })),
@@ -483,43 +672,68 @@ export function buildCaptionSpec(words, options = {}) {
  */
 export function generateWordHighlightASS(words, options = {}) {
   const {
-    fontName = 'Montserrat ExtraBold', // family name of Montserrat-ExtraBold.ttf
-    bold = false,                      // that file's subfamily is Regular; forcing bold causes fallback
-    fontSize = 58,
-    baseColor = '#FFFFFF',
-    activeColor = '#FF0000',           // highlighted / active words — red + italic
-    outlineColor = '#000000',
-    outline = 4,
-    shadow = 2,
-    slantDeg = 0,         // flat by default; set negative for CapCut-style tilt
-    popFromScale = 100,    // no size pop — words arrive at full size
+    fontName = options.baseFontName || 'Montserrat Black',
+    baseFontName = fontName,
+    highlightFontName = 'Playfair Bold Italic',
+    bold = false,
+    fontSize = 56,
+    baseColor = '#EDEAE3',
+    activeColor = '#FF7A00',
+    outlineColor = '#141414',
+    outline = 2,
+    shadow = 0,
+    slantDeg = 0,
+    popFromScale = 100,
     popToScale = 100,
     popDurationMs = 0,
     popSettleScale = 100,
     popSettleMs = 0,
     glow = true,
-    glowBlur = 14,
-    glowBorder = 7,
-    glowColor = null,      // defaults to activeColor
-    reveal = 'accumulate', // 'accumulate' builds the line word by word; 'all' shows the whole block
-    riseOn = 'word',       // which words slide up: every 'word', only each 'block', or 'none'
-    riseY = 44,            // distance the incoming word travels upward, in PlayRes px
-    riseMs = 220,          // smooth rise; ease-out segments slow the settle into the slot
+    glowStrength = 35,
+    baseGlowStrength = null,
+    highlightGlowStrength = null,
+    glowBlur = 10,
+    glowBorder = 6,
+    glowColor = null,
+    glowOpacity = null,
+    highlightScale = 125,
+    highlightWeight = 0,
+    reveal = 'accumulate',
+    riseOn = 'word',
+    riseY = 36,
+    riseMs = 460,
     posX = 360,
-    posY = 1020,           // bottom-anchored caption block
+    posY = 1020,
     resX = 720,
     resY = 1280,
     maxLineWidth = null,
-    wordGapMul = 0.7,
+    wordGapMul = 0.35,
+    lineStartX = 80,
+    maxLines = 1,
+    letterSpacing = 0,
   } = options;
+
+  const hiScale = Math.max(80, Math.min(180, Number(highlightScale) || 125));
+  const startX = Math.max(10, Number(lineStartX) || 80);
+  const linesCap = Math.max(1, Math.min(4, Number(maxLines) || 1));
+  const spacing = Number(letterSpacing) || 0;
+  const baseMeta = resolveFontMeta(baseFontName || fontName, 'Montserrat-Black.ttf');
+  const hiMeta = resolveFontMeta(highlightFontName, 'PlayfairDisplay-BoldItalic.ttf');
+  const resolvedBase = baseMeta.assName;
+  const resolvedHi = hiMeta.assName;
+  const hiItalic = (hiMeta.style || '').toLowerCase() === 'italic';
 
   const base = toAssColor(baseColor);
   const active = toAssColor(activeColor, '&H000000FF&');
   const outlineC = toAssColor(outlineColor, '&H00000000&');
   const glowC = toAssColor(glowColor || activeColor, '&H000000FF&');
+  const baseGlowC = toAssColor(baseColor, '&H00FFFFFF&');
 
   const boldFlag = bold ? -1 : 0;
   const frz = ((Number(slantDeg) || 0) % 360 + 360) % 360;
+  const fnBase = `\\fn${resolvedBase}`;
+  const fnHi = `\\fn${resolvedHi}`;
+  const fsp = `\\fsp${spacing}`;
   // ASS \t accel: <1 starts fast and ends slow (ease-out).
   const EASE_OUT = 0.25;
 
@@ -533,13 +747,18 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${fontName},${fontSize},${base},${base},${outlineC},&H80000000,${boldFlag},0,0,0,100,100,0,0,1,${outline},${shadow},5,40,40,10,1
+Style: Default,${resolvedBase},${fontSize},${base},${base},${outlineC},&H80000000,${boldFlag},0,0,0,100,100,${spacing},0,1,${outline},${shadow},5,40,40,10,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`;
 
   // No scale pop — words always land at full size (rise + fade only).
-  const popTagsFrom = () => '\\fscx100\\fscy100';
+  // Highlight scale is applied by callers so it isn't wiped by a trailing \fscx100.
+  const popTagsFrom = (highlight = false) => (
+    highlight
+      ? `\\fscx${hiScale}\\fscy${hiScale}`
+      : '\\fscx100\\fscy100'
+  );
 
   const blocks = buildCaptionBlocks(words, options);
   const dialogues = [];
@@ -553,15 +772,39 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
     return `${baseTags}\\t(0,${dur},\\alpha&H${a1}&)`;
   };
 
+  // Soft OUTER glow underlay — strength is per font (Montserrat vs Playfair).
+  const legacyStrength = Number.isFinite(Number(glowStrength)) ? Number(glowStrength) : 35;
+  const baseStr = Number.isFinite(Number(baseGlowStrength)) ? Number(baseGlowStrength) : legacyStrength;
+  const hiStr = Number.isFinite(Number(highlightGlowStrength)) ? Number(highlightGlowStrength) : legacyStrength;
+  const glowOpFor = (isHi) => {
+    if (Number.isFinite(Number(glowOpacity))) return Math.max(0, Math.min(1, Number(glowOpacity)));
+    return Math.max(0, Math.min(1, ((isHi ? hiStr : baseStr) / 100) * 0.85));
+  };
+  const gBord = Math.max(0, Number(glowBorder) || 6);
+  const gBlur = Math.max(0, Number(glowBlur) || 10);
+  const outerGlowFade = (op0, op1, dur, fill, isHi) => {
+    const gOp = glowOpFor(isHi);
+    return fadeTags(op0 * gOp, op1 * gOp, dur, fill, fill, gBord, gBlur);
+  };
+  const outerGlowHold = (fill, italic, isHi) => {
+    const gOp = glowOpFor(isHi);
+    return `\\alpha&H${assAlphaHex(gOp)}&\\c${fill}\\3c${fill}\\bord${gBord}\\blur${gBlur}\\shad0${italic ? '\\i1' : '\\i0'}`;
+  };
+
   for (const block of blocks) {
     const ws = block.words;
-    const layout = layoutCaptionWords(ws.map((w) => w.text), {
-      fontSize, posX, posY, resX, maxLineWidth, wordGapMul,
+    const layout = layoutCaptionWords(ws, {
+      fontSize, posX, posY, resX, maxLineWidth, wordGapMul, outline,
+      highlightScale: hiScale, highlightWeight: 0, lineStartX: startX, maxLines: linesCap,
+      letterSpacing: spacing,
+      baseFontFile: baseMeta.file,
+      highlightFontFile: hiMeta.file,
     });
     const blockEndT = toASSTime(block.end);
+    const revealStarts = computeRevealStarts(ws, { riseMs });
 
     for (let j = 0; j < ws.length; j++) {
-      const evStart = ws[j].start;
+      const evStart = revealStarts[j];
       const nextStart = (j + 1 < ws.length) ? ws[j + 1].start : block.end;
       if (nextStart <= evStart) continue;
 
@@ -569,17 +812,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
       const cx = layout[j].x;
       const cy = layout[j].y;
       const isHighlight = !!ws[j].highlight;
-      const wordText = ASS_ESCAPE(ws[j].text);
-      const paintWord = (anchor, colorTags, scaleTags) => (
-        `{${anchor}\\frz${frz}${colorTags}${scaleTags}}${wordText}`
+      const primaryFile = isHighlight ? hiMeta.file : baseMeta.file;
+      const primaryAss = isHighlight ? resolvedHi : resolvedBase;
+      const wordText = assEscapeWithGlyphFallback(ws[j].text, primaryFile, primaryAss);
+      const useItalic = isHighlight && hiItalic;
+      const paintWord = (anchor, colorTags, scaleTags, fontTag = fnBase) => (
+        `{${anchor}\\frz${frz}${fontTag}${fsp}${colorTags}${scaleTags}}${wordText}`
       );
 
-      // Highlighted words stay red + italic; plain words are white.
-      const solidPlain = `\\alpha&H00&\\c${base}\\3c${outlineC}\\bord${outline}\\blur0\\i0`;
-      const solidHi = `\\alpha&H00&\\c${active}\\3c${outlineC}\\bord${outline}\\blur0\\i1`;
-      const solidGlow = (fill) => (
-        `\\alpha&H00&\\c${fill}\\3c${fill}\\bord${glowBorder}\\blur${glowBlur}`
-      );
+      // Base font (+ outline). Highlight — no stroke; italic only when font is italic.
+      const softPlain = `\\alpha&H00&\\c${base}\\3c${outlineC}\\bord${outline}\\blur0\\shad0\\i0`;
+      const softHi = `\\alpha&H00&\\c${active}\\3c${outlineC}\\bord0\\blur0\\shad0${useItalic ? '\\i1' : '\\i0'}\\fscx${hiScale}\\fscy${hiScale}`;
+      const riseFont = isHighlight ? fnHi : fnBase;
+      const riseFill = isHighlight ? active : base;
 
       let holdFrom = evStart;
 
@@ -596,32 +841,44 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
           if (segEnd <= segStart || segStart >= block.end) continue;
           const eventMs = Math.max(20, Math.round((segEnd - segStart) * 1000));
           const move = `\\move(${seg.x},${seg.y0},${seg.x},${seg.y1},0,${eventMs})`;
-          const scaleTags = popTagsFrom(seg.t0);
+          const scaleTags = popTagsFrom(isHighlight);
           const s = toASSTime(segStart);
           const e = toASSTime(segEnd);
           if (s === e) continue;
-          // Rising word is always the "active" emphasis: red + italic.
-          const riseFill = active;
-          const activeTags = fadeTags(seg.op0, seg.op1, eventMs, riseFill, outlineC, outline, 0) + '\\i1';
-          const glowTags = fadeTags(seg.op0, seg.op1, eventMs, glowC, glowC, glowBorder, glowBlur);
-          if (glow) {
-            dialogues.push(`Dialogue: 0,${s},${e},Default,,0,0,0,,${paintWord(move, glowTags, scaleTags)}`);
+          const riseBord = isHighlight ? 0 : outline;
+          const activeTags = fadeTags(seg.op0, seg.op1, eventMs, riseFill, outlineC, riseBord, 0)
+            + (useItalic ? '\\i1' : '\\i0');
+          // Outer glow underlay — strength picked per font.
+          const wordGlowOp = glowOpFor(isHighlight);
+          if (glow && gBlur > 0 && gBord > 0 && wordGlowOp > 0.01) {
+            const gFill = isHighlight ? glowC : baseGlowC;
+            const glowTags = outerGlowFade(seg.op0, seg.op1, eventMs, gFill, isHighlight)
+              + (useItalic ? '\\i1' : '\\i0');
+            dialogues.push(`Dialogue: 0,${s},${e},Default,,0,0,0,,${paintWord(move, glowTags, scaleTags, riseFont)}`);
           }
-          dialogues.push(`Dialogue: 2,${s},${e},Default,,0,0,0,,${paintWord(move, activeTags, scaleTags)}`);
+          dialogues.push(`Dialogue: 2,${s},${e},Default,,0,0,0,,${paintWord(move, activeTags, scaleTags, riseFont)}`);
         }
         holdFrom = riseEndAbs;
       }
 
-      // Hold in its own multi-line slot until the entire sentence finishes
-      // (block.end already includes lingerAfterLast from style).
-      // No glow on the hold copy — a second blurred layer looked like a ghost.
+      // Hold until the sentence ends. Soft glow underlay matches the reference bloom.
       if (holdFrom < block.end) {
         const hs = toASSTime(holdFrom);
         if (hs !== blockEndT) {
           const fixed = `\\pos(${cx},${cy})`;
-          const holdTags = isHighlight ? solidHi : solidPlain;
+          const holdTags = isHighlight ? softHi : softPlain;
+          const holdFont = isHighlight ? fnHi : fnBase;
+          const holdScale = isHighlight ? '' : '\\fscx100\\fscy100';
+          if (glow && gBlur > 0 && gBord > 0 && glowOpFor(isHighlight) > 0.01) {
+            const gFill = isHighlight ? glowC : baseGlowC;
+            const holdGlow = outerGlowHold(gFill, useItalic, isHighlight)
+              + (isHighlight ? `\\fscx${hiScale}\\fscy${hiScale}` : '');
+            dialogues.push(
+              `Dialogue: 0,${hs},${blockEndT},Default,,0,0,0,,${paintWord(fixed, holdGlow, holdScale, holdFont)}`,
+            );
+          }
           dialogues.push(
-            `Dialogue: 1,${hs},${blockEndT},Default,,0,0,0,,${paintWord(fixed, holdTags, '\\fscx100\\fscy100')}`,
+            `Dialogue: 1,${hs},${blockEndT},Default,,0,0,0,,${paintWord(fixed, holdTags, holdScale, holdFont)}`,
           );
         }
       }

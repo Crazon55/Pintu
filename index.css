@@ -54,6 +54,152 @@
   src: url('/fonts/Montserrat-Black.ttf') format('truetype');
 }
 
+@font-face {
+  font-family: 'Montserrat Black';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('/fonts/Montserrat-Black.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Montserrat ExtraBold';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url('/fonts/Montserrat-ExtraBold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Montserrat Regular';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/Montserrat-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/Montserrat-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Inter Black';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('/fonts/Inter_18pt-Black.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Inter ExtraBold';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url('/fonts/Inter_18pt-ExtraBold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/Poppins-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Helvetica World';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/HelveticaWorld-Bold.otf') format('opentype');
+}
+@font-face {
+  font-family: 'ITC Avant Garde Gothic';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/ITCAvantGardeGothic-Bold.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Neue Haas Grotesk Display Pro';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('/fonts/NeueHaasDisplayMedium.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/PlayfairDisplay-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Playfair Display Bold Italic';
+  font-style: italic;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/PlayfairDisplay-BoldItalic.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Playfair Display SemiBold Italic';
+  font-style: italic;
+  font-weight: 600;
+  font-display: block;
+  src: url('/fonts/PlayfairDisplay-SemiBoldItalic.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: italic;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/PlayfairDisplay-BoldItalic.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: italic;
+  font-weight: 600;
+  font-display: block;
+  src: url('/fonts/PlayfairDisplay-SemiBoldItalic.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('/fonts/PlayfairDisplay-Black.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: italic;
+  font-weight: 900;
+  font-display: block;
+  src: url('/fonts/PlayfairDisplay-BlackItalic.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Playfair Display Black';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('/fonts/PlayfairDisplay-Black.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Playfair Display Black';
+  font-style: italic;
+  font-weight: 900;
+  font-display: block;
+  src: url('/fonts/PlayfairDisplay-BlackItalic.ttf') format('truetype');
+}
+@font-face {
+  /* Color-emoji fallback so captions render actual emoji glyphs instead of
+     tofu/notdef boxes when the caption typeface (Montserrat, Playfair, etc.)
+     has no emoji glyphs of its own — appended after those fonts in the
+     caption preview's font-family stack. */
+  font-family: 'Twemoji Mozilla';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Twemoji.Mozilla.ttf') format('truetype');
+}
+
 * {
   margin: 0;
   padding: 0;
