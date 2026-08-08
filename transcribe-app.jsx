@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Upload, Play, Pause, Loader2, Download, Wand2, Type, RotateCcw, AlertCircle, Check,
 } from 'lucide-react';
+import { findCaptionFont, fontsForRole } from './captionFonts.js';
 
 // The ASS script is authored against this virtual canvas; the preview maps
 // positions proportionally so what you see matches what libass renders.
@@ -9,30 +10,58 @@ const PLAY_RES_X = 720;
 const PLAY_RES_Y = 1280;
 
 let _measureCanvas = null;
-function measurePreviewWidth(text, fontSize) {
-  if (typeof document === 'undefined') return String(text || '').length * fontSize * 0.62;
+function measurePreviewWidth(text, fontSize, highlight = false, highlightScale = 1.25, style = {}) {
+  const hiScale = highlight ? highlightScale : 1;
+  const spacing = Number(style.letterSpacing) || 0;
+  const meta = findCaptionFont(highlight ? style.highlightFontName : (style.baseFontName || style.fontName));
+  const family = meta?.cssFamily || (highlight ? 'Playfair Display Bold Italic' : 'Montserrat Black');
+  const weight = meta?.weight || (highlight ? 600 : 900);
+  const fontStyle = meta?.style || (highlight ? 'italic' : 'normal');
+  if (typeof document === 'undefined') {
+    const mul = highlight ? 0.58 : 0.62;
+    const str = String(text || '');
+    return str.length * fontSize * mul * hiScale + Math.max(0, str.length - 1) * spacing;
+  }
   if (!_measureCanvas) _measureCanvas = document.createElement('canvas');
   const ctx = _measureCanvas.getContext('2d');
-  ctx.font = `800 ${fontSize}px Montserrat, "Arial Black", sans-serif`;
-  const w = ctx.measureText(String(text || '')).width;
-  return w > 1 ? w : String(text || '').length * fontSize * 0.62;
+  const sz = fontSize * hiScale;
+  ctx.font = `${fontStyle} ${weight} ${sz}px "${family}", sans-serif`;
+  const str = String(text || '');
+  let w = ctx.measureText(str).width;
+  if (!(w > 1)) w = str.length * fontSize * (highlight ? 0.58 : 0.62) * hiScale;
+  if (spacing && str.length > 1) w += (str.length - 1) * spacing;
+  return w;
 }
 
-/** Client layout — same rules as server so Word gap slider updates live. */
-function layoutPreviewWords(texts, style) {
-  const fontSize = style.fontSize || 52;
-  const posX = style.posX ?? 360;
+/** Client layout — every line is center-aligned as a group (short or long).
+ *  Wrapped line 2+ stays centered under line 1 (tucked-in look). */
+function layoutPreviewWords(wordInputs, style) {
+  const fontSize = style.fontSize || 56;
   const posY = style.posY ?? 1020;
-  const maxW = style.maxLineWidth ?? Math.round(PLAY_RES_X * 0.86);
-  const gap = Math.max(18, Math.round(fontSize * (style.wordGapMul ?? 0.7)));
-  const widths = texts.map((t) => measurePreviewWidth(t, fontSize));
+  const startX = Math.max(10, style.lineStartX ?? 80);
+  const maxW = style.maxLineWidth ?? Math.max(200, Math.round(PLAY_RES_X - startX - 40));
+  const gap = Math.max(6, Math.round(fontSize * (style.wordGapMul ?? 0.35)));
+  const outline = style.outline ?? 2;
+  const hiScale = Math.max(0.8, (style.highlightScale ?? 125) / 100);
+  const lineCap = Math.max(1, Math.min(4, style.maxLines ?? 1));
+  const spacing = Number(style.letterSpacing) || 0;
+  const padBase = Math.max(4, Math.round(outline * 2.5));
+  const padHi = Math.max(2, Math.round(hiScale * 2));
+  const texts = wordInputs.map((w) => (typeof w === 'string' ? w : w.text));
+  const highlights = wordInputs.map((w) => (typeof w === 'object' ? !!w.highlight : false));
+  const widths = texts.map((t, i) => (
+    measurePreviewWidth(t, fontSize, highlights[i], hiScale, style) + (highlights[i] ? padHi : padBase)
+  ));
+
+  if (texts.length === 0) return [];
 
   const lines = [];
   let cur = { indices: [], width: 0 };
   for (let i = 0; i < texts.length; i++) {
     const w = widths[i];
     const next = cur.indices.length === 0 ? w : cur.width + gap + w;
-    if (cur.indices.length > 0 && next > maxW) {
+    const canWrap = lines.length + 1 < lineCap;
+    if (cur.indices.length > 0 && next > maxW && canWrap) {
       lines.push(cur);
       cur = { indices: [i], width: w };
     } else {
@@ -43,11 +72,11 @@ function layoutPreviewWords(texts, style) {
   if (cur.indices.length) lines.push(cur);
 
   const lineH = fontSize * 1.22;
-  const firstY = posY - lineH * (lines.length - 1);
-  const positions = texts.map(() => ({ x: posX, y: posY, line: 0 }));
+  const positions = texts.map(() => ({ x: Math.round(PLAY_RES_X / 2), y: posY, line: 0 }));
+  // Every line is centered as a group — same flow for 1 word, 2 words, or a full sentence.
   lines.forEach((line, li) => {
-    const y = Math.round(firstY + li * lineH);
-    let left = posX - line.width / 2;
+    const y = Math.round(posY + li * lineH);
+    let left = Math.round(PLAY_RES_X / 2 - line.width / 2);
     for (const idx of line.indices) {
       positions[idx] = { x: Math.round(left + widths[idx] / 2), y, line: li };
       left += widths[idx] + gap;
@@ -59,33 +88,207 @@ function layoutPreviewWords(texts, style) {
 // Motion is baked in: each word rises from below into its own slot (ease-out),
 // fades in by 70% travel, then stays until the whole sentence ends.
 const DEFAULT_STYLE = {
-  fontSize: 52,
-  baseColor: '#FFFFFF',
-  activeColor: '#FF0000', // highlighted + active words (red italic)
-  outlineColor: '#000000',
-  outline: 4,
+  fontSize: 56,
+  baseColor: '#EDEAE3',
+  activeColor: '#FF7A00',
+  baseFontName: 'Montserrat Bold',
+  fontName: 'Montserrat',
+  highlightFontName: 'Playfair Bold Italic',
+  outlineColor: '#141414',
+  outline: 2,
   slantDeg: 0,
-  popFromScale: 100, // no size pop — words arrive at full size
+  popFromScale: 100,
   popToScale: 100,
   popDurationMs: 0,
   popSettleScale: 100,
   popSettleMs: 0,
   glow: true,
-  glowBlur: 14,
-  reveal: 'accumulate', // build sentence; each word keeps its slot
+  baseGlowStrength: 35,
+  highlightGlowStrength: 35,
+  glowBlur: 10,
+  glowBorder: 6,
+  highlightScale: 125, // ≈70px when base is 56
+  highlightWeight: 0,
+  letterSpacing: 0,
+  reveal: 'accumulate',
   riseOn: 'word',
-  riseY: 44,
-  riseMs: 220,          // rise duration — lower = faster flow
-  lingerAfterLast: 0.6, // how long the formed sentence stays on screen
+  riseY: 36,
+  riseMs: 480,
+  lingerAfterLast: 2.5,
   posX: 360,
-  posY: 1020,           // bottom-anchored multi-line block
-  maxWordsPerBlock: 8,
+  posY: 1020,
+  lineStartX: 80,
+  maxLines: 2,
+  maxWordsPerBlock: 3,
   maxBlockDuration: 3.5,
-  maxLineWidth: 620,    // wrap before edges (~86% of 720)
-  wordGapMul: 0.7,      // space between words (fraction of font size)
+  maxLineWidth: 600,
+  wordGapMul: 0.35,
 };
 
 const round3 = (n) => Math.round(n * 1000) / 1000;
+
+/** Auto-split words into sentences (mirrors server auto rules), stamp breakBefore. */
+function stampAutoSentenceBreaks(words, style = {}) {
+  const maxWords = Math.max(1, Number(style.maxWordsPerBlock) || 8);
+  const maxDur = Math.max(0.4, Number(style.maxBlockDuration) || 3.5);
+  const PUNCT = /[.,!?;:—]$/;
+  const sorted = [...words].sort((a, b) => a.start - b.start);
+  const stamped = [];
+  let count = 0;
+  let blockStart = null;
+  for (let i = 0; i < sorted.length; i++) {
+    const w = sorted[i];
+    const isFirstOfBlock = count === 0;
+    if (isFirstOfBlock) blockStart = w.start;
+    stamped.push({
+      id: w.id || `w-${round3(w.start)}-${i}`,
+      text: w.text,
+      start: w.start,
+      end: w.end,
+      highlight: !!w.highlight,
+      breakBefore: isFirstOfBlock && stamped.length > 0,
+    });
+    count += 1;
+    const spanned = w.end - blockStart;
+    if (count >= maxWords || spanned >= maxDur || PUNCT.test(w.text)) {
+      count = 0;
+      blockStart = null;
+    }
+  }
+  return stamped;
+}
+
+function wordsToSentences(words) {
+  const sentences = [];
+  let cur = [];
+  (words || []).forEach((w, i) => {
+    if (i > 0 && w.breakBefore) {
+      if (cur.length) sentences.push(cur);
+      cur = [];
+    }
+    cur.push({ ...w, _idx: i });
+  });
+  if (cur.length) sentences.push(cur);
+  return sentences;
+}
+
+function sentencesToWords(sentences) {
+  const flat = [];
+  sentences.forEach((sent, si) => {
+    sent.forEach((w, wi) => {
+      flat.push({
+        id: w.id,
+        text: w.text,
+        start: w.start,
+        end: w.end,
+        highlight: !!w.highlight,
+        breakBefore: si > 0 && wi === 0,
+      });
+    });
+  });
+  return flat;
+}
+
+/** Same reveal timing as server — preview must match burn. */
+function computePreviewRevealStarts(ws, { riseMs = 460 } = {}) {
+  const riseSec = riseMs > 0 ? riseMs / 1000 : 0;
+  if (!ws.some((w) => w.highlight)) return ws.map((w) => w.start);
+  const starts = ws.map((w) => w.start);
+  let regularPhaseEnd = 0;
+  let hasRegular = false;
+  for (let j = 0; j < ws.length; j++) {
+    if (!ws[j].highlight) {
+      starts[j] = ws[j].start;
+      hasRegular = true;
+      regularPhaseEnd = Math.max(regularPhaseEnd, ws[j].start + riseSec);
+    }
+  }
+  let highlightCursor = hasRegular ? regularPhaseEnd : 0;
+  for (let j = 0; j < ws.length; j++) {
+    if (ws[j].highlight) {
+      starts[j] = Math.max(ws[j].start, highlightCursor);
+      highlightCursor = starts[j] + riseSec;
+    }
+  }
+  return starts;
+}
+
+/**
+ * Build caption blocks on the client so transcript edits/drags update the
+ * overlay immediately (no round-trip / silent API miss).
+ */
+function buildPreviewBlocks(words, style = {}) {
+  const {
+    maxWordsPerBlock = 8,
+    maxBlockDuration = 3.5,
+    lingerAfterLast = 2.5,
+    minWordDuration = 0.12,
+    manualGrouping = false,
+    riseMs = 460,
+  } = style;
+  const PUNCT = /[.,!?;:—]$/;
+  const normalized = [];
+  for (let i = 0; i < (words || []).length; i++) {
+    const w = words[i];
+    const text = String(w?.text ?? w?.word ?? '').trim();
+    if (!text) continue;
+    const start = Number(w.start);
+    if (!Number.isFinite(start) || start < 0) continue;
+    let end = Number(w.end);
+    if (!Number.isFinite(end) || end <= start) end = start + minWordDuration;
+    normalized.push({
+      id: w.id || `w-${i}-${start}`,
+      text,
+      start,
+      end,
+      highlight: !!w.highlight,
+      breakBefore: !!w.breakBefore,
+    });
+  }
+
+  const grouped = [];
+  let current = [];
+  const flush = () => { if (current.length) { grouped.push(current); current = []; } };
+
+  if (manualGrouping) {
+    for (let i = 0; i < normalized.length; i++) {
+      const w = normalized[i];
+      if (i > 0 && w.breakBefore) flush();
+      current.push(w);
+    }
+    flush();
+  } else {
+    const sorted = [...normalized].sort((a, b) => a.start - b.start);
+    for (const w of sorted) {
+      current.push(w);
+      const spanned = w.end - current[0].start;
+      if (current.length >= maxWordsPerBlock || spanned >= maxBlockDuration || PUNCT.test(w.text)) {
+        flush();
+      }
+    }
+    flush();
+  }
+
+  const blocks = grouped.map((ws, index) => {
+    const revealStarts = computePreviewRevealStarts(ws, { riseMs });
+    return {
+      index,
+      start: +Math.min(...ws.map((w) => w.start)).toFixed(3),
+      end: +(Math.max(...ws.map((w) => w.end)) + lingerAfterLast).toFixed(3),
+      words: ws.map((w, i) => ({
+        ...w,
+        activeFrom: +revealStarts[i].toFixed(3),
+        activeTo: +(i + 1 < ws.length ? revealStarts[i + 1] : Math.max(...ws.map((x) => x.end)) + lingerAfterLast).toFixed(3),
+      })),
+    };
+  });
+
+  blocks.sort((a, b) => a.start - b.start);
+  for (let i = 0; i < blocks.length - 1; i++) {
+    if (blocks[i].end > blocks[i + 1].start) blocks[i].end = blocks[i + 1].start;
+  }
+  return blocks.filter((b) => b.end > b.start);
+}
 
 /** Merge defaults so older sessions / partial style still drive motion sliders. */
 function normalizeStyle(s = {}) {
@@ -98,7 +301,32 @@ function normalizeStyle(s = {}) {
   out.fontSize = Math.max(12, Number(out.fontSize) || DEFAULT_STYLE.fontSize);
   out.posY = Number.isFinite(Number(out.posY)) ? Number(out.posY) : DEFAULT_STYLE.posY;
   out.posX = Number.isFinite(Number(out.posX)) ? Number(out.posX) : DEFAULT_STYLE.posX;
-  out.wordGapMul = Math.max(0.2, Number(out.wordGapMul) || DEFAULT_STYLE.wordGapMul);
+  out.lineStartX = Math.max(10, Math.min(320, Number.isFinite(Number(out.lineStartX))
+    ? Number(out.lineStartX)
+    : DEFAULT_STYLE.lineStartX));
+  out.maxLines = Math.max(1, Math.min(4, Number(out.maxLines) || DEFAULT_STYLE.maxLines));
+  out.wordGapMul = Math.max(0.05, Number(out.wordGapMul) || DEFAULT_STYLE.wordGapMul);
+  out.letterSpacing = Math.max(-4, Math.min(20, Number.isFinite(Number(out.letterSpacing))
+    ? Number(out.letterSpacing)
+    : DEFAULT_STYLE.letterSpacing));
+  out.highlightScale = Math.max(80, Math.min(180, Number(out.highlightScale) || DEFAULT_STYLE.highlightScale));
+  out.highlightWeight = 0;
+  const baseMeta = findCaptionFont(out.baseFontName || out.fontName) || findCaptionFont(DEFAULT_STYLE.baseFontName);
+  const hiMeta = findCaptionFont(out.highlightFontName) || findCaptionFont(DEFAULT_STYLE.highlightFontName);
+  out.baseFontName = baseMeta?.id || baseMeta?.assName || DEFAULT_STYLE.baseFontName;
+  out.fontName = baseMeta?.assName || DEFAULT_STYLE.fontName;
+  out.highlightFontName = hiMeta?.id || hiMeta?.assName || DEFAULT_STYLE.highlightFontName;
+  out.glowBlur = Math.max(0, Number.isFinite(Number(out.glowBlur)) ? Number(out.glowBlur) : DEFAULT_STYLE.glowBlur);
+  out.glowBorder = Math.max(0, Math.min(20, Number.isFinite(Number(out.glowBorder))
+    ? Number(out.glowBorder)
+    : DEFAULT_STYLE.glowBorder));
+  const legacyGlow = Number.isFinite(Number(out.glowStrength)) ? Number(out.glowStrength) : DEFAULT_STYLE.baseGlowStrength;
+  out.baseGlowStrength = Math.max(0, Math.min(100, Number.isFinite(Number(out.baseGlowStrength))
+    ? Number(out.baseGlowStrength)
+    : legacyGlow));
+  out.highlightGlowStrength = Math.max(0, Math.min(100, Number.isFinite(Number(out.highlightGlowStrength))
+    ? Number(out.highlightGlowStrength)
+    : legacyGlow));
   // Never scale-pop — words always render at full size.
   out.popFromScale = 100;
   out.popToScale = 100;
@@ -164,6 +392,36 @@ function fmtTime(s) {
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
+function hexToRgba(hex, alpha = 1) {
+  const h = String(hex || '#EDEAE3').replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h.padEnd(6, '0').slice(0, 6);
+  const n = parseInt(full, 16);
+  if (!Number.isFinite(n)) return `rgba(237,234,227,${alpha})`;
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${Math.max(0, Math.min(1, alpha))})`;
+}
+
+function FontSelect({ label, value, role, onChange }) {
+  const options = fontsForRole(role);
+  return (
+    <label className="block">
+      <span className="block text-[11px] uppercase tracking-wider text-neutral-500 mb-1.5">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-neutral-950 border border-neutral-800 rounded-md px-2.5 py-2 text-[12px] text-neutral-200
+                   focus:outline-none focus:border-neutral-600"
+      >
+        {options.map((f) => (
+          <option key={f.id} value={f.id}>{f.id}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function Slider({ label, value, min, max, step = 1, suffix = '', onChange }) {
   return (
     <label className="block">
@@ -220,8 +478,10 @@ export default function TranscribeApp() {
   const [error, setError] = useState(null);
 
   const [words, setWords] = useState([]);
+  const [manualGrouping, setManualGrouping] = useState(false);
+  const [dragWordId, setDragWordId] = useState(null);
+  const [dropHint, setDropHint] = useState(null); // { si, wi } insert before wi in sentence si
   const [serverVideoPath, setServerVideoPath] = useState(null);
-  const [spec, setSpec] = useState(null);
   const [style, setStyle] = useState(DEFAULT_STYLE);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -234,6 +494,7 @@ export default function TranscribeApp() {
 
   const videoRef = useRef(null);
   const stageRef = useRef(null);
+  const dragRef = useRef(null); // { fromSi, fromWi } — more reliable than dataTransfer
   const [stageWidth, setStageWidth] = useState(0);
 
   // --- upload -------------------------------------------------------------
@@ -241,8 +502,9 @@ export default function TranscribeApp() {
     if (!f) return;
     setFile(f);
     setVideoUrl((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(f); });
-    setWords([]); setSpec(null); setServerVideoPath(null);
+    setWords([]); setServerVideoPath(null);
     setBurnResult(null); setError(null); setPhase('idle');
+    setManualGrouping(false); setDragWordId(null); setDropHint(null);
   }, []);
 
   useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);
@@ -268,12 +530,14 @@ export default function TranscribeApp() {
         if (job.progress) setProgress(job.progress);
         if (job.state === 'completed') {
           const rv = job.returnvalue || {};
-          setWords((rv.words || []).map((w) => ({
+          setWords(stampAutoSentenceBreaks((rv.words || []).map((w, i) => ({
             text: w.text,
             start: w.start,
             end: w.end,
             highlight: !!w.highlight,
-          })));
+            id: `w-${round3(w.start)}-${i}`,
+          })), normalizeStyle(style)));
+          setManualGrouping(true);
           setServerVideoPath(rv.videoPath || null);
           setPhase('ready');
           setProgress(null);
@@ -288,24 +552,7 @@ export default function TranscribeApp() {
       setPhase('idle');
       setProgress(null);
     }
-  }, [file, language]);
-
-  // --- grouping comes from the server so preview == render ----------------
-  useEffect(() => {
-    if (!words.length) { setSpec(null); return; }
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch('/api/caption-spec', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ words, style: normalizeStyle(style) }),
-        });
-        const data = await res.json();
-        if (res.ok) setSpec(data);
-      } catch { /* preview-only; ignore */ }
-    }, 180);
-    return () => clearTimeout(t);
-  }, [words, style]);
+  }, [file, language, style]);
 
   // --- playback clock -----------------------------------------------------
   useEffect(() => {
@@ -356,6 +603,56 @@ export default function TranscribeApp() {
     )));
   };
 
+  const applySentences = (nextSentences) => {
+    setManualGrouping(true);
+    setWords(sentencesToWords(nextSentences.filter((s) => s.length > 0)));
+  };
+
+  const moveWord = (fromSi, fromWi, toSi, toWi) => {
+    const sents = wordsToSentences(words);
+    if (!sents[fromSi] || fromWi < 0 || fromWi >= sents[fromSi].length) return;
+    const next = sents.map((s) => [...s]);
+    const [item] = next[fromSi].splice(fromWi, 1);
+    let destSi = toSi;
+    let destWi = toWi;
+    if (fromSi === toSi && fromWi < toWi) destWi -= 1;
+    if (destSi >= next.length) {
+      const cleaned = next.filter((s) => s.length > 0);
+      cleaned.push([item]);
+      setManualGrouping(true);
+      setWords(sentencesToWords(cleaned));
+      const dest = cleaned[cleaned.length - 1];
+      if (dest?.length) seek(Math.min(...dest.map((w) => w.start)) + 0.01);
+      return;
+    }
+    if (!next[destSi]) next.push([item]);
+    else next[destSi].splice(Math.max(0, destWi), 0, item);
+    const cleaned = next.filter((s) => s.length > 0);
+    // After splice, dest sentence index may shift if source emptied above it
+    let seekSi = destSi;
+    if (fromSi < destSi && sents[fromSi].length === 1) seekSi = Math.max(0, destSi - 1);
+    seekSi = Math.min(seekSi, cleaned.length - 1);
+    setManualGrouping(true);
+    setWords(sentencesToWords(cleaned));
+    const dest = cleaned[seekSi];
+    if (dest?.length) seek(Math.min(...dest.map((w) => w.start)) + 0.01);
+  };
+
+  const splitSentenceAfter = (si, wi) => {
+    const sents = wordsToSentences(words);
+    if (!sents[si] || wi < 0 || wi >= sents[si].length - 1) return;
+    const left = sents[si].slice(0, wi + 1);
+    const right = sents[si].slice(wi + 1);
+    const next = [...sents.slice(0, si), left, right, ...sents.slice(si + 1)];
+    applySentences(next);
+    if (right.length) seek(Math.min(...right.map((w) => w.start)) + 0.01);
+  };
+
+  const reAutoGroup = () => {
+    setWords((prev) => stampAutoSentenceBreaks(prev, normalizeStyle(style)));
+    setManualGrouping(true);
+  };
+
   // --- burn ---------------------------------------------------------------
   const burn = useCallback(async () => {
     if (!serverVideoPath || !words.length) return;
@@ -367,7 +664,7 @@ export default function TranscribeApp() {
         body: JSON.stringify({
           videoPath: serverVideoPath,
           words,
-          style: normalizeStyle(style),
+          style: { ...normalizeStyle(style), manualGrouping },
           captionStyle: 'word-highlight',
         }),
       });
@@ -379,11 +676,20 @@ export default function TranscribeApp() {
       setError(e.message);
       setPhase('ready');
     }
-  }, [serverVideoPath, words, style]);
+  }, [serverVideoPath, words, style, manualGrouping]);
 
   // --- derived preview state ---------------------------------------------
   const sStyle = useMemo(() => normalizeStyle(style), [style]);
-  const blocks = spec?.blocks || [];
+  const blocks = useMemo(
+    () => buildPreviewBlocks(words, { ...sStyle, manualGrouping }),
+    [words, sStyle, manualGrouping],
+  );
+  const sentences = useMemo(() => wordsToSentences(words), [words]);
+  const indexById = useMemo(() => {
+    const m = new Map();
+    words.forEach((w, i) => { if (w.id) m.set(w.id, i); });
+    return m;
+  }, [words]);
   const activeBlock = useMemo(
     () => blocks.find((b) => time >= b.start && time < b.end) || null,
     [blocks, time],
@@ -398,10 +704,7 @@ export default function TranscribeApp() {
   // Live layout from current style (Word gap / font size update immediately).
   const layoutWords = useMemo(() => {
     if (!activeBlock) return [];
-    const positions = layoutPreviewWords(
-      activeBlock.words.map((w) => w.text),
-      sStyle,
-    );
+    const positions = layoutPreviewWords(activeBlock.words, sStyle);
     return activeBlock.words.map((w, i) => ({
       ...w,
       x: positions[i].x,
@@ -463,25 +766,17 @@ export default function TranscribeApp() {
               </label>
             )}
 
-            {/* caption overlay — multi-line slots from server layout */}
+            {/* caption overlay — live from transcript (edits apply immediately) */}
             {activeBlock && scale > 0 && (
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  fontFamily: 'Montserrat, sans-serif',
-                  fontWeight: 800,
-                  fontSize: `${sStyle.fontSize * scale}px`,
-                }}
-              >
+              <div className="absolute inset-0 pointer-events-none">
                 {layoutWords.map((w, i) => {
-                  // Spoken words stay for the whole sentence; each word runs its
-                  // own rise timeline from activeFrom (not cut short by next word).
-                  const spoken = sStyle.reveal === 'all' || i <= activeWordIdx;
-                  const isActive = i === activeWordIdx;
+                  // Montserrat words reveal at audio time; Playfair words wait until
+                  // every regular word has risen, then reveal in order.
+                  const spoken = sStyle.reveal === 'all' || time >= w.activeFrom;
                   const rises = sStyle.riseOn === 'word' || (sStyle.riseOn === 'block' && i === 0);
                   const travel = spoken ? riseTravelAt(time, w, sStyle) : 1;
                   const isRising = rises && spoken && sStyle.riseY > 0 && travel < 1;
-                  const isHi = !!w.highlight || isActive || isRising;
+                  const isHi = !!w.highlight;
                   const dy = isRising ? riseOffsetAt(time, w, sStyle) * scale : 0;
                   const opacity = !spoken
                     ? 0
@@ -489,9 +784,30 @@ export default function TranscribeApp() {
                   const color = isHi ? sStyle.activeColor : sStyle.baseColor;
                   const x = Number.isFinite(w.x) ? w.x : sStyle.posX;
                   const y = Number.isFinite(w.y) ? w.y : sStyle.posY;
+                  const hiScale = (sStyle.highlightScale ?? 125) / 100;
+                  const fs = sStyle.fontSize * scale * (isHi ? hiScale : 1);
+                  // Playfair: no stroke. Montserrat: thin outline only.
+                  const stroke = isHi ? 0 : Math.max(0, (sStyle.outline ?? 2) * scale);
+                  const glowPx = (sStyle.glowBlur ?? 10) * scale;
+                  const glowSpread = (sStyle.glowBorder ?? 6) * scale * 0.15;
+                  const glowAmt = Math.max(0, Math.min(1, (
+                    isHi
+                      ? (sStyle.highlightGlowStrength ?? 35)
+                      : (sStyle.baseGlowStrength ?? 35)
+                  ) / 100));
+                  const shadow = !sStyle.glow || opacity <= 0.05 || glowAmt <= 0.01
+                    ? 'none'
+                    : [
+                        `0 0 ${Math.max(2, glowPx * 0.35)}px ${hexToRgba(color, glowAmt)}`,
+                        `0 0 ${Math.max(4, glowPx * 0.75 + glowSpread)}px ${hexToRgba(color, glowAmt * 0.7)}`,
+                        `0 0 ${Math.max(6, glowPx * 1.35 + glowSpread)}px ${hexToRgba(color, glowAmt * 0.4)}`,
+                      ].join(', ');
+                  const hiMeta = findCaptionFont(sStyle.highlightFontName);
+                  const baseMeta = findCaptionFont(sStyle.baseFontName || sStyle.fontName);
+                  const fontMeta = isHi ? hiMeta : baseMeta;
                   return (
                     <span
-                      key={`${w.start}-${i}`}
+                      key={`${w.id || w.start}-${w.text}-${i}`}
                       style={{
                         position: 'absolute',
                         left: `${(x / PLAY_RES_X) * 100}%`,
@@ -499,14 +815,16 @@ export default function TranscribeApp() {
                         display: 'inline-block',
                         opacity,
                         transform: `translate(-50%, -50%) rotate(${-sStyle.slantDeg}deg) translateY(${dy}px)`,
+                        fontFamily: `"${fontMeta?.cssFamily || (isHi ? 'Playfair Display Bold Italic' : 'Montserrat Black')}", "Segoe UI Emoji", "Apple Color Emoji", "Twemoji Mozilla", sans-serif`,
+                        fontWeight: fontMeta?.weight || (isHi ? 700 : 900),
+                        fontStyle: fontMeta?.style || (isHi ? 'italic' : 'normal'),
+                        fontSize: `${fs}px`,
+                        letterSpacing: `${(sStyle.letterSpacing || 0) * scale}px`,
                         color,
-                        fontStyle: isHi ? 'italic' : 'normal',
-                        WebkitTextStrokeWidth: `${sStyle.outline * scale}px`,
-                        WebkitTextStrokeColor: sStyle.outlineColor,
-                        paintOrder: 'stroke fill',
-                        textShadow: sStyle.glow && opacity > 0.05
-                          ? `0 0 ${sStyle.glowBlur * scale}px ${color}, 0 0 ${sStyle.glowBlur * 1.8 * scale}px ${color}`
-                          : 'none',
+                        WebkitTextStrokeWidth: stroke > 0 ? `${stroke}px` : undefined,
+                        WebkitTextStrokeColor: stroke > 0 ? (sStyle.outlineColor || '#000') : undefined,
+                        paintOrder: stroke > 0 ? 'stroke fill' : undefined,
+                        textShadow: shadow,
                         whiteSpace: 'nowrap',
                       }}
                     >
@@ -549,6 +867,12 @@ export default function TranscribeApp() {
           {file && (
             <p className="mt-2 text-[11px] text-neutral-600 truncate">
               {file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB
+            </p>
+          )}
+          {words.length > 0 && (
+            <p className="mt-2 text-[11px] text-amber-500/80 leading-relaxed">
+              Only the large styled words are Pintu. Blue/box captions baked into the video
+              file cannot be edited — use a clean source clip for export.
             </p>
           )}
         </div>
@@ -595,10 +919,10 @@ export default function TranscribeApp() {
                   {progress.step} {progress.percent ? `${progress.percent}%` : ''}
                 </span>
               )}
-              {spec && (
+              {words.length > 0 && (
                 <span className="flex items-center gap-1.5 text-[11px] text-emerald-400">
                   <Check className="w-3.5 h-3.5" />
-                  {spec.wordCount} words · {spec.blockCount} blocks
+                  {words.length} words · {blocks.length} sentences
                 </span>
               )}
             </div>
@@ -620,8 +944,39 @@ export default function TranscribeApp() {
             </p>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-4">
-              <ColorInput label="Highlight" value={sStyle.activeColor} onChange={(v) => setS({ activeColor: v })} />
-              <ColorInput label="Other words" value={sStyle.baseColor} onChange={(v) => setS({ baseColor: v })} />
+              <FontSelect
+                label="Base font"
+                role="base"
+                value={sStyle.baseFontName}
+                onChange={(v) => {
+                  const meta = findCaptionFont(v);
+                  setS({ baseFontName: meta?.id || v, fontName: meta?.assName || v });
+                }}
+              />
+              <FontSelect
+                label="Highlight font"
+                role="highlight"
+                value={sStyle.highlightFontName}
+                onChange={(v) => setS({ highlightFontName: findCaptionFont(v)?.id || v })}
+              />
+              <Slider
+                label="Base font size"
+                value={sStyle.fontSize}
+                min={28}
+                max={96}
+                onChange={(v) => setS({ fontSize: v })}
+              />
+              <Slider
+                label="Highlight font size"
+                value={Math.round(sStyle.fontSize * (sStyle.highlightScale ?? 125) / 100)}
+                min={28}
+                max={140}
+                onChange={(v) => setS({
+                  highlightScale: Math.max(80, Math.min(180, Math.round((v / Math.max(1, sStyle.fontSize)) * 100))),
+                })}
+              />
+              <ColorInput label="Highlight color" value={sStyle.activeColor} onChange={(v) => setS({ activeColor: v })} />
+              <ColorInput label="Base color" value={sStyle.baseColor} onChange={(v) => setS({ baseColor: v })} />
               <label className="flex items-center gap-2 cursor-pointer self-end pb-1">
                 <input
                   type="checkbox"
@@ -629,18 +984,68 @@ export default function TranscribeApp() {
                   onChange={(e) => setS({ glow: e.target.checked })}
                   className="w-3.5 h-3.5 rounded accent-red-500"
                 />
-                <span className="text-[11px] uppercase tracking-wider text-neutral-500">Glow</span>
+                <span className="text-[11px] uppercase tracking-wider text-neutral-500">Outer glow</span>
               </label>
-
-              <Slider label="Font size" value={sStyle.fontSize} min={28} max={96} onChange={(v) => setS({ fontSize: v })} />
+              <Slider
+                label="Glow · base font"
+                value={sStyle.baseGlowStrength}
+                min={0}
+                max={100}
+                step={1}
+                suffix="%"
+                onChange={(v) => setS({ baseGlowStrength: v, glow: true })}
+              />
+              <Slider
+                label="Glow · highlight font"
+                value={sStyle.highlightGlowStrength}
+                min={0}
+                max={100}
+                step={1}
+                suffix="%"
+                onChange={(v) => setS({ highlightGlowStrength: v, glow: true })}
+              />
+              <Slider
+                label="Letter spacing"
+                value={sStyle.letterSpacing}
+                min={-2}
+                max={16}
+                step={0.5}
+                suffix="px"
+                onChange={(v) => setS({ letterSpacing: v })}
+              />
               <Slider label="Caption height" value={sStyle.posY} min={200} max={1200} step={10} onChange={(v) => setS({ posY: v })} />
+              <Slider
+                label="Sentence start"
+                value={sStyle.lineStartX}
+                min={20}
+                max={280}
+                step={2}
+                onChange={(v) => setS({ lineStartX: v })}
+              />
+              <Slider
+                label="Max lines"
+                value={sStyle.maxLines}
+                min={1}
+                max={3}
+                step={1}
+                onChange={(v) => setS({ maxLines: v })}
+              />
               <Slider label="Words / sentence" value={sStyle.maxWordsPerBlock} min={2} max={12} onChange={(v) => setS({ maxWordsPerBlock: v })} />
+              <Slider
+                label="Word gap"
+                value={Math.round(sStyle.wordGapMul * 100)}
+                min={5}
+                max={120}
+                step={5}
+                suffix="%"
+                onChange={(v) => setS({ wordGapMul: v / 100 })}
+              />
 
               <Slider
                 label="Rise speed"
                 value={sStyle.riseMs}
-                min={60}
-                max={500}
+                min={100}
+                max={800}
                 step={10}
                 suffix="ms"
                 onChange={(v) => setS({ riseMs: v })}
@@ -656,25 +1061,16 @@ export default function TranscribeApp() {
                 label="Sentence hold"
                 value={sStyle.lingerAfterLast}
                 min={0.1}
-                max={2.5}
+                max={4}
                 step={0.1}
                 suffix="s"
                 onChange={(v) => setS({ lingerAfterLast: v })}
               />
-              <Slider
-                label="Word gap"
-                value={Math.round(sStyle.wordGapMul * 100)}
-                min={40}
-                max={120}
-                step={5}
-                suffix="%"
-                onChange={(v) => setS({ wordGapMul: v / 100 })}
-              />
             </div>
 
             <p className="mt-3 text-[10px] text-neutral-600 leading-relaxed">
-              Rise speed: lower = faster. Rise height: travel distance.
-              Sentence hold: how long the finished line stays before the next one.
+              Every line is center-aligned. Wrapped line 2+ stays centered under line 1
+              (tucked-in). Works the same for 1–2 words or a full sentence.
             </p>
 
             <button
@@ -691,46 +1087,74 @@ export default function TranscribeApp() {
                 <Slider label="Outline width" value={sStyle.outline} min={0} max={10} onChange={(v) => setS({ outline: v })} />
                 <Slider label="Slant" value={sStyle.slantDeg} min={-15} max={15} suffix="°" onChange={(v) => setS({ slantDeg: v })} />
                 <Slider label="Max sentence time" value={sStyle.maxBlockDuration} min={0.8} max={5} step={0.1} suffix="s" onChange={(v) => setS({ maxBlockDuration: v })} />
-                {sStyle.glow && (
-                  <Slider label="Glow blur" value={sStyle.glowBlur} min={0} max={30} onChange={(v) => setS({ glowBlur: v })} />
-                )}
+                <Slider label="Outer glow blur" value={sStyle.glowBlur} min={0} max={28} onChange={(v) => setS({ glowBlur: v, glow: true })} />
+                <Slider label="Outer glow size" value={sStyle.glowBorder} min={0} max={16} onChange={(v) => setS({ glowBorder: v, glow: true })} />
               </div>
             )}
           </section>
 
           {/* step 3 — transcript */}
-          {blocks.length > 0 && (
+          {words.length > 0 && (
             <section className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-4">
-              <h2 className="text-xs font-semibold text-neutral-300 mb-1">3 · Transcript</h2>
+              <div className="flex items-start justify-between gap-3 mb-1">
+                <h2 className="text-xs font-semibold text-neutral-300">3 · Transcript</h2>
+                <button
+                  type="button"
+                  onClick={reAutoGroup}
+                  className="text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors shrink-0"
+                >
+                  Re-auto group
+                </button>
+              </div>
               <p className="text-[11px] text-neutral-600 mb-3">
-                Click a word to toggle red italic highlight. Double-click to edit text.
+                Drag words between sentences to regroup — the preview overlay updates live.
+                Double-click to edit text. Click to mark Playfair highlight. Right-click to split after.
               </p>
-              <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
-                {blocks.map((b) => {
-                  const isNow = activeBlock && activeBlock.index === b.index;
+              <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                {sentences.map((sent, si) => {
+                  const sentStart = Math.min(...sent.map((w) => w.start));
+                  const isNow = activeBlock
+                    && activeBlock.words.some((aw) => sent.some((sw) => sw.id === aw.id || round3(sw.start) === round3(aw.start)));
                   return (
                     <div
-                      key={b.index}
-                      className={`flex items-baseline gap-3 rounded-md px-2 py-1.5 cursor-pointer transition-colors ${
-                        isNow ? 'bg-neutral-800/70' : 'hover:bg-neutral-900/70'
-                      }`}
-                      onClick={() => seek(b.start + 0.01)}
+                      key={`sent-${si}-${sent[0]?.id || si}`}
+                      className={`rounded-md px-2 py-2 border transition-colors ${
+                        isNow ? 'bg-neutral-800/70 border-neutral-700' : 'border-neutral-900 hover:border-neutral-800'
+                      } ${dropHint?.si === si && dropHint?.wi === sent.length ? 'ring-1 ring-red-500/50' : ''}`}
+                      onClick={() => seek(sentStart + 0.01)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        setDropHint({ si, wi: sent.length });
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const src = dragRef.current;
+                        if (!src) return;
+                        moveWord(src.fromSi, src.fromWi, si, sent.length);
+                        dragRef.current = null;
+                        setDragWordId(null);
+                        setDropHint(null);
+                      }}
                     >
-                      <span className="text-[10px] text-neutral-600 tabular-nums shrink-0 w-9">
-                        {b.start.toFixed(1)}s
-                      </span>
-                      <div className="flex flex-wrap gap-x-1.5 gap-y-1">
-                        {b.words.map((w) => {
-                          const idx = indexByStart.get(round3(w.start));
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] text-neutral-600 tabular-nums">
+                          {sentStart.toFixed(1)}s · sentence {si + 1}
+                        </span>
+                        <span className="text-[10px] text-neutral-700">{sent.length} words</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 items-center min-h-[28px]">
+                        {sent.map((w, wi) => {
+                          const idx = indexById.get(w.id) ?? indexByStart.get(round3(w.start));
                           const isEditing = editing === idx && idx !== undefined;
-                          const src = idx !== undefined ? words[idx] : null;
-                          const isHi = !!src?.highlight;
-                          const isActiveWord = isNow &&
-                            activeBlock.words[activeWordIdx]?.start === w.start;
+                          const isHi = !!w.highlight;
+                          const isDragging = dragWordId === w.id;
+                          const showDropBefore = dropHint?.si === si && dropHint?.wi === wi;
                           if (isEditing) {
                             return (
                               <input
-                                key={w.start}
+                                key={w.id || `${w.start}-${wi}`}
                                 autoFocus
                                 defaultValue={w.text}
                                 onClick={(e) => e.stopPropagation()}
@@ -739,36 +1163,98 @@ export default function TranscribeApp() {
                                   if (e.key === 'Enter') e.currentTarget.blur();
                                   if (e.key === 'Escape') setEditing(null);
                                 }}
-                                className="bg-neutral-800 border border-neutral-600 rounded px-1 py-0.5
-                                           text-xs text-white w-24 focus:outline-none"
+                                className="bg-neutral-800 border border-neutral-600 rounded px-1.5 py-1
+                                           text-xs text-white w-28 focus:outline-none"
                               />
                             );
                           }
                           return (
-                            <button
-                              key={w.start}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (idx !== undefined) toggleHighlight(idx);
-                              }}
-                              onDoubleClick={(e) => {
-                                e.stopPropagation();
-                                if (idx !== undefined) setEditing(idx);
-                              }}
-                              className={`text-xs rounded px-1 py-0.5 transition-colors ${
-                                isHi || isActiveWord
-                                  ? 'text-red-400 italic font-semibold'
-                                  : 'text-neutral-300 hover:bg-neutral-700/60'
-                              }`}
-                            >
-                              {w.text}
-                            </button>
+                            <React.Fragment key={w.id || `${w.start}-${wi}`}>
+                              {showDropBefore && (
+                                <span className="w-0.5 h-5 bg-red-500 rounded-full self-center" />
+                              )}
+                              <button
+                                type="button"
+                                draggable
+                                onDragStart={(e) => {
+                                  e.stopPropagation();
+                                  dragRef.current = { fromSi: si, fromWi: wi };
+                                  e.dataTransfer.setData('text/plain', `${si},${wi}`);
+                                  e.dataTransfer.effectAllowed = 'move';
+                                  setDragWordId(w.id);
+                                }}
+                                onDragEnd={() => {
+                                  dragRef.current = null;
+                                  setDragWordId(null);
+                                  setDropHint(null);
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDropHint({ si, wi });
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  const src = dragRef.current;
+                                  if (!src) return;
+                                  moveWord(src.fromSi, src.fromWi, si, wi);
+                                  dragRef.current = null;
+                                  setDragWordId(null);
+                                  setDropHint(null);
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (idx !== undefined) toggleHighlight(idx);
+                                }}
+                                onDoubleClick={(e) => {
+                                  e.stopPropagation();
+                                  if (idx !== undefined) setEditing(idx);
+                                }}
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  splitSentenceAfter(si, wi);
+                                }}
+                                title="Drag to regroup · double-click edit · right-click split after"
+                                className={`text-xs rounded-md px-2 py-1 border cursor-grab active:cursor-grabbing transition-colors ${
+                                  isDragging ? 'opacity-40' : ''
+                                } ${
+                                  isHi
+                                    ? 'text-orange-400 italic font-semibold border-orange-500/30 bg-orange-500/10'
+                                    : 'text-neutral-200 border-neutral-800 bg-neutral-900/80 hover:border-neutral-600'
+                                }`}
+                              >
+                                {w.text}
+                              </button>
+                            </React.Fragment>
                           );
                         })}
                       </div>
                     </div>
                   );
                 })}
+                {/* Drop zone to start a new sentence at the bottom */}
+                <div
+                  className={`rounded-md border border-dashed px-3 py-2 text-[11px] text-neutral-600 text-center transition-colors ${
+                    dropHint?.si === sentences.length ? 'border-red-500/60 text-neutral-400' : 'border-neutral-800'
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDropHint({ si: sentences.length, wi: 0 });
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const src = dragRef.current;
+                    if (!src) return;
+                    moveWord(src.fromSi, src.fromWi, sentences.length, 0);
+                    dragRef.current = null;
+                    setDragWordId(null);
+                    setDropHint(null);
+                  }}
+                >
+                  Drop here to make a new sentence
+                </div>
               </div>
             </section>
           )}
