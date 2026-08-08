@@ -479,8 +479,12 @@ export function getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH) {
  * file is present; everything else stays on ITC Avant Garde Gothic Bold.
  */
 export function getNewsTickerFontFamily(preset) {
-  if (isPlainTextNewsTicker(preset)) return "'Helvetica World', 'ITC Avant Garde Gothic', sans-serif";
-  return "'ITC Avant Garde Gothic', sans-serif";
+  // Inter last so browsers can fall back for ₹ / rare currency glyphs missing from
+  // Helvetica World and ITC Avant Garde (export uses the same Inter fallback).
+  if (isPlainTextNewsTicker(preset)) {
+    return "'Helvetica World', 'ITC Avant Garde Gothic', Inter, sans-serif";
+  }
+  return "'ITC Avant Garde Gothic', Inter, sans-serif";
 }
 
 /**
