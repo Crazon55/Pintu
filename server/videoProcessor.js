@@ -256,6 +256,74 @@ function drawOpentypeText(ctx, font, text, x, baselineY, fontSize, fillStyle) {
   return true;
 }
 
+/** True when the face has a real outline for this code point (not .notdef). */
+function otHasGlyph(font, ch) {
+  if (!font || !ch) return false;
+  try {
+    const g = font.charToGlyph(ch);
+    return !!(g && g.index > 0 && g.name !== '.notdef');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Pick primary when it has the glyph, else fallback (₹ / rare currency marks are
+ * missing from Helvetica World + ITC Avant Garde — Inter covers them).
+ */
+function otFontForChar(primary, fallback, ch) {
+  if (otHasGlyph(primary, ch)) return primary;
+  if (fallback && otHasGlyph(fallback, ch)) return fallback;
+  return primary;
+}
+
+function measureOtWidthWithFallback(primary, fallback, text, fontSize) {
+  if (!primary) return 0;
+  const str = String(text || '');
+  if (!str) return 0;
+  if (!fallback || fallback === primary) return primary.getAdvanceWidth(str, fontSize);
+  let w = 0;
+  let run = '';
+  let runFont = null;
+  const flush = () => {
+    if (!run || !runFont) return;
+    w += runFont.getAdvanceWidth(run, fontSize);
+    run = '';
+  };
+  for (const ch of str) {
+    const font = otFontForChar(primary, fallback, ch);
+    if (runFont && font !== runFont) flush();
+    runFont = font;
+    run += ch;
+  }
+  flush();
+  return w;
+}
+
+function drawOpentypeTextWithFallback(ctx, primary, fallback, text, x, baselineY, fontSize, fillStyle) {
+  if (!primary || !text) return false;
+  if (!fallback || fallback === primary) {
+    return drawOpentypeText(ctx, primary, text, x, baselineY, fontSize, fillStyle);
+  }
+  let cx = x;
+  let run = '';
+  let runFont = null;
+  const flush = () => {
+    if (!run || !runFont) return;
+    drawOpentypeText(ctx, runFont, run, cx, baselineY, fontSize, fillStyle);
+    cx += runFont.getAdvanceWidth(run, fontSize);
+    run = '';
+  };
+  for (const ch of String(text)) {
+    const font = otFontForChar(primary, fallback, ch);
+    if (runFont && font !== runFont) flush();
+    runFont = font;
+    run += ch;
+  }
+  flush();
+  return true;
+}
+
 // 90° linear gradient (#4898ab → #90d46c) clipped to glyph shape — for <b> highlight words only.
 function drawOpentypeGradientText(ctx, font, text, x, baselineY, fontSize, colorStart, colorEnd) {
   if (!font || !text) return false;
@@ -916,11 +984,13 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const maxTickerH = Math.round(canvasH * 0.28) - lockupBlockH;
   let cleanedHtml = cleanHTML(headline || '');
   const otFace = newsTickerOpentypeFont(preset);
+  // Helvetica World / Avant Garde lack ₹ (and some other currency marks). Inter has them.
+  const otGlyphFallback = _otInterBold || _otInterReg;
   if (!otFace) {
     console.warn('[news_ticker] opentype face missing — wrap metrics may be wrong');
   }
   const measurePlainWordAtSize = (text, fs) =>
-    otFace ? otFace.getAdvanceWidth(text, fs) : (() => {
+    otFace ? measureOtWidthWithFallback(otFace, otGlyphFallback, text, fs) : (() => {
       ctx.font = `bold ${fs}px Inter`;
       // Inter is narrower than Avant Garde — pad measurements so wrap stays conservative.
       return ctx.measureText(text).width * 1.22;
@@ -1066,7 +1136,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
         emojiTopY,
         drawPlain: (plain, px) => {
           if (otFace) {
-            drawOpentypeText(ctx, otFace, plain, px, baselineY, fontSize, color);
+            drawOpentypeTextWithFallback(ctx, otFace, otGlyphFallback, plain, px, baselineY, fontSize, color);
             return measurePlainWordAtSize(plain, fontSize);
           }
           ctx.font = `bold ${fontSize}px Inter`;
