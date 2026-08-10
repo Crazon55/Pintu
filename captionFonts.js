@@ -31,6 +31,15 @@ export const CAPTION_FONTS = [
     roles: ['base', 'highlight'],
   },
   {
+    id: 'Montserrat Medium',
+    assName: 'Montserrat Medium',
+    file: 'Montserrat-Medium.ttf',
+    cssFamily: 'Montserrat Medium',
+    weight: 500,
+    style: 'normal',
+    roles: ['base', 'highlight'],
+  },
+  {
     id: 'Montserrat Regular',
     assName: 'Montserrat Regular',
     file: 'Montserrat-Regular.ttf',

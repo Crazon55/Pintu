@@ -69,6 +69,13 @@
   src: url('/fonts/Montserrat-ExtraBold.ttf') format('truetype');
 }
 @font-face {
+  font-family: 'Montserrat Medium';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('/fonts/Montserrat-Medium.ttf') format('truetype');
+}
+@font-face {
   font-family: 'Montserrat Regular';
   font-style: normal;
   font-weight: 400;
