@@ -88,7 +88,7 @@ function layoutPreviewWords(wordInputs, style) {
 // Motion is baked in: each word rises from below into its own slot (ease-out),
 // fades in by 70% travel, then stays until the whole sentence ends.
 const DEFAULT_STYLE = {
-  fontSize: 56,
+  fontSize: 37,
   baseColor: '#EDEAE3',
   activeColor: '#FF7A00',
   baseFontName: 'Montserrat Bold',
@@ -103,13 +103,13 @@ const DEFAULT_STYLE = {
   popSettleScale: 100,
   popSettleMs: 0,
   glow: true,
-  baseGlowStrength: 35,
-  highlightGlowStrength: 35,
+  baseGlowStrength: 100,
+  highlightGlowStrength: 100,
   glowBlur: 10,
   glowBorder: 6,
-  highlightScale: 125, // ≈70px when base is 56
+  highlightScale: 124, // ≈46px when base is 37
   highlightWeight: 0,
-  letterSpacing: 0,
+  letterSpacing: -2,
   reveal: 'accumulate',
   riseOn: 'word',
   riseY: 36,
@@ -122,7 +122,7 @@ const DEFAULT_STYLE = {
   maxWordsPerBlock: 3,
   maxBlockDuration: 3.5,
   maxLineWidth: 600,
-  wordGapMul: 0.35,
+  wordGapMul: 0.05,
 };
 
 const round3 = (n) => Math.round(n * 1000) / 1000;
@@ -189,28 +189,21 @@ function sentencesToWords(sentences) {
   return flat;
 }
 
-/** Same reveal timing as server — preview must match burn. */
-function computePreviewRevealStarts(ws, { riseMs = 460 } = {}) {
-  const riseSec = riseMs > 0 ? riseMs / 1000 : 0;
-  if (!ws.some((w) => w.highlight)) return ws.map((w) => w.start);
-  const starts = ws.map((w) => w.start);
-  let regularPhaseEnd = 0;
-  let hasRegular = false;
-  for (let j = 0; j < ws.length; j++) {
-    if (!ws[j].highlight) {
-      starts[j] = ws[j].start;
-      hasRegular = true;
-      regularPhaseEnd = Math.max(regularPhaseEnd, ws[j].start + riseSec);
-    }
-  }
-  let highlightCursor = hasRegular ? regularPhaseEnd : 0;
-  for (let j = 0; j < ws.length; j++) {
-    if (ws[j].highlight) {
-      starts[j] = Math.max(ws[j].start, highlightCursor);
-      highlightCursor = starts[j] + riseSec;
-    }
-  }
-  return starts;
+/**
+ * Same reveal timing as server — preview must match burn.
+ *
+ * Every word (highlight or not) reveals at its own natural audio start time.
+ * Word timestamps are already chronological, so this is trivially in reading
+ * order with zero perceptible lag — earlier versions artificially delayed the
+ * highlighted word (to "wait for the sentence to settle" before its punch-in),
+ * but that wait (hundreds of ms) is longer than the gap between fast-spoken
+ * Hinglish words, so the next word regularly finished its own rise animation
+ * and appeared BEFORE the still-waiting highlight — reading as a skipped word.
+ * The highlight still reads as distinct through color/font/italic/scale, not
+ * a forced time offset.
+ */
+function computePreviewRevealStarts(ws) {
+  return ws.map((w) => w.start);
 }
 
 /**

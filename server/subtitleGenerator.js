@@ -522,37 +522,18 @@ function risingMoveSegments(posX, posY, riseY, riseMs, steps = 8) {
 }
 
 /**
- * Two-phase reveal only when a block has Playfair (highlight) words:
- *   1. Montserrat words rise at their audio time
- *   2. Playfair words rise after every Montserrat word has landed
- * Blocks with no highlights keep normal one-word-at-a-time flow.
+ * Every word (highlight or not) reveals at its own natural audio start time.
+ * Word timestamps are already chronological, so this is trivially in reading
+ * order with zero perceptible lag — earlier versions artificially delayed the
+ * highlighted word (to "wait for the sentence to settle" before its punch-in),
+ * but that wait (hundreds of ms) is longer than the gap between fast-spoken
+ * Hinglish words, so the next word regularly finished its own rise animation
+ * and appeared BEFORE the still-waiting highlight — reading as a skipped word.
+ * The highlight still reads as distinct through color/font/italic/scale, not
+ * a forced time offset.
  */
-export function computeRevealStarts(ws, { riseMs = 500 } = {}) {
-  const riseSec = riseMs > 0 ? riseMs / 1000 : 0;
-  if (!ws.some((w) => w.highlight)) {
-    return ws.map((w) => w.start);
-  }
-
-  const starts = ws.map((w) => w.start);
-
-  let regularPhaseEnd = 0;
-  let hasRegular = false;
-  for (let j = 0; j < ws.length; j++) {
-    if (!ws[j].highlight) {
-      starts[j] = ws[j].start;
-      hasRegular = true;
-      regularPhaseEnd = Math.max(regularPhaseEnd, ws[j].start + riseSec);
-    }
-  }
-
-  let highlightCursor = hasRegular ? regularPhaseEnd : 0;
-  for (let j = 0; j < ws.length; j++) {
-    if (ws[j].highlight) {
-      starts[j] = Math.max(ws[j].start, highlightCursor);
-      highlightCursor = starts[j] + riseSec;
-    }
-  }
-  return starts;
+export function computeRevealStarts(ws) {
+  return ws.map((w) => w.start);
 }
 
 export function buildCaptionSpec(words, options = {}) {
