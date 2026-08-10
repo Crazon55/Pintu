@@ -5,12 +5,14 @@
 
 export function cleanHeadlineHtml(html) {
   if (!html) return '';
-  let cleaned = html.replace(/&nbsp;/g, ' ');
-  cleaned = cleaned.replace(/&amp;/g, '&');
-  cleaned = cleaned.replace(/&lt;/g, '<');
-  cleaned = cleaned.replace(/&gt;/g, '>');
-  cleaned = cleaned.replace(/&quot;/g, '"');
-  cleaned = cleaned.replace(/&#39;/g, "'");
+  // Case-insensitive: applyHookCasing() uppercases entities too (&nbsp; -> &NBSP;)
+  // for ALL-CAPS presets, so a case-sensitive match here would leave them undecoded.
+  let cleaned = html.replace(/&nbsp;/gi, ' ');
+  cleaned = cleaned.replace(/&amp;/gi, '&');
+  cleaned = cleaned.replace(/&lt;/gi, '<');
+  cleaned = cleaned.replace(/&gt;/gi, '>');
+  cleaned = cleaned.replace(/&quot;/gi, '"');
+  cleaned = cleaned.replace(/&#39;/gi, "'");
   cleaned = cleaned.replace(/\*\*(\S(?:[\s\S]*?\S)?)\*\*/g, '<b>$1</b>');
   cleaned = cleaned.replace(/\*(\S(?:[\s\S]*?\S)?)\*/g, '<b>$1</b>');
   cleaned = cleaned.replace(/<\/?strong>/gi, (m) => m.toLowerCase().replace('strong', 'b'));
@@ -166,7 +168,7 @@ export function canvasPxToPercent(px) {
 
 export function stripHtmlLen(html) {
   if (!html) return 0;
-  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length;
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim().length;
 }
 
 /** Font size at 720px export canvas — mirrors server/videoProcessor.js */
