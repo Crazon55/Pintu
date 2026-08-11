@@ -2386,33 +2386,24 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
 
     let vFilter;
     if (zoom >= 1) {
-      // 2) scale(z) from center: crop = z*(cover−frame)*pos/100 + frame*(z−1)/2
-      //    (NOT (z*cover−frame)*pos/100 — that diverges whenever pos ≠ 50)
+      // pos 0% -> video's edge flush with the frame's edge, pos 100% -> the opposite
+      // edge flush, pos 50% -> centered. Full 0-100 range always reaches both true
+      // edges of the zoomed video, at any zoom level (matches PreviewCard exactly).
       const scaledWidth = Math.round(coverW * zoom / 2) * 2;
       const scaledHeight = Math.round(coverH * zoom / 2) * 2;
-      const cropX = Math.max(
-        0,
-        Math.min(
-          scaledWidth - sw,
-          Math.round(zoom * (coverW - sw) * posX / 100 + sw * (zoom - 1) / 2)
-        )
-      );
-      const cropY = Math.max(
-        0,
-        Math.min(
-          scaledHeight - sh,
-          Math.round(zoom * (coverH - sh) * posY / 100 + sh * (zoom - 1) / 2)
-        )
-      );
+      const cropX = Math.max(0, Math.min(scaledWidth - sw, Math.round((scaledWidth - sw) * posX / 100)));
+      const cropY = Math.max(0, Math.min(scaledHeight - sh, Math.round((scaledHeight - sh) * posY / 100)));
       vFilter = `scale=${scaledWidth}:${scaledHeight},crop=${sw}:${sh}:${cropX}:${cropY}`;
       console.log(`[processFFmpeg] "${preset.name}" videoScale=${scalePct}% zoom=${zoom} pos=${posX},${posY} cover=${coverW}x${coverH} scale=${scaledWidth}x${scaledHeight} crop=${sw}x${sh}@${cropX},${cropY}`);
     } else {
-      // zoom-out: cover+position into frame, then shrink from center with black pad
-      // (matches CSS scale(<1) — do NOT force-cover, that erased preview letterboxing)
+      // zoom-out: cover+center into frame at natural size, shrink, then place the
+      // shrunk video within the frame at a position-driven offset (same 0-100 ->
+      // full-range mapping as above, just placing instead of cropping) — black
+      // fills whatever the shrunk video doesn't cover.
       const outW = Math.max(2, Math.round(sw * zoom / 2) * 2);
       const outH = Math.max(2, Math.round(sh * zoom / 2) * 2);
-      const padX = Math.round((sw - outW) / 2);
-      const padY = Math.round((sh - outH) / 2);
+      const padX = Math.max(0, Math.min(sw - outW, Math.round((sw - outW) * posX / 100)));
+      const padY = Math.max(0, Math.min(sh - outH, Math.round((sh - outH) * posY / 100)));
       vFilter = `scale=${coverW}:${coverH},crop=${sw}:${sh}:${coverCropX}:${coverCropY},scale=${outW}:${outH},pad=${sw}:${sh}:${padX}:${padY}:black`;
       console.log(`[processFFmpeg] "${preset.name}" videoScale=${scalePct}% zoom=${zoom} pos=${posX},${posY} cover=${coverW}x${coverH}@${coverCropX},${coverCropY} out=${outW}x${outH} pad=${padX},${padY}`);
     }
