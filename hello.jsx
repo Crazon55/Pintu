@@ -673,36 +673,11 @@ const PreviewCard = memo(({
     const headlineRef = useRef(null);
     const videoElementRef = useRef(null);
     const [previewCardW, setPreviewCardW] = useState(CANVAS_REF_W);
-    // Real pixel size of the video's own container, and the source video's natural
-    // dimensions — needed to compute the same cover+zoom+pan crop the server does.
-    // CSS object-position alone only has pan "slack" in whichever axis the video's
-    // aspect ratio actually overflows the frame in at scale=1; the other axis has
-    // zero slack there, and scale() enlarges uniformly with no position-driven
-    // offset, so that axis stays stuck no matter how far you zoom in.
-    const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
-    const [videoNatural, setVideoNatural] = useState({ w: 0, h: 0 });
-
-    // Reset when the source changes so a stale aspect ratio never gets applied to
-    // new video content — that mismatch is what stretches the picture (crop math
-    // sized for the old video's shape, holding the new video's pixels).
-    useEffect(() => {
-        setVideoNatural({ w: 0, h: 0 });
-    }, [videoSrc]);
 
     useLayoutEffect(() => {
         const el = cardRef.current;
         if (!el) return;
         const update = () => setPreviewCardW(el.offsetWidth || CANVAS_REF_W);
-        update();
-        const ro = new ResizeObserver(update);
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, []);
-
-    useLayoutEffect(() => {
-        const el = containerRef.current;
-        if (!el) return;
-        const update = () => setContainerSize({ w: el.offsetWidth || 0, h: el.offsetHeight || 0 });
         update();
         const ro = new ResizeObserver(update);
         ro.observe(el);
@@ -862,9 +837,8 @@ const PreviewCard = memo(({
             const scaleChange = ((currentDistance - startDistance) / Math.min(rect.width, rect.height)) * 200;
 
             let newScale = startScale + scaleChange;
-            // Allow zoom-out too (RE-SIZE scales both ways) — 50 matches the export
-            // clamp in videoProcessor.js so preview and export stay in range together.
-            newScale = Math.max(50, Math.min(maxZoom, newScale));
+            // News: allow slight zoom-out so RE-SIZE can scale both ways
+            newScale = Math.max(isNews ? 80 : 100, Math.min(maxZoom, newScale));
             currentScale = newScale;
             setLocalVideoScale(newScale);
             // News: persist per-card zoom. A-roll / others: parent keeps global zoom only.
@@ -1139,64 +1113,9 @@ const PreviewCard = memo(({
         return effectiveWordSpacing;
     }, [isAllBoldWhite, effectiveWordSpacing, preset.name, preset.active]);
 
-    // Floor matches the export clamp (videoProcessor.js: Math.max(0.5, ...)) so
-    // preview never shows a zoom level export can't actually reproduce.
-    const clampedVideoScale = Math.max(localVideoScale || 100, 50);
+    // Ensure preview video is always clearly visible by clamping scale
+    const clampedVideoScale = Math.max(localVideoScale || 100, 60);
     const previewVideoScale = clampedVideoScale / 100;
-
-    // Exact cover+zoom+pan crop — mirrors server/videoProcessor.js's processFFmpeg
-    // math (scale to cover, then crop from a position-driven offset) so panning
-    // works identically in both axes at any zoom, and preview matches export.
-    const videoCropStyle = useMemo(() => {
-        const cw = containerSize.w;
-        const ch = containerSize.h;
-        const vw = videoNatural.w;
-        const vh = videoNatural.h;
-        if (!cw || !ch || !vw || !vh) {
-            // Dimensions not measured yet — fall back to plain CSS cover so the
-            // video isn't invisible for a frame; pan only works in this state
-            // once real sizes land (next render).
-            return {
-                objectFit: 'cover',
-                objectPosition: `${localPos.x}% ${localPos.y}%`,
-                width: '100%',
-                height: '100%',
-                transform: `translate(-50%, -50%) scale(${previewVideoScale})`,
-                left: '50%',
-                top: '50%',
-                position: 'absolute',
-            };
-        }
-        const originalAspect = vw / vh;
-        const targetAspect = cw / ch;
-        let coverW, coverH;
-        if (originalAspect > targetAspect) {
-            coverH = ch;
-            coverW = ch * originalAspect;
-        } else {
-            coverW = cw;
-            coverH = cw / originalAspect;
-        }
-        const zoom = previewVideoScale;
-        const scaledW = coverW * zoom;
-        const scaledH = coverH * zoom;
-        // pos 0% -> video's edge flush with the frame's edge (full crop range reachable).
-        // pos 100% -> the opposite edge flush. pos 50% -> centered. Works unchanged
-        // whether the video is bigger than the frame (zoomed in, this crops) or
-        // smaller (zoomed out, this slides the letterboxed video within the frame) —
-        // same formula, no separate branch needed.
-        const left = (cw - scaledW) * (localPos.x / 100);
-        const top = (ch - scaledH) * (localPos.y / 100);
-        return {
-            position: 'absolute',
-            width: `${scaledW}px`,
-            height: `${scaledH}px`,
-            left: `${left}px`,
-            top: `${top}px`,
-            objectFit: 'fill',
-        };
-    }, [containerSize.w, containerSize.h, videoNatural.w, videoNatural.h, localPos.x, localPos.y, previewVideoScale]);
-
     const isNewsFormat = preset.layout === 'news_ticker';
     // Canva-style: while RE-SIZE is on, dragging the body pans and the handles zoom —
     // for every layout, not just news cards.
@@ -1699,26 +1618,17 @@ const PreviewCard = memo(({
                                     videoElementRef.current = el;
                                 }}
                                 src={videoSrc}
-                                onLoadedMetadata={(e) => {
-                                    const v = e.currentTarget;
-                                    if (v.videoWidth && v.videoHeight) {
-                                        setVideoNatural({ w: v.videoWidth, h: v.videoHeight });
-                                    }
-                                }}
-                                className={`${fitMode === 'fill' || fitMode === 'contain' ? 'w-full h-full' : ''} ${preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co-old' ? 'rounded-2xl' : ''}`}
-                                style={fitMode === 'fill' || fitMode === 'contain' ? {
-                                    objectFit: fitMode === 'fill' ? 'fill' : 'contain',
-                                    objectPosition: 'center',
+                                className={`w-full h-full ${preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co-old' ? 'rounded-2xl' : ''}`}
+                                style={{
+                                    objectFit: fitMode === 'fill' ? 'fill' : fitMode === 'contain' ? 'contain' : 'cover',
+                                    objectPosition: fitMode === 'fill' ? 'center' : `${localPos.x}% ${localPos.y}%`,
+                                    // Always fill the frame, then zoom using scale
                                     width: '100%',
                                     height: '100%',
                                     transform: `translate(-50%, -50%) scale(${previewVideoScale})`,
                                     left: '50%',
                                     top: '50%',
                                     position: 'absolute',
-                                    borderRadius: (preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co-old') ? '16px' : '0',
-                                    border: preset.name === 'ceo hustle advice' ? '1px solid #d1d5db' : 'none'
-                                } : {
-                                    ...videoCropStyle,
                                     borderRadius: (preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co-old') ? '16px' : '0',
                                     border: preset.name === 'ceo hustle advice' ? '1px solid #d1d5db' : 'none'
                                 }}
@@ -3581,7 +3491,7 @@ export default function App() {
                                             </div>
                                             <input
                                                 type="range"
-                                                min="50"
+                                                min="100"
                                                 max="300"
                                                 step="1"
                                                 value={videoScale}
