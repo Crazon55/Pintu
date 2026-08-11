@@ -682,6 +682,13 @@ const PreviewCard = memo(({
     const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
     const [videoNatural, setVideoNatural] = useState({ w: 0, h: 0 });
 
+    // Reset when the source changes so a stale aspect ratio never gets applied to
+    // new video content — that mismatch is what stretches the picture (crop math
+    // sized for the old video's shape, holding the new video's pixels).
+    useEffect(() => {
+        setVideoNatural({ w: 0, h: 0 });
+    }, [videoSrc]);
+
     useLayoutEffect(() => {
         const el = cardRef.current;
         if (!el) return;
