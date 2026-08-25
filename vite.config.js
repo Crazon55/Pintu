@@ -33,6 +33,15 @@ export default defineConfig({
       '/assets': {
         target: 'http://localhost:3002',
         changeOrigin: true
+      },
+      // Subtitle-burn hands back /outputs/<dir>/subtitled.mp4. Without this the path falls
+      // through to Vite's SPA handler, which answers 200 with index.html — so the download
+      // silently saves an HTML page named .mp4 instead of failing loudly.
+      '/outputs': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+        timeout: 600000,
+        proxyTimeout: 600000
       }
     }
   }

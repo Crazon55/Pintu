@@ -196,6 +196,204 @@
   src: url('/fonts/PlayfairDisplay-BlackItalic.ttf') format('truetype');
 }
 @font-face {
+  font-family: 'Inter Bold Caption';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/Inter-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Inter Regular Caption';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/Inter-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Inter Thin Caption';
+  font-style: normal;
+  font-weight: 100;
+  font-display: block;
+  src: url('/fonts/Inter-Thin.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Poppins Bold Caption';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/Poppins-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Poppins Regular Caption';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/Poppins-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Poppins Thin';
+  font-style: normal;
+  font-weight: 100;
+  font-display: block;
+  src: url('/fonts/Poppins-Thin.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Helvetica Now Display ExtraBold';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url('/fonts/HELVETICANOWDISPLAY-EXTRABOLD.OTF') format('opentype');
+}
+@font-face {
+  font-family: 'Helvetica Now Text Black';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('/fonts/HELVETICANOWTEXT-BLACK-DEMO.TTF') format('truetype');
+}
+@font-face {
+  font-family: 'Anton';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/Anton-Regular.ttf') format('truetype');
+}
+/* Bizz India captions. The CSS family is our own label; the burn matches the file's
+   internal name instead — see the entry in captionFonts.js. */
+@font-face {
+  font-family: 'The Bold Font';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/THEBOLDFONT-FREEVERSION.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Helvetica Now Text Black Italic';
+  font-style: italic;
+  font-weight: 900;
+  font-display: block;
+  src: url('/fonts/HELVETICANOWTEXT-BLACKITALIC-DEMO.TTF') format('truetype');
+}
+@font-face {
+  font-family: 'Helvetica Now Text Bold';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/HELVETICANOWTEXT-BOLD-DEMO.TTF') format('truetype');
+}
+@font-face {
+  font-family: 'Helvetica Now Text Bold Italic';
+  font-style: italic;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/HELVETICANOWTEXT-BOLDITALIC-DEMO.TTF') format('truetype');
+}
+@font-face {
+  font-family: 'Helvetica Now Text Regular';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/REGULAR.TTF') format('truetype');
+}
+@font-face {
+  font-family: 'Garamond Regular Caption';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/GARA.TTF') format('truetype');
+}
+@font-face {
+  font-family: 'Garamond Bold Caption';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/GARABD.TTF') format('truetype');
+}
+@font-face {
+  font-family: 'Garamond Italic Caption';
+  font-style: italic;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/GARAIT.TTF') format('truetype');
+}
+@font-face {
+  font-family: 'ITC Garamond Light Italic';
+  font-style: italic;
+  font-weight: 300;
+  font-display: block;
+  src: url('/fonts/ITC%20GARAMOND%20STD%20LIGHT%20ITALIC.OTF') format('opentype');
+}
+@font-face {
+  font-family: 'EB Garamond Regular';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/EBGaramond-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'EB Garamond Medium';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('/fonts/EBGaramond-Medium.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'EB Garamond SemiBold';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('/fonts/EBGaramond-SemiBold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'EB Garamond Bold';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/EBGaramond-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'EB Garamond ExtraBold';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url('/fonts/EBGaramond-ExtraBold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'EB Garamond Italic';
+  font-style: italic;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/EBGaramond-Italic.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'EB Garamond Medium Italic';
+  font-style: italic;
+  font-weight: 500;
+  font-display: block;
+  src: url('/fonts/EBGaramond-MediumItalic.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'EB Garamond SemiBold Italic';
+  font-style: italic;
+  font-weight: 600;
+  font-display: block;
+  src: url('/fonts/EBGaramond-SemiBoldItalic.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'EB Garamond Bold Italic';
+  font-style: italic;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/EBGaramond-BoldItalic.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'EB Garamond ExtraBold Italic';
+  font-style: italic;
+  font-weight: 800;
+  font-display: block;
+  src: url('/fonts/EBGaramond-ExtraBoldItalic.ttf') format('truetype');
+}
+@font-face {
   /* Color-emoji fallback so captions render actual emoji glyphs instead of
      tofu/notdef boxes when the caption typeface (Montserrat, Playfair, etc.)
      has no emoji glyphs of its own — appended after those fonts in the

@@ -171,12 +171,22 @@ export function stripHtmlLen(html) {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim().length;
 }
 
+/**
+ * Hook/A-roll base font before the operator's scale. IBC and IFC2 run 35 instead of the
+ * usual 38 — their hooks are ALL CAPS, which reads noticeably heavier at the same size.
+ * Still a base, not a lock: the per-preset font slider scales from here like everywhere else.
+ */
+const HOOK_BASE_FONT_OVERRIDES = { indiabusinesscom: 35, indianfoundercore: 35 };
+export function getHookBaseFontSize(preset) {
+  return HOOK_BASE_FONT_OVERRIDES[(preset?.name || '').toLowerCase()] ?? 38;
+}
+
 /** Font size at 720px export canvas — mirrors server/videoProcessor.js */
 export function getExportFontSize(preset, headline, fontScale = 1) {
   const layout = preset?.layout;
   const scale = fontScale || 1;
   if (layout === 'hook_video' || layout === 'aroll') {
-    return Math.round(38 * scale);
+    return Math.round(getHookBaseFontSize(preset) * scale);
   }
   if (layout === 'news_ticker') {
     return Math.round(54 * scale);
@@ -572,6 +582,7 @@ export function fitNewsTickerFontSize({
   measureWordAtSize,
   maxLineW,
   baseFontSize = 54,
+  userScale = 1,
   minFontSize = 28,
   maxLines = 3,
   maxTotalBarsH = Infinity,
@@ -637,8 +648,16 @@ export function fitNewsTickerFontSize({
     fontSize -= 1;
   }
 
-  const { lines } = layoutAt(fontSize);
-  return { fontSize, lines };
+  // The operator's font-size slider applies AFTER the auto-fit, not as its search ceiling.
+  // As a ceiling it was inert: the binding constraint is almost always maxLineW / total
+  // stack height (ifc2's 500px budget in particular), so raising the ceiling changed
+  // nothing and lowering it did nothing until it dropped under the already-constrained
+  // result — the slider felt dead in both directions. Scaling the fitted size instead
+  // gives it authority at every size. Above 1 the hook may exceed the auto-fit budget,
+  // which is the operator explicitly asking for bigger text.
+  const scaled = Math.max(12, Math.round(fontSize * (userScale || 1)));
+  const { lines } = layoutAt(scaled);
+  return { fontSize: scaled, lines };
 }
 
 /** Gap between hook text block and video (px at 720×1280 export canvas). */

@@ -30,6 +30,8 @@ import {
     uppercaseHeadlineHtml,
     applyHookCasing,
 } from './shared/headlineLayout.js';
+import CaptionsSection, { CaptionLineOverlay, CaptionWordOverlay } from './captionTool.jsx';
+import { PLAY_RES_X as CAPTION_SRC_W, buildPreviewBlocks, usesWordAnimation, findActiveCaptionBlock } from './shared/captionEngine.js';
 // Inter is loaded globally via public/fonts/*.woff2 (see index.css)
 
 // --- HARDCODED LOGOS (SVG Data URIs) ---
@@ -153,7 +155,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '4:5', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 46, logoPadY: 41, solidBandPct: 30 } },
     { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55, solidBandPct: 30 } },
     { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 38, textLogo: 'IFC.', logoPadX: 30, logoPadY: 56 } },
-    { id: 97, name: 'ifc2-news', handle: '@indianfounderscore', ratio: '9:16', color: '#E0E140', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 5 } } },
+    { id: 97, name: 'ifc2-news', handle: '@indianfounderscore', ratio: '9:16', color: '#E0E140', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 36 } } },
     { id: 100, name: 'foundersinindia-news', handle: '@foundersinindia', ratio: '9:16', color: '#439eff', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'foundersinindia.png', width: 170, height: 25, gap: 5 } } },
     { id: 98, name: '101xtechnology-aroll', handle: '@101xtechnology', ratio: '16:9', color: '#4898ab', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: '101xt.', highlightColors: ['#4898ab', '#90d46c'], topGlow: true } },
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
@@ -182,6 +184,13 @@ const BIZZINDIA_PLAYBOOK_PRESET_NAMES = EXPERIMENT_X_PRESET_NAMES.filter(n => !A
 // original 4-preset default set above; "News formats" is the archived news-ticker group.
 // The archived tech/aroll-layout pages stay unused.
 const BIZZINDIA_NEWS_PRESET_NAMES = ['indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'ifc2-news', 'foundersinindia-news'];
+
+// Pan needs travel and travel needs zoom: a 16:9 clip covers these frames' height exactly,
+// so vertical pan has none at 100%. A starved axis gets enough zoom to travel this fraction
+// of the frame — enough to reframe a face, not enough to crop into it.
+const PAN_MIN_TRAVEL = 0.2;
+const PAN_AUTO_ZOOM_CAP = 25; // hard ceiling in percentage points above the starting zoom
+const zoomForPanTravel = (cover, frame) => ((frame * (1 + PAN_MIN_TRAVEL)) / cover) * 100;
 
 // Helper to get logo URL (handles both data URIs and filenames)
 const getLogoUrl = (logo) => {
@@ -334,7 +343,7 @@ function buildNewsTickerPreviewLines(headline, { fontSize, maxWidth, fontFamily,
 }
 
 /** Auto-fit news ticker like Canva/export: same min size + wrap budget as server. */
-function fitNewsTickerPreview(headline, { baseFontSize, maxWidth, fontFamily, boldWeight = 700, maxTotalBarsH, fitRatios }) {
+function fitNewsTickerPreview(headline, { baseFontSize, userScale = 1, maxWidth, fontFamily, boldWeight = 700, maxTotalBarsH, fitRatios }) {
     const ctx = getMeasureCtx();
     if (!ctx || !headline) return { fontSize: baseFontSize, lines: [] };
     const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
@@ -346,6 +355,7 @@ function fitNewsTickerPreview(headline, { baseFontSize, maxWidth, fontFamily, bo
         },
         maxLineW: maxWidth,
         baseFontSize,
+        userScale,
         minFontSize: 22, // match server generateNewsTickerOverlay
         maxLines: 3,
         maxTotalBarsH,
@@ -637,7 +647,10 @@ const PreviewCard = memo(({
     onVideoScaleChange,
     isMuted,
     wordSpacing = 0.25,
-    newsFontReady = true
+    newsFontReady = true,
+    captionBlock = null,
+    captionStyle = null,
+    captionTime = 0,
 }) => {
     const [isRepositioning, setIsRepositioning] = useState(false);
     const [isRepositioningCredit, setIsRepositioningCredit] = useState(false);
@@ -673,11 +686,32 @@ const PreviewCard = memo(({
     const headlineRef = useRef(null);
     const videoElementRef = useRef(null);
     const [previewCardW, setPreviewCardW] = useState(CANVAS_REF_W);
+    // Measured only to place the caption overlay. The video itself still derives its own
+    // aspect from object-fit — deliberately, since JS-tracked aspect on the video is what
+    // stretched the picture in be69e93.
+    const videoBoxRef = useRef(null);
+    const [videoBox, setVideoBox] = useState(null);
+    const [srcSize, setSrcSize] = useState(null);
 
     useLayoutEffect(() => {
         const el = cardRef.current;
         if (!el) return;
         const update = () => setPreviewCardW(el.offsetWidth || CANVAS_REF_W);
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+
+    useLayoutEffect(() => {
+        const el = videoBoxRef.current;
+        if (!el) return;
+        const update = () => {
+            const r = el.getBoundingClientRect();
+            setVideoBox((prev) => (prev && prev.w === r.width && prev.h === r.height
+                ? prev
+                : { w: r.width, h: r.height }));
+        };
         update();
         const ro = new ResizeObserver(update);
         ro.observe(el);
@@ -762,6 +796,44 @@ const PreviewCard = memo(({
     // aroll video frame: only 2:3 portrait gets side padding (matches export)
     const arollHasSidePad = preset.layout === 'aroll' && preset.ratio === '2:3';
 
+    // Grant the starved axis its pan travel ONCE, when RE-SIZE/reposition is switched on,
+    // so the zoom has already settled before the first drag. Doing this per-mousemove made
+    // the frame jump mid-pan. A deliberate mode switch is a place a change reads as intended.
+    const isNewsCardPan = preset.layout === 'news_ticker';
+    const panModeOn = isResizingVideo || isRepositioning;
+    useEffect(() => {
+        if (!isNewsCardPan || !panModeOn) return;
+        const el = containerRef.current;
+        const vid = videoElementRef.current;
+        const natW = vid?.videoWidth || 0;
+        const natH = vid?.videoHeight || 0;
+        if (!el || natW <= 0 || natH <= 0) return;
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+
+        const srcAspect = natW / natH;
+        const frameAspect = rect.width / rect.height;
+        const coverW = srcAspect > frameAspect ? rect.height * srcAspect : rect.width;
+        const coverH = srcAspect > frameAspect ? rect.height : rect.width / srcAspect;
+        // An axis that already overflows the frame needs nothing: its zoomForPanTravel comes
+        // out well under 100, so Math.max ignores it and only the starved axis drives this.
+        const start = localVideoScale || 100;
+        const needed = Math.max(
+            start,
+            zoomForPanTravel(coverH, rect.height),
+            zoomForPanTravel(coverW, rect.width)
+        );
+        const maxZoom = ((preset.name || '').toLowerCase() === 'ifc-news' || isPlainTextNewsTicker(preset)) ? 220 : 300;
+        const next = Math.min(maxZoom, start + PAN_AUTO_ZOOM_CAP, needed);
+        if (next > start + 0.5) {
+            setLocalVideoScale(next);
+            if (onVideoScaleChange) onVideoScaleChange(preset.id, Math.round(next));
+        }
+        // Deliberately keyed on the mode switch only — this must fire once per activation,
+        // not every time the zoom it just set flows back through localVideoScale.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [panModeOn, isNewsCardPan]);
+
     const handleMouseDown = (e) => {
         // RE-SIZE: drag pans (any layout), handles zoom. Skip resize handles.
         if (e.target?.closest?.('[data-resize-handle]')) return;
@@ -773,13 +845,19 @@ const PreviewCard = memo(({
         const startPosX = localPos.x;
         const startPosY = localPos.y;
 
+        // Zoom is fixed for the whole drag. The auto-zoom that enables vertical travel runs
+        // once when RE-SIZE turns on (see the effect above) — doing it mid-drag meant the
+        // frame jumped the instant you crossed into vertical movement, which read as a glitch.
+        const startScalePan = localVideoScale || 100;
+
         const onMove = (evt) => {
             if (!containerRef.current) return;
             const rect = containerRef.current.getBoundingClientRect();
             const dX = evt.clientX - startX;
             const dY = evt.clientY - startY;
             // Higher sensitivity when zoomed so pan feels natural
-            const sens = 0.35 * Math.max(1, (localVideoScale || 100) / 100);
+            const sens = 0.35 * Math.max(1, startScalePan / 100);
+
             let nX = startPosX - (dX / rect.width * 100 * sens);
             let nY = startPosY - (dY / rect.height * 100 * sens);
             nX = Math.max(0, Math.min(100, nX));
@@ -793,10 +871,11 @@ const PreviewCard = memo(({
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
             if (containerRef.current && containerRef.current.dataset.tempX) {
+                // manual=true: locks this crop against the zoom-driven auto-bias.
                 onPositionChange(preset.id, {
                     x: parseFloat(containerRef.current.dataset.tempX),
                     y: parseFloat(containerRef.current.dataset.tempY)
-                });
+                }, true);
             }
         };
 
@@ -837,8 +916,10 @@ const PreviewCard = memo(({
             const scaleChange = ((currentDistance - startDistance) / Math.min(rect.width, rect.height)) * 200;
 
             let newScale = startScale + scaleChange;
-            // News: allow slight zoom-out so RE-SIZE can scale both ways
-            newScale = Math.max(isNews ? 80 : 100, Math.min(maxZoom, newScale));
+            // Floor at 100. Below it the video is smaller than the frame, so panning slides
+            // it off and exposes the black backdrop — the "black gap" on full-bleed news
+            // cards. Cover layouts have no use for zoom-out; there is nothing behind.
+            newScale = Math.max(100, Math.min(maxZoom, newScale));
             currentScale = newScale;
             setLocalVideoScale(newScale);
             // News: persist per-card zoom. A-roll / others: parent keeps global zoom only.
@@ -849,7 +930,9 @@ const PreviewCard = memo(({
 
             // News RE-SIZE: bias crop toward the TOP as you zoom so competitor
             // bottom captions leave the frame first (Canva-style cover), not the face.
-            if (isNews && newScale > 100) {
+            // Skipped once the user has panned by hand — otherwise every zoom nudge
+            // overwrote their vertical placement.
+            if (isNews && newScale > 100 && !preset.panTouched) {
                 const t = (newScale - 100) / (maxZoom - 100);
                 currentPosY = Math.max(isFullBleedNews ? 8 : 5, 50 * (1 - t * 0.85));
                 setLocalPos(prev => ({ ...prev, y: currentPosY }));
@@ -868,7 +951,7 @@ const PreviewCard = memo(({
                 if (isNews) onVideoScaleChange(preset.id, next);
                 else onVideoScaleChange(next);
             }
-            if (isNews && onPositionChange) {
+            if (isNews && onPositionChange && !preset.panTouched) {
                 onPositionChange(preset.id, { x: currentPosX, y: currentPosY });
             }
         };
@@ -1113,9 +1196,62 @@ const PreviewCard = memo(({
         return effectiveWordSpacing;
     }, [isAllBoldWhite, effectiveWordSpacing, preset.name, preset.active]);
 
-    // Ensure preview video is always clearly visible by clamping scale
-    const clampedVideoScale = Math.max(localVideoScale || 100, 60);
+    // Ensure preview video is always clearly visible by clamping scale.
+    // In cover mode the floor is 100: a box smaller than the frame cannot fill it, so
+    // panning slides the video off and exposes the backdrop. This also heals cards that
+    // already have a sub-100 videoScale stored from before that floor existed.
+    const coverFit = fitMode !== 'contain' && fitMode !== 'fill';
+    const clampedVideoScale = Math.max(localVideoScale || 100, coverFit ? 100 : 60);
     const previewVideoScale = clampedVideoScale / 100;
+    // Pan/zoom geometry — mirrors the export crop math in videoProcessor.js.
+    //
+    // The video box is sized frame*z and object-fit keeps the source's own aspect, so the
+    // browser derives the aspect itself and we never compute it here. That is deliberate:
+    // the previous attempt at full-range pan set explicit width/height from a JS-tracked
+    // aspect with object-fit:fill, and a stale aspect on source change stretched the video
+    // (be69e93, reverted in 365be98). With no aspect math there is nothing to go stale.
+    //
+    // Travel splits into two stages that are each linear in pos, so the sum is linear:
+    //   object-position moves within the cover overflow  → (cover−frame)*z*u
+    //   the box offset moves within the zoom overflow    → frame*(z−1)*u
+    //   total = (cover*z − frame)*u, exactly the export's (scaled − frame)*pos/100.
+    const panFill = fitMode === 'fill';
+    const panX = panFill ? 50 : localPos.x;
+    const panY = panFill ? 50 : localPos.y;
+    // Element stays exactly frame-sized and cover-filled, scaled from its centre — the
+    // original rendering, which never showed a gap. scale(z) leaves (z-1)/2 of overflow
+    // hidden on EACH side; translating by at most that much slides into the overflow and
+    // can never uncover the frame. That bound is structural, not arithmetic: at z=1 the
+    // offset is 0 and this is byte-for-byte the old behaviour.
+    //
+    // Travel: object-position covers the cover slack as before, the translate adds the
+    // zoom slack, and they sum to (cover*z − frame) — the same total the export crops to.
+    const panSlackPct = (previewVideoScale - 1) * 100;
+    const panShiftX = (0.5 - panX / 100) * panSlackPct;
+    const panShiftY = (0.5 - panY / 100) * panSlackPct;
+
+    /**
+     * Where the whole source frame lands inside the video box, in box pixels — the same
+     * mapping object-fit + object-position give the video. Captions are burned into that
+     * frame, so anything drawn in this rect crops and zooms with the picture.
+     */
+    const captionContentRect = useMemo(() => {
+        if (!captionBlock || !videoBox?.w || !srcSize?.w) return null;
+        const fit = fitMode === 'fill' ? 'fill' : fitMode === 'contain' ? 'contain' : 'cover';
+        if (fit === 'fill') return { x: 0, y: 0, w: videoBox.w, h: videoBox.h };
+        const ratio = fit === 'contain'
+            ? Math.min(videoBox.w / srcSize.w, videoBox.h / srcSize.h)
+            : Math.max(videoBox.w / srcSize.w, videoBox.h / srcSize.h);
+        const w = srcSize.w * ratio;
+        const h = srcSize.h * ratio;
+        // object-position slides the overflow: 0% pins the left/top edge, 100% the right/bottom.
+        return {
+            x: (videoBox.w - w) * (panFill ? 0.5 : panX / 100),
+            y: (videoBox.h - h) * (panFill ? 0.5 : panY / 100),
+            w,
+            h,
+        };
+    }, [captionBlock, videoBox, srcSize, fitMode, panFill, panX, panY]);
     const isNewsFormat = preset.layout === 'news_ticker';
     // Canva-style: while RE-SIZE is on, dragging the body pans and the handles zoom —
     // for every layout, not just news cards.
@@ -1547,6 +1683,9 @@ const PreviewCard = memo(({
                         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
                             <div className="bg-violet-600/90 text-white text-[10px] px-2 py-1 rounded backdrop-blur flex items-center gap-1 whitespace-nowrap">
                                 <Maximize size={10} /> RE-SIZE — drag to move · handles to zoom
+                                <span className="ml-1 font-bold tabular-nums">
+                                    {Math.round(clampedVideoScale)}%
+                                </span>
                             </div>
                         </div>
                     )}
@@ -1607,7 +1746,10 @@ const PreviewCard = memo(({
                         </>
                     )}
 
-                    <div className={`absolute inset-0 w-full h-full overflow-hidden pointer-events-none ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : 'bg-black'}`}>
+                    <div
+                        ref={videoBoxRef}
+                        className={`absolute inset-0 w-full h-full overflow-hidden pointer-events-none ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : 'bg-black'}`}
+                    >
                         {videoSrc ? (
                             <video
                                 ref={(el) => {
@@ -1621,11 +1763,11 @@ const PreviewCard = memo(({
                                 className={`w-full h-full ${preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co-old' ? 'rounded-2xl' : ''}`}
                                 style={{
                                     objectFit: fitMode === 'fill' ? 'fill' : fitMode === 'contain' ? 'contain' : 'cover',
-                                    objectPosition: fitMode === 'fill' ? 'center' : `${localPos.x}% ${localPos.y}%`,
+                                    objectPosition: panFill ? 'center' : `${panX}% ${panY}%`,
                                     // Always fill the frame, then zoom using scale
                                     width: '100%',
                                     height: '100%',
-                                    transform: `translate(-50%, -50%) scale(${previewVideoScale})`,
+                                    transform: `translate(${-50 + panShiftX}%, ${-50 + panShiftY}%) scale(${previewVideoScale})`,
                                     left: '50%',
                                     top: '50%',
                                     position: 'absolute',
@@ -1636,12 +1778,61 @@ const PreviewCard = memo(({
                                 muted={isMuted}
                                 autoPlay={false}
                                 loop={false}
+                                onLoadedMetadata={(e) => {
+                                    const v = e.currentTarget;
+                                    if (v.videoWidth && v.videoHeight) setSrcSize({ w: v.videoWidth, h: v.videoHeight });
+                                }}
                                 data-preset-id={preset.id}
                             />
                         ) : (
                             <div className={`w-full h-full flex flex-col items-center justify-center gap-2 ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-neutral-200' : 'bg-neutral-800'} ${preset.name === 'startup madness' || preset.name === 'ceo hustle advice' || preset.name === 'indian-founders-co-old' ? 'rounded-2xl' : ''}`}>
                                 <Video className="w-6 h-6 text-neutral-500" />
                                 <span className="text-xs text-neutral-500 text-center px-4">Upload a video to preview</span>
+                            </div>
+                        )}
+
+                        {/* Captions, shown as they will be BURNED INTO THE CLIP — so they ride the
+                            same object-fit crop and zoom the video does, not the card frame. The
+                            caption geometry is authored against the source's 720-wide space, so the
+                            overlay is placed inside a box the size of the whole source frame as the
+                            browser lays it out (which may overflow the card; the wrapper clips it,
+                            exactly like the burn would). Once burned the pixels are in the video, so
+                            the parent stops sending a block and this disappears rather than doubling. */}
+                        {captionBlock && captionStyle && captionContentRect && (
+                            <div
+                                className="absolute pointer-events-none z-20"
+                                style={{
+                                    left: '50%',
+                                    top: '50%',
+                                    width: '100%',
+                                    height: '100%',
+                                    transform: `translate(${-50 + panShiftX}%, ${-50 + panShiftY}%) scale(${previewVideoScale})`,
+                                }}
+                            >
+                                <div
+                                    className="absolute"
+                                    style={{
+                                        left: `${captionContentRect.x}px`,
+                                        top: `${captionContentRect.y}px`,
+                                        width: `${captionContentRect.w}px`,
+                                        height: `${captionContentRect.h}px`,
+                                    }}
+                                >
+                                    {usesWordAnimation(captionStyle) ? (
+                                    <CaptionWordOverlay
+                                        block={captionBlock}
+                                        style={captionStyle}
+                                        scale={captionContentRect.w / CAPTION_SRC_W}
+                                        time={captionTime}
+                                    />
+                                    ) : (
+                                    <CaptionLineOverlay
+                                        block={captionBlock}
+                                        style={captionStyle}
+                                        scale={captionContentRect.w / CAPTION_SRC_W}
+                                    />
+                                    )}
+                                </div>
                             </div>
                         )}
 
@@ -1731,7 +1922,8 @@ const PreviewCard = memo(({
                                     const lockupBlockH = handleLockup ? handleLockup.gap + handleLockup.height : 0;
                                     // Same wrap budget as export (getExportNewsMaxLineWidth already leaves pad room)
                                     const { fontSize: fittedExportFs, lines } = fitNewsTickerPreview(preset.headline, {
-                                        baseFontSize: Math.round(54 * effectiveFontScale),
+                                        baseFontSize: 54,
+                                        userScale: effectiveFontScale,
                                         maxWidth: getExportNewsMaxLineWidth(preset),
                                         fontFamily: ntFontFamily,
                                         boldWeight: ntFontWeight,
@@ -2766,6 +2958,127 @@ export default function App() {
         }
     }, []);
 
+    // --- CAPTIONS ---------------------------------------------------------------
+    // The Captions section owns the transcript and style; the preview cards need both to
+    // draw what the burn will produce, so they are mirrored up here.
+    const [captions, setCaptions] = useState(null); // { words, style, burned }
+    const [activeCaptionIdx, setActiveCaptionIdx] = useState(-1);
+    const [captionTime, setCaptionTime] = useState(0);
+    const arollPreviewRef = useRef(null);
+    const arollStageRef = useRef(null);
+    const [arollPlaying, setArollPlaying] = useState(false);
+    const [arollMuted, setArollMuted] = useState(false);
+    const [arollDuration, setArollDuration] = useState(0);
+    const [arollStageSize, setArollStageSize] = useState({ w: 0, h: 0 });
+    const [arollVideoSize, setArollVideoSize] = useState({ w: 0, h: 0 });
+
+    const captionBlocks = useMemo(() => {
+        if (!captions?.words?.length || captions.burned) return [];
+        return buildPreviewBlocks(captions.words, { ...captions.style, manualGrouping: true });
+    }, [captions]);
+
+    // Prefer the left A-roll sync preview when it is mounted; fall back to the first preset card.
+    useEffect(() => {
+        if (!videoSrc && !captionBlocks.length) {
+            setActiveCaptionIdx(-1);
+            setCaptionTime(0);
+            return undefined;
+        }
+        let raf;
+        const tick = () => {
+            const v = arollPreviewRef.current || videoRef.current;
+            if (v) {
+                const t = v.currentTime;
+                setCaptionTime(t);
+                if (captionBlocks.length) {
+                    const active = findActiveCaptionBlock(captionBlocks, t);
+                    const idx = active ? captionBlocks.indexOf(active) : -1;
+                    setActiveCaptionIdx((prev) => (prev === idx ? prev : idx));
+                } else {
+                    setActiveCaptionIdx(-1);
+                }
+            }
+            raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+    }, [captionBlocks, videoSrc]);
+
+    const activeCaptionBlock = captionBlocks[activeCaptionIdx] || null;
+
+    // Caption stage inside the A-roll preview: match the object-cover video frame so burned
+    // positions land where they will in the export.
+    const arollCaptionRect = useMemo(() => {
+        const { w: cw, h: ch } = arollStageSize;
+        const { w: vw, h: vh } = arollVideoSize;
+        if (!(cw > 0 && ch > 0 && vw > 0 && vh > 0)) return null;
+        const zoom = (playbookFormat === 'news' ? 1 : videoScale / 100);
+        const cover = Math.max(cw / vw, ch / vh) * zoom;
+        const w = vw * cover;
+        const h = vh * cover;
+        return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
+    }, [arollStageSize, arollVideoSize, videoScale, playbookFormat]);
+
+    useEffect(() => {
+        const el = arollStageRef.current;
+        if (!el) return undefined;
+        const ro = new ResizeObserver(([e]) => {
+            setArollStageSize({ w: e.contentRect.width, h: e.contentRect.height });
+        });
+        ro.observe(el);
+        setArollStageSize({ w: el.clientWidth, h: el.clientHeight });
+        return () => ro.disconnect();
+    }, [videoSrc]);
+
+    const toggleArollPlay = useCallback(() => {
+        const v = arollPreviewRef.current;
+        if (!v) return;
+        if (v.paused) {
+            v.play().then(() => setArollPlaying(true)).catch(() => setArollPlaying(false));
+        } else {
+            v.pause();
+            setArollPlaying(false);
+        }
+    }, []);
+
+    const seekAroll = useCallback((t) => {
+        const v = arollPreviewRef.current;
+        if (!v) return;
+        v.currentTime = t;
+        setCaptionTime(t);
+    }, []);
+
+    // A fresh transcript with the clip parked at 0 shows nothing — the first caption is
+    // usually seconds in, so the previews look empty right when you want to check them.
+    // Nudge every preview to the first caption once, so there is something to look at.
+    const seededCaptionRef = useRef(false);
+    useEffect(() => {
+        if (!captionBlocks.length) { seededCaptionRef.current = false; return; }
+        if (seededCaptionRef.current) return;
+        seededCaptionRef.current = true;
+        const at = captionBlocks[0].start + 0.05;
+        if (arollPreviewRef.current) {
+            try { arollPreviewRef.current.currentTime = at; } catch { /* not seekable yet */ }
+        }
+        document.querySelectorAll('video[data-preset-id]').forEach((v) => {
+            if (v.paused && v.currentTime < 0.25) { try { v.currentTime = at; } catch { /* not seekable yet */ } }
+        });
+    }, [captionBlocks]);
+
+    /**
+     * Swap in the captioned clip the Captions section just burned (or the original, when
+     * the burn is undone). Same shape as picking a file, minus setIsPlaying — the editor
+     * is already mid-session and should not jump back to playing.
+     */
+    const applyCaptionedVideo = useCallback((file) => {
+        if (!file) return;
+        videoFileRef.current = file;
+        setVideoSrc(prev => {
+            if (prev && typeof prev === 'string' && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+            return URL.createObjectURL(file);
+        });
+    }, []);
+
     const onDragOverVideo = (e) => { e.preventDefault(); setIsDraggingVideo(true); };
     const onDragLeaveVideo = (e) => { e.preventDefault(); setIsDraggingVideo(false); };
     const onDropVideo = (e) => {
@@ -2843,10 +3156,13 @@ export default function App() {
         })));
     };
 
-    const handlePositionChange = useCallback((id, pos) => {
+    // `manual` marks a position the user set by dragging. Once set, the zoom-driven
+    // auto-bias below stops rewriting position.y, so a hand-placed crop survives the next
+    // RE-SIZE nudge instead of snapping back to the zoom-derived value.
+    const handlePositionChange = useCallback((id, pos, manual = false) => {
         setPresets(prev => {
             const updated = prev.map(p =>
-                p.id === id ? { ...p, position: pos } : p
+                p.id === id ? { ...p, position: pos, ...(manual ? { panTouched: true } : {}) } : p
             );
             presetsRef.current = updated;
             return updated;
@@ -2880,12 +3196,13 @@ export default function App() {
 
     // News card RE-SIZE: ONLY this preset — never writes global zoom / other cards.
     const handleNewsPresetVideoScaleChange = useCallback((id, scale) => {
-        const next = Math.max(80, Math.min(300, Math.round(scale)));
+        // Floor 100: below it the frame is wider/taller than the video and panning exposes black.
+        const next = Math.max(100, Math.min(300, Math.round(scale)));
 
         const applyScale = (list) => list.map(p => {
             if (p.id !== id || p.layout !== 'news_ticker') return p;
             let position = p.position || { x: 50, y: 50 };
-            if (next > 100) {
+            if (next > 100 && !p.panTouched) {
                 const nameLower = (p.name || '').toLowerCase();
                 const isFullBleed = nameLower === 'ifc-news' || nameLower === 'ifc2-news' || nameLower === 'foundersinindia-news';
                 const maxZ = isFullBleed ? 220 : 300;
@@ -3453,8 +3770,10 @@ export default function App() {
                     </div>
                     <div className="relative h-full overflow-y-auto pintu-scroll">
 
-                    {activeTool === 'video' && (
-                        <div className="p-4 space-y-3">
+                    {/* Kept mounted rather than unmounted when another tool is picked: a
+                        transcription or caption burn in flight would otherwise be thrown away
+                        the moment you stepped over to Text & Layout. */}
+                    <div className={`p-4 space-y-3 ${activeTool === 'video' ? '' : 'hidden'}`}>
                             <div
                                 className={`border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-all duration-200 relative cursor-pointer group ${isDraggingVideo ? 'border-violet-500 bg-violet-500/10 scale-105' : 'border-[var(--pintu-input-border)] bg-[var(--pintu-card-header-bg)] hover:border-violet-500 hover:bg-violet-500/10 hover:scale-[1.02]'}`}
                                 onDragOver={onDragOverVideo}
@@ -3464,19 +3783,114 @@ export default function App() {
                                 <span className={`text-sm transition-colors duration-200 ${isDraggingVideo ? 'text-violet-500' : 'text-[var(--pintu-text-muted)] group-hover:text-violet-500'}`}>{videoSrc ? 'Replace Video' : 'upload or browse video'}</span>
                                 <input type="file" accept="video/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleVideoUpload} />
                             </div>
+
+                            {/* Captions come first: transcribe and burn into the A-roll here, then
+                                move on to the hook. The burn hands back a captioned File, which is
+                                swapped in as the editor's source — every preset and the export pick
+                                it up without knowing captions were involved. */}
+                            <CaptionsSection
+                                videoSrc={videoSrc}
+                                videoFileRef={videoFileRef}
+                                serverUrl={SERVER_URL}
+                                onCaptionedVideo={applyCaptionedVideo}
+                                onCaptionsChange={setCaptions}
+                            />
+
                             {videoSrc && (
                                 <>
-                                    <div className="w-full max-h-[210px] aspect-video rounded-lg border border-[var(--pintu-input-border)] bg-black overflow-hidden">
+                                    <div
+                                        ref={arollStageRef}
+                                        className="relative w-full max-h-[280px] aspect-video rounded-lg border border-[var(--pintu-input-border)] bg-black overflow-hidden"
+                                    >
                                         <video
+                                            ref={arollPreviewRef}
                                             src={videoSrc}
                                             className="w-full h-full object-cover"
                                             style={{ transform: `scale(${playbookFormat === 'news' ? 1 : videoScale / 100})`, transformOrigin: 'center' }}
-                                            muted
-                                            loop
-                                            autoPlay
+                                            muted={arollMuted}
                                             playsInline
+                                            preload="auto"
+                                            onLoadedMetadata={(e) => {
+                                                const v = e.currentTarget;
+                                                setArollDuration(v.duration || 0);
+                                                setArollVideoSize({
+                                                    w: v.videoWidth || 0,
+                                                    h: v.videoHeight || 0,
+                                                });
+                                            }}
+                                            onPlay={() => setArollPlaying(true)}
+                                            onPause={() => setArollPlaying(false)}
+                                            onEnded={() => setArollPlaying(false)}
                                         />
+                                        {/* Live caption overlay for sync — same burn layout as the preset cards.
+                                            Hidden once burned (captions are then in the pixels). */}
+                                        {activeCaptionBlock && captions?.style && arollCaptionRect && !captions.burned && (
+                                            <div
+                                                className="absolute pointer-events-none z-10"
+                                                style={{
+                                                    left: arollCaptionRect.x,
+                                                    top: arollCaptionRect.y,
+                                                    width: arollCaptionRect.w,
+                                                    height: arollCaptionRect.h,
+                                                }}
+                                            >
+                                                {usesWordAnimation(captions.style) ? (
+                                                    <CaptionWordOverlay
+                                                        block={activeCaptionBlock}
+                                                        style={captions.style}
+                                                        scale={arollCaptionRect.w / CAPTION_SRC_W}
+                                                        time={captionTime}
+                                                    />
+                                                ) : (
+                                                    <CaptionLineOverlay
+                                                        block={activeCaptionBlock}
+                                                        style={captions.style}
+                                                        scale={arollCaptionRect.w / CAPTION_SRC_W}
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={toggleArollPlay}
+                                                className="flex items-center justify-center w-8 h-8 rounded-md bg-violet-500 hover:bg-violet-600 text-white shrink-0"
+                                                title={arollPlaying ? 'Pause' : 'Play'}
+                                            >
+                                                {arollPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setArollMuted((m) => !m)}
+                                                className="flex items-center justify-center w-8 h-8 rounded-md border border-[var(--pintu-input-border)] text-[var(--pintu-text-secondary)] hover:bg-white/5 shrink-0"
+                                                title={arollMuted ? 'Unmute' : 'Mute'}
+                                            >
+                                                {arollMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                                            </button>
+                                            <input
+                                                type="range"
+                                                min={0}
+                                                max={Math.max(0.1, arollDuration)}
+                                                step={0.01}
+                                                value={Math.min(captionTime, arollDuration || captionTime)}
+                                                onChange={(e) => seekAroll(parseFloat(e.target.value))}
+                                                className="flex-1 h-1 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                            />
+                                            <span className="text-[10px] tabular-nums text-[var(--pintu-text-muted)] shrink-0 min-w-[4.5rem] text-right">
+                                                {`${Math.floor(captionTime / 60)}:${String(Math.floor(captionTime % 60)).padStart(2, '0')}`}
+                                                {arollDuration > 0
+                                                    ? ` / ${Math.floor(arollDuration / 60)}:${String(Math.floor(arollDuration % 60)).padStart(2, '0')}`
+                                                    : ''}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">
+                                            Play with sound on to sync captions to speech. Scrub to check timing.
+                                        </p>
+                                    </div>
+
                                     {playbookFormat === 'news' ? (
                                         <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">
                                             Each news card has its own zoom — hit <span className="text-violet-400 font-semibold">RE-SIZE</span> on that card and drag the handles. Scaling one format never changes the others.
@@ -3505,8 +3919,7 @@ export default function App() {
                                     )}
                                 </>
                             )}
-                        </div>
-                    )}
+                    </div>
 
                     {activeTool === 'text' && (
                     <div className="p-6 space-y-6 pb-8">
@@ -3821,6 +4234,9 @@ export default function App() {
                                                     isMuted={isMuted}
                                                     newsFontReady={newsFontReady}
                                                     wordSpacing={wordSpacing}
+                                                    captionBlock={activeCaptionBlock}
+                                                    captionStyle={captions?.style || null}
+                                                    captionTime={captionTime}
                                                 />
                                             </div>
                                         </div>

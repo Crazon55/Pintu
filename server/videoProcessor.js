@@ -26,6 +26,7 @@ import {
   isPlainTextNewsTicker,
   applyHookCasing,
   clampNewsTickerShiftPx,
+  getHookBaseFontSize,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -518,7 +519,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   cleanedHtml = cleanedHtml.replace(/<\/?b>/gi, (m) => m.toLowerCase());
 
   const hookColor = preset.color || '#7F53FF';
-  const fontSize = Math.round(38 * (fontScale || 1));
+  const fontSize = Math.round(getHookBaseFontSize(preset) * (fontScale || 1));
   const lineHeight = fontSize * getEffectiveLineSpacing(preset);
   const maxTextW = 620;
   const textToVideoGap = getHookVideoGap(preset);
@@ -727,7 +728,7 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
 
   const textStartX = 50;
   const maxTextW = 620;
-  const fontSize = Math.round(38 * (fontScale || 1));
+  const fontSize = Math.round(getHookBaseFontSize(preset) * (fontScale || 1));
   const lineHeight = fontSize * getEffectiveLineSpacing(preset);
 
   // --- Video frame ---
@@ -975,7 +976,8 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   // Measure + draw with the same opentype face so wrap never drifts from FFmpeg.
   const maxLineW = getExportNewsMaxLineWidth(preset);
-  const baseFontSize = Math.round(54 * (fontScale || 1));
+  // Unscaled: fontScale is handed to the fitter as userScale and applied after the fit.
+  const baseFontSize = 54;
   // Handle lockup (IG + FB + wordmark) reserves a fixed box under the hook, so the
   // text budget shrinks by it and the bottom margin still measures from the lockup.
   const handleLockup = getNewsTickerHandleLockup(preset);
@@ -1004,6 +1006,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     measureWordAtSize,
     maxLineW,
     baseFontSize,
+    userScale: fontScale || 1,
     minFontSize: 22,
     maxLines: 3,
     maxTotalBarsH: maxTickerH,
@@ -2380,41 +2383,41 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       coverH = Math.round(sw / originalAspect / 2) * 2;
     }
 
-    // object-position crop on the un-zoomed cover
-    const coverCropX = Math.max(0, Math.min(coverW - sw, Math.round((coverW - sw) * posX / 100)));
-    const coverCropY = Math.max(0, Math.min(coverH - sh, Math.round((coverH - sh) * posY / 100)));
+    // Pan maps pos 0-100 linearly across the WHOLE travel available at this zoom.
+    //
+    // The old formula was z*(cover−frame)*pos/100 + frame*(z−1)/2. Its pos-driven term
+    // is scaled by (cover−frame), which is exactly 0 whenever the source aspect matches
+    // the frame on that axis — so the term vanished and the crop collapsed to a constant
+    // (dead centre) no matter what pos was. Zooming creates frame*(z−1) of real travel on
+    // that axis, but nothing ever mapped pos into it, so the axis was frozen at every zoom
+    // level. That is the "ifc2 zoomed video won't move" bug: a 9:16 source in the 9:16
+    // full-bleed frame has zero cover slack on BOTH axes, so both froze.
+    //
+    // Travel on an axis is (scaled − box), full stop. Map pos straight onto it.
+    const scaledWidth = Math.max(2, Math.round(coverW * zoom / 2) * 2);
+    const scaledHeight = Math.max(2, Math.round(coverH * zoom / 2) * 2);
+    const panCrop = (scaled, box, pos) =>
+      Math.max(0, Math.min(scaled - box, Math.round((scaled - box) * pos / 100)));
 
     let vFilter;
     if (zoom >= 1) {
-      // 2) scale(z) from center: crop = z*(cover−frame)*pos/100 + frame*(z−1)/2
-      //    (NOT (z*cover−frame)*pos/100 — that diverges whenever pos ≠ 50)
-      const scaledWidth = Math.round(coverW * zoom / 2) * 2;
-      const scaledHeight = Math.round(coverH * zoom / 2) * 2;
-      const cropX = Math.max(
-        0,
-        Math.min(
-          scaledWidth - sw,
-          Math.round(zoom * (coverW - sw) * posX / 100 + sw * (zoom - 1) / 2)
-        )
-      );
-      const cropY = Math.max(
-        0,
-        Math.min(
-          scaledHeight - sh,
-          Math.round(zoom * (coverH - sh) * posY / 100 + sh * (zoom - 1) / 2)
-        )
-      );
+      const cropX = panCrop(scaledWidth, sw, posX);
+      const cropY = panCrop(scaledHeight, sh, posY);
       vFilter = `scale=${scaledWidth}:${scaledHeight},crop=${sw}:${sh}:${cropX}:${cropY}`;
       console.log(`[processFFmpeg] "${preset.name}" videoScale=${scalePct}% zoom=${zoom} pos=${posX},${posY} cover=${coverW}x${coverH} scale=${scaledWidth}x${scaledHeight} crop=${sw}x${sh}@${cropX},${cropY}`);
     } else {
-      // zoom-out: cover+position into frame, then shrink from center with black pad
-      // (matches CSS scale(<1) — do NOT force-cover, that erased preview letterboxing)
-      const outW = Math.max(2, Math.round(sw * zoom / 2) * 2);
-      const outH = Math.max(2, Math.round(sh * zoom / 2) * 2);
-      const padX = Math.round((sw - outW) / 2);
-      const padY = Math.round((sh - outH) / 2);
-      vFilter = `scale=${coverW}:${coverH},crop=${sw}:${sh}:${coverCropX}:${coverCropY},scale=${outW}:${outH},pad=${sw}:${sh}:${padX}:${padY}:black`;
-      console.log(`[processFFmpeg] "${preset.name}" videoScale=${scalePct}% zoom=${zoom} pos=${posX},${posY} cover=${coverW}x${coverH}@${coverCropX},${coverCropY} out=${outW}x${outH} pad=${padX},${padY}`);
+      // zoom-out: the video occupies a box of frame*z, cover-filled and panned inside that
+      // box, then the box itself is placed in the frame by the same pos. Both stages use the
+      // same linear map, so pan stays continuous across the zoom=1 boundary instead of
+      // snapping to centre the moment you cross below 100%.
+      const boxW = Math.max(2, Math.round(sw * zoom / 2) * 2);
+      const boxH = Math.max(2, Math.round(sh * zoom / 2) * 2);
+      const cropX = panCrop(scaledWidth, boxW, posX);
+      const cropY = panCrop(scaledHeight, boxH, posY);
+      const padX = Math.max(0, Math.min(sw - boxW, Math.round((sw - boxW) * posX / 100)));
+      const padY = Math.max(0, Math.min(sh - boxH, Math.round((sh - boxH) * posY / 100)));
+      vFilter = `scale=${scaledWidth}:${scaledHeight},crop=${boxW}:${boxH}:${cropX}:${cropY},pad=${sw}:${sh}:${padX}:${padY}:black`;
+      console.log(`[processFFmpeg] "${preset.name}" videoScale=${scalePct}% zoom=${zoom} pos=${posX},${posY} cover=${coverW}x${coverH} box=${boxW}x${boxH}@${cropX},${cropY} pad=${padX},${padY}`);
     }
 
     // Check if preset has rounded corners

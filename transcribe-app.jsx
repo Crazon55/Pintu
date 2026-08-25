@@ -1,383 +1,41 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Upload, Play, Pause, Loader2, Download, Wand2, Type, RotateCcw, AlertCircle, Check,
+  Upload, Play, Pause, Loader2, Download, Wand2, Type, RotateCcw, AlertCircle, Check, ChevronDown,
 } from 'lucide-react';
 import { findCaptionFont, fontsForRole } from './captionFonts.js';
+// Grouping, timing and style normalization are shared with the playbook editor's
+// Captions section — see shared/captionEngine.js. Only the styled look's canvas text
+// measuring and its motion curves stay here; nothing else drives what is on screen.
+import {
+  PLAY_RES_X, PLAY_RES_Y, GLOW_OUTER_MAX,
+  DEFAULT_STYLE, DEFAULT_BIZZ_STYLE, MODE_DEFAULTS, CAPTION_STYLE_BY_MODE, MODE_LABELS,
+  round3, blockToPreviewLineWords, stampAutoSentenceBreaks, wordsToSentences,
+  sentencesToWords, buildPreviewBlocks, normalizeStyle, captionTextShadow,
+  measurePreviewWidth, layoutPreviewWords, findActiveCaptionBlock, usesHighlightSlot,
+} from './shared/captionEngine.js';
+import { CaptionWordOverlay } from './captionTool.jsx';
 
-// The ASS script is authored against this virtual canvas; the preview maps
-// positions proportionally so what you see matches what libass renders.
-const PLAY_RES_X = 720;
-const PLAY_RES_Y = 1280;
-
-let _measureCanvas = null;
-function measurePreviewWidth(text, fontSize, highlight = false, highlightScale = 1.25, style = {}) {
-  const hiScale = highlight ? highlightScale : 1;
-  const spacing = Number(style.letterSpacing) || 0;
-  const meta = findCaptionFont(highlight ? style.highlightFontName : (style.baseFontName || style.fontName));
-  const family = meta?.cssFamily || (highlight ? 'Playfair Display Bold Italic' : 'Montserrat Black');
-  const weight = meta?.weight || (highlight ? 600 : 900);
-  const fontStyle = meta?.style || (highlight ? 'italic' : 'normal');
-  if (typeof document === 'undefined') {
-    const mul = highlight ? 0.58 : 0.62;
-    const str = String(text || '');
-    return str.length * fontSize * mul * hiScale + Math.max(0, str.length - 1) * spacing;
-  }
-  if (!_measureCanvas) _measureCanvas = document.createElement('canvas');
-  const ctx = _measureCanvas.getContext('2d');
-  const sz = fontSize * hiScale;
-  ctx.font = `${fontStyle} ${weight} ${sz}px "${family}", sans-serif`;
-  const str = String(text || '');
-  let w = ctx.measureText(str).width;
-  if (!(w > 1)) w = str.length * fontSize * (highlight ? 0.58 : 0.62) * hiScale;
-  if (spacing && str.length > 1) w += (str.length - 1) * spacing;
-  return w;
-}
-
-/** Client layout — every line is center-aligned as a group (short or long).
- *  Wrapped line 2+ stays centered under line 1 (tucked-in look). */
-function layoutPreviewWords(wordInputs, style) {
-  const fontSize = style.fontSize || 56;
-  const posY = style.posY ?? 1020;
-  const startX = Math.max(10, style.lineStartX ?? 80);
-  const maxW = style.maxLineWidth ?? Math.max(200, Math.round(PLAY_RES_X - startX - 40));
-  const gap = Math.max(6, Math.round(fontSize * (style.wordGapMul ?? 0.35)));
-  const outline = style.outline ?? 2;
-  const hiScale = Math.max(0.8, (style.highlightScale ?? 125) / 100);
-  const lineCap = Math.max(1, Math.min(4, style.maxLines ?? 1));
-  const spacing = Number(style.letterSpacing) || 0;
-  const padBase = Math.max(4, Math.round(outline * 2.5));
-  const padHi = Math.max(2, Math.round(hiScale * 2));
-  const texts = wordInputs.map((w) => (typeof w === 'string' ? w : w.text));
-  const highlights = wordInputs.map((w) => (typeof w === 'object' ? !!w.highlight : false));
-  const widths = texts.map((t, i) => (
-    measurePreviewWidth(t, fontSize, highlights[i], hiScale, style) + (highlights[i] ? padHi : padBase)
-  ));
-
-  if (texts.length === 0) return [];
-
-  const lines = [];
-  let cur = { indices: [], width: 0 };
-  for (let i = 0; i < texts.length; i++) {
-    const w = widths[i];
-    const next = cur.indices.length === 0 ? w : cur.width + gap + w;
-    const canWrap = lines.length + 1 < lineCap;
-    if (cur.indices.length > 0 && next > maxW && canWrap) {
-      lines.push(cur);
-      cur = { indices: [i], width: w };
-    } else {
-      cur.indices.push(i);
-      cur.width = next;
-    }
-  }
-  if (cur.indices.length) lines.push(cur);
-
-  const lineH = fontSize * 1.22;
-  const positions = texts.map(() => ({ x: Math.round(PLAY_RES_X / 2), y: posY, line: 0 }));
-  // Every line is centered as a group — same flow for 1 word, 2 words, or a full sentence.
-  lines.forEach((line, li) => {
-    const y = Math.round(posY + li * lineH);
-    let left = Math.round(PLAY_RES_X / 2 - line.width / 2);
-    for (const idx of line.indices) {
-      positions[idx] = { x: Math.round(left + widths[idx] / 2), y, line: li };
-      left += widths[idx] + gap;
-    }
-  });
-  return positions;
-}
-
-// Motion is baked in: each word rises from below into its own slot (ease-out),
-// fades in by 70% travel, then stays until the whole sentence ends.
-const DEFAULT_STYLE = {
-  fontSize: 37,
-  baseColor: '#EDEAE3',
-  activeColor: '#FF7A00',
-  baseFontName: 'Montserrat Bold',
-  fontName: 'Montserrat',
-  highlightFontName: 'Playfair Bold Italic',
-  outlineColor: '#141414',
-  outline: 2,
-  slantDeg: 0,
-  popFromScale: 100,
-  popToScale: 100,
-  popDurationMs: 0,
-  popSettleScale: 100,
-  popSettleMs: 0,
-  glow: true,
-  baseGlowStrength: 100,
-  highlightGlowStrength: 100,
-  glowBlur: 10,
-  glowBorder: 6,
-  highlightScale: 124, // ≈46px when base is 37
-  highlightWeight: 0,
-  letterSpacing: -2,
-  reveal: 'accumulate',
-  riseOn: 'word',
-  riseY: 36,
-  riseMs: 480,
-  lingerAfterLast: 2.5,
-  posX: 360,
-  posY: 1020,
-  lineStartX: 80,
-  maxLines: 2,
-  maxWordsPerBlock: 3,
-  maxBlockDuration: 3.5,
-  maxLineWidth: 600,
-  wordGapMul: 0.05,
+// Same tokens the Bizz India Playbook panel uses, dark values only — the
+// captions editor has no light mode yet, but the classes stay identical so
+// the two panels can share components later.
+const PINTU_DARK_VARS = {
+  '--pintu-card-bg': 'rgba(255,255,255,0.03)',
+  '--pintu-card-border': 'rgba(255,255,255,0.2)',
+  '--pintu-card-header-bg': 'rgba(255,255,255,0.05)',
+  '--pintu-card-header-border': 'rgba(255,255,255,0.1)',
+  '--pintu-text-primary': '#ffffff',
+  '--pintu-text-secondary': '#d4d4d4',
+  '--pintu-text-muted': '#a3a3a3',
+  '--pintu-text-faint': '#737373',
+  '--pintu-accent': '#a78bfa',
+  '--pintu-input-bg': '#171717',
+  '--pintu-input-border': '#404040',
+  '--pintu-track-bg': '#404040',
+  '--pintu-toggle-bg': 'rgba(255,255,255,0.05)',
+  '--pintu-toggle-border': 'rgba(255,255,255,0.1)',
 };
 
-const round3 = (n) => Math.round(n * 1000) / 1000;
-
-/** Auto-split words into sentences (mirrors server auto rules), stamp breakBefore. */
-function stampAutoSentenceBreaks(words, style = {}) {
-  const maxWords = Math.max(1, Number(style.maxWordsPerBlock) || 8);
-  const maxDur = Math.max(0.4, Number(style.maxBlockDuration) || 3.5);
-  const PUNCT = /[.,!?;:—]$/;
-  const sorted = [...words].sort((a, b) => a.start - b.start);
-  const stamped = [];
-  let count = 0;
-  let blockStart = null;
-  for (let i = 0; i < sorted.length; i++) {
-    const w = sorted[i];
-    const isFirstOfBlock = count === 0;
-    if (isFirstOfBlock) blockStart = w.start;
-    stamped.push({
-      id: w.id || `w-${round3(w.start)}-${i}`,
-      text: w.text,
-      start: w.start,
-      end: w.end,
-      highlight: !!w.highlight,
-      breakBefore: isFirstOfBlock && stamped.length > 0,
-    });
-    count += 1;
-    const spanned = w.end - blockStart;
-    if (count >= maxWords || spanned >= maxDur || PUNCT.test(w.text)) {
-      count = 0;
-      blockStart = null;
-    }
-  }
-  return stamped;
-}
-
-function wordsToSentences(words) {
-  const sentences = [];
-  let cur = [];
-  (words || []).forEach((w, i) => {
-    if (i > 0 && w.breakBefore) {
-      if (cur.length) sentences.push(cur);
-      cur = [];
-    }
-    cur.push({ ...w, _idx: i });
-  });
-  if (cur.length) sentences.push(cur);
-  return sentences;
-}
-
-function sentencesToWords(sentences) {
-  const flat = [];
-  sentences.forEach((sent, si) => {
-    sent.forEach((w, wi) => {
-      flat.push({
-        id: w.id,
-        text: w.text,
-        start: w.start,
-        end: w.end,
-        highlight: !!w.highlight,
-        breakBefore: si > 0 && wi === 0,
-      });
-    });
-  });
-  return flat;
-}
-
-/**
- * Same reveal timing as server — preview must match burn.
- *
- * Every word (highlight or not) reveals at its own natural audio start time.
- * Word timestamps are already chronological, so this is trivially in reading
- * order with zero perceptible lag — earlier versions artificially delayed the
- * highlighted word (to "wait for the sentence to settle" before its punch-in),
- * but that wait (hundreds of ms) is longer than the gap between fast-spoken
- * Hinglish words, so the next word regularly finished its own rise animation
- * and appeared BEFORE the still-waiting highlight — reading as a skipped word.
- * The highlight still reads as distinct through color/font/italic/scale, not
- * a forced time offset.
- */
-function computePreviewRevealStarts(ws) {
-  return ws.map((w) => w.start);
-}
-
-/**
- * Build caption blocks on the client so transcript edits/drags update the
- * overlay immediately (no round-trip / silent API miss).
- */
-function buildPreviewBlocks(words, style = {}) {
-  const {
-    maxWordsPerBlock = 8,
-    maxBlockDuration = 3.5,
-    lingerAfterLast = 2.5,
-    minWordDuration = 0.12,
-    manualGrouping = false,
-    riseMs = 460,
-  } = style;
-  const PUNCT = /[.,!?;:—]$/;
-  const normalized = [];
-  for (let i = 0; i < (words || []).length; i++) {
-    const w = words[i];
-    const text = String(w?.text ?? w?.word ?? '').trim();
-    if (!text) continue;
-    const start = Number(w.start);
-    if (!Number.isFinite(start) || start < 0) continue;
-    let end = Number(w.end);
-    if (!Number.isFinite(end) || end <= start) end = start + minWordDuration;
-    normalized.push({
-      id: w.id || `w-${i}-${start}`,
-      text,
-      start,
-      end,
-      highlight: !!w.highlight,
-      breakBefore: !!w.breakBefore,
-    });
-  }
-
-  const grouped = [];
-  let current = [];
-  const flush = () => { if (current.length) { grouped.push(current); current = []; } };
-
-  if (manualGrouping) {
-    for (let i = 0; i < normalized.length; i++) {
-      const w = normalized[i];
-      if (i > 0 && w.breakBefore) flush();
-      current.push(w);
-    }
-    flush();
-  } else {
-    const sorted = [...normalized].sort((a, b) => a.start - b.start);
-    for (const w of sorted) {
-      current.push(w);
-      const spanned = w.end - current[0].start;
-      if (current.length >= maxWordsPerBlock || spanned >= maxBlockDuration || PUNCT.test(w.text)) {
-        flush();
-      }
-    }
-    flush();
-  }
-
-  const blocks = grouped.map((ws, index) => {
-    const revealStarts = computePreviewRevealStarts(ws, { riseMs });
-    return {
-      index,
-      start: +Math.min(...ws.map((w) => w.start)).toFixed(3),
-      end: +(Math.max(...ws.map((w) => w.end)) + lingerAfterLast).toFixed(3),
-      words: ws.map((w, i) => ({
-        ...w,
-        activeFrom: +revealStarts[i].toFixed(3),
-        activeTo: +(i + 1 < ws.length ? revealStarts[i + 1] : Math.max(...ws.map((x) => x.end)) + lingerAfterLast).toFixed(3),
-      })),
-    };
-  });
-
-  blocks.sort((a, b) => a.start - b.start);
-  for (let i = 0; i < blocks.length - 1; i++) {
-    if (blocks[i].end > blocks[i + 1].start) blocks[i].end = blocks[i + 1].start;
-  }
-  return blocks.filter((b) => b.end > b.start);
-}
-
-/** Merge defaults so older sessions / partial style still drive motion sliders. */
-function normalizeStyle(s = {}) {
-  const out = { ...DEFAULT_STYLE, ...s };
-  out.riseMs = Math.max(40, Number(out.riseMs) || DEFAULT_STYLE.riseMs);
-  out.riseY = Number.isFinite(Number(out.riseY)) ? Number(out.riseY) : DEFAULT_STYLE.riseY;
-  out.lingerAfterLast = Math.max(0, Number(out.lingerAfterLast) || DEFAULT_STYLE.lingerAfterLast);
-  out.maxBlockDuration = Math.max(0.4, Number(out.maxBlockDuration) || DEFAULT_STYLE.maxBlockDuration);
-  out.maxWordsPerBlock = Math.max(1, Number(out.maxWordsPerBlock) || DEFAULT_STYLE.maxWordsPerBlock);
-  out.fontSize = Math.max(12, Number(out.fontSize) || DEFAULT_STYLE.fontSize);
-  out.posY = Number.isFinite(Number(out.posY)) ? Number(out.posY) : DEFAULT_STYLE.posY;
-  out.posX = Number.isFinite(Number(out.posX)) ? Number(out.posX) : DEFAULT_STYLE.posX;
-  out.lineStartX = Math.max(10, Math.min(320, Number.isFinite(Number(out.lineStartX))
-    ? Number(out.lineStartX)
-    : DEFAULT_STYLE.lineStartX));
-  out.maxLines = Math.max(1, Math.min(4, Number(out.maxLines) || DEFAULT_STYLE.maxLines));
-  out.wordGapMul = Math.max(0.05, Number(out.wordGapMul) || DEFAULT_STYLE.wordGapMul);
-  out.letterSpacing = Math.max(-4, Math.min(20, Number.isFinite(Number(out.letterSpacing))
-    ? Number(out.letterSpacing)
-    : DEFAULT_STYLE.letterSpacing));
-  out.highlightScale = Math.max(80, Math.min(180, Number(out.highlightScale) || DEFAULT_STYLE.highlightScale));
-  out.highlightWeight = 0;
-  const baseMeta = findCaptionFont(out.baseFontName || out.fontName) || findCaptionFont(DEFAULT_STYLE.baseFontName);
-  const hiMeta = findCaptionFont(out.highlightFontName) || findCaptionFont(DEFAULT_STYLE.highlightFontName);
-  out.baseFontName = baseMeta?.id || baseMeta?.assName || DEFAULT_STYLE.baseFontName;
-  out.fontName = baseMeta?.assName || DEFAULT_STYLE.fontName;
-  out.highlightFontName = hiMeta?.id || hiMeta?.assName || DEFAULT_STYLE.highlightFontName;
-  out.glowBlur = Math.max(0, Number.isFinite(Number(out.glowBlur)) ? Number(out.glowBlur) : DEFAULT_STYLE.glowBlur);
-  out.glowBorder = Math.max(0, Math.min(20, Number.isFinite(Number(out.glowBorder))
-    ? Number(out.glowBorder)
-    : DEFAULT_STYLE.glowBorder));
-  const legacyGlow = Number.isFinite(Number(out.glowStrength)) ? Number(out.glowStrength) : DEFAULT_STYLE.baseGlowStrength;
-  out.baseGlowStrength = Math.max(0, Math.min(100, Number.isFinite(Number(out.baseGlowStrength))
-    ? Number(out.baseGlowStrength)
-    : legacyGlow));
-  out.highlightGlowStrength = Math.max(0, Math.min(100, Number.isFinite(Number(out.highlightGlowStrength))
-    ? Number(out.highlightGlowStrength)
-    : legacyGlow));
-  // Never scale-pop — words always render at full size.
-  out.popFromScale = 100;
-  out.popToScale = 100;
-  out.popDurationMs = 0;
-  out.popSettleScale = 100;
-  out.popSettleMs = 0;
-  return out;
-}
-
-/** Fast from the bottom, smooth decelerate into the slot (not linear). */
-function easeOutCubic(t) {
-  const x = Math.min(1, Math.max(0, t));
-  return 1 - (1 - x) ** 3;
-}
-
-/** 0 at bottom → 1 at final position (eased travel fraction). */
-function riseTravelAt(time, word, style) {
-  if (!word || !style.riseMs) return 1;
-  const ms = (time - word.activeFrom) * 1000;
-  if (ms <= 0) return 0;
-  if (ms >= style.riseMs) return 1;
-  return easeOutCubic(ms / style.riseMs);
-}
-
-/** Scale pop with ease-out, then settle back to 100%. */
-function popScaleAt(time, word, style) {
-  if (!word) return style.popSettleScale ?? 100;
-  const ms = (time - word.activeFrom) * 1000;
-  const settleTo = Number.isFinite(style.popSettleScale) ? style.popSettleScale : 100;
-  const settleMs = Number.isFinite(style.popSettleMs) ? style.popSettleMs : style.popDurationMs;
-  if (ms <= 0) return style.popFromScale;
-  if (ms < style.popDurationMs) {
-    const p = easeOutCubic(ms / style.popDurationMs);
-    return style.popFromScale + (style.popToScale - style.popFromScale) * p;
-  }
-  if (ms < style.popDurationMs + settleMs) {
-    const p = easeOutCubic((ms - style.popDurationMs) / settleMs);
-    return style.popToScale + (settleTo - style.popToScale) * p;
-  }
-  return settleTo;
-}
-
-/** Rise from below into the exact slot — decelerates hard as it lands. */
-function riseOffsetAt(time, word, style) {
-  if (!word || !style.riseY) return 0;
-  return style.riseY * (1 - riseTravelAt(time, word, style));
-}
-
-/**
- * Fade in over the first 70% of travel distance; fully opaque for the settle.
- */
-function riseOpacityAt(time, word, style, isRising) {
-  if (!isRising || !style.riseY) return 1;
-  const travel = riseTravelAt(time, word, style);
-  if (travel >= 0.7) return 1;
-  return travel / 0.7;
-}
-
+/** Format seconds as m:ss for the transport scrubber. */
 function fmtTime(s) {
   if (!Number.isFinite(s)) return '0:00';
   const m = Math.floor(s / 60);
@@ -385,42 +43,54 @@ function fmtTime(s) {
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
-function hexToRgba(hex, alpha = 1) {
-  const h = String(hex || '#EDEAE3').replace('#', '');
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h.padEnd(6, '0').slice(0, 6);
-  const n = parseInt(full, 16);
-  if (!Number.isFinite(n)) return `rgba(237,234,227,${alpha})`;
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  return `rgba(${r},${g},${b},${Math.max(0, Math.min(1, alpha))})`;
+// Collapsible group, same shape as the Bizz India Playbook panel so both
+// editors feel like one product.
+function CollapsibleSection({ title, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="bg-[var(--pintu-card-header-bg)] rounded-lg border border-[var(--pintu-card-header-border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-3.5 py-2.5 text-left"
+      >
+        <span className="text-[11px] font-medium text-[var(--pintu-text-secondary)]">{title}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-[var(--pintu-text-muted)] transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <div className="px-3.5 pb-3.5 space-y-3">{children}</div>}
+    </div>
+  );
 }
 
-function FontSelect({ label, value, role, onChange }) {
+function FontSelect({ label, value, role, onChange, hint }) {
   const options = fontsForRole(role);
   return (
-    <label className="block">
-      <span className="block text-[11px] uppercase tracking-wider text-neutral-500 mb-1.5">{label}</span>
+    <label className="block space-y-1">
+      <span className="block text-[11px] font-medium text-[var(--pintu-text-secondary)]">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-neutral-950 border border-neutral-800 rounded-md px-2.5 py-2 text-[12px] text-neutral-200
-                   focus:outline-none focus:border-neutral-600"
+        className="w-full px-2.5 py-1.5 text-xs text-[var(--pintu-text-primary)] bg-[var(--pintu-input-bg)]
+                   border border-[var(--pintu-input-border)] rounded-md focus:outline-none focus:border-violet-500
+                   focus:ring-2 focus:ring-violet-500/20 transition-all"
       >
         {options.map((f) => (
           <option key={f.id} value={f.id}>{f.id}</option>
         ))}
       </select>
+      {hint && <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">{hint}</p>}
     </label>
   );
 }
 
-function Slider({ label, value, min, max, step = 1, suffix = '', onChange }) {
+function Slider({ label, value, min, max, step = 1, suffix = '', onChange, hint }) {
   return (
-    <label className="block">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[11px] uppercase tracking-wider text-neutral-500">{label}</span>
-        <span className="text-[11px] font-medium text-neutral-300 tabular-nums">{value}{suffix}</span>
+    <label className="block space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-medium text-[var(--pintu-text-secondary)]">{label}</span>
+        <span className="text-[10px] font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-1.5 py-0.5 rounded-full min-w-[2.25rem] text-center">
+          {value}{suffix}
+        </span>
       </div>
       <input
         type="range"
@@ -429,34 +99,34 @@ function Slider({ label, value, min, max, step = 1, suffix = '', onChange }) {
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-1 bg-neutral-800 rounded-full appearance-none cursor-pointer
-                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5
-                   [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full
-                   [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:cursor-grab"
+        className="w-full h-1.5 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
       />
+      {hint && <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">{hint}</p>}
     </label>
   );
 }
 
-function ColorInput({ label, value, onChange }) {
+function ColorInput({ label, value, onChange, hint }) {
   return (
-    <label className="block">
-      <span className="block text-[11px] uppercase tracking-wider text-neutral-500 mb-1.5">{label}</span>
+    <label className="block space-y-1">
+      <span className="block text-[11px] font-medium text-[var(--pintu-text-secondary)]">{label}</span>
       <div className="flex items-center gap-2">
         <input
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
-          className="w-8 h-8 rounded-md bg-transparent border border-neutral-800 cursor-pointer p-0.5"
+          className="w-7 h-7 shrink-0 rounded-md bg-transparent border border-[var(--pintu-input-border)] cursor-pointer p-0.5"
         />
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
-          className="flex-1 min-w-0 bg-neutral-900 border border-neutral-800 rounded-md px-2 py-1.5
-                     text-xs font-mono text-neutral-300 focus:outline-none focus:border-neutral-600"
+          className="flex-1 min-w-0 px-2.5 py-1.5 text-xs font-mono text-[var(--pintu-text-primary)]
+                     bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded-md
+                     focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all"
         />
       </div>
+      {hint && <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">{hint}</p>}
     </label>
   );
 }
@@ -476,6 +146,14 @@ export default function TranscribeApp() {
   const [dropHint, setDropHint] = useState(null); // { si, wi } insert before wi in sentence si
   const [serverVideoPath, setServerVideoPath] = useState(null);
   const [style, setStyle] = useState(DEFAULT_STYLE);
+  const [captionMode, setCaptionMode] = useState('styled'); // styled | bizz | bizzindia | podcastred
+  const captionModeRef = useRef('styled');
+  const stylePackRef = useRef({
+    styled: DEFAULT_STYLE,
+    bizz: DEFAULT_BIZZ_STYLE,
+    bizzindia: MODE_DEFAULTS.bizzindia,
+    podcastred: MODE_DEFAULTS.podcastred,
+  });
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [time, setTime] = useState(0);
@@ -487,6 +165,7 @@ export default function TranscribeApp() {
 
   const videoRef = useRef(null);
   const stageRef = useRef(null);
+  const replaceInputRef = useRef(null); // swap the clip without leaving the editor
   const dragRef = useRef(null); // { fromSi, fromWi } — more reliable than dataTransfer
   const [stageWidth, setStageWidth] = useState(0);
 
@@ -496,9 +175,25 @@ export default function TranscribeApp() {
     setFile(f);
     setVideoUrl((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(f); });
     setWords([]); setServerVideoPath(null);
-    setBurnResult(null); setError(null); setPhase('idle');
-    setManualGrouping(false); setDragWordId(null); setDropHint(null);
+    setBurnResult(null); setError(null); setPhase('idle'); setProgress(null);
+    setManualGrouping(false); setDragWordId(null); setDropHint(null); setEditing(null);
+    // Playback state belongs to the old clip: a paused swap left the transport showing
+    // Pause, and the scrubber holding the previous timeline until the new metadata landed.
+    setPlaying(false); setTime(0); setDuration(0);
   }, []);
+
+  /**
+   * Swap the source clip in place. onPickFile already clears the transcript, the burn
+   * result and the server-side upload, so the only thing to add is a warning — the
+   * transcript and any hand grouping go with the old video. The style is kept: it lives
+   * outside this state and is usually the reason you are swapping clips in the first place.
+   */
+  const replaceVideo = useCallback((f) => {
+    if (!f) return;
+    if (words.length
+      && !window.confirm('Replace the video? The current transcript and its edits are discarded.')) return;
+    onPickFile(f);
+  }, [words.length, onPickFile]);
 
   useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);
 
@@ -586,6 +281,27 @@ export default function TranscribeApp() {
     return m;
   }, [words]);
 
+  const switchCaptionMode = (mode) => {
+    if (mode === captionModeRef.current) return;
+    stylePackRef.current[captionModeRef.current] = style;
+    captionModeRef.current = mode;
+    setCaptionMode(mode);
+    const next = normalizeStyle(stylePackRef.current[mode] || MODE_DEFAULTS[mode] || DEFAULT_STYLE);
+    setStyle(next);
+    // Sentence grouping is baked into the words when they arrive, so a look with different
+    // limits (Bizz Playbook groups two words a card, Styled four) would otherwise keep
+    // showing the old grouping until "Re-auto group" was pressed. Only re-split when the
+    // limits actually differ, so switching between looks that group alike keeps hand edits.
+    const prev = normalizeStyle(style);
+    const regroup = next.maxWordsPerBlock !== prev.maxWordsPerBlock
+      || next.maxCharsPerBlock !== prev.maxCharsPerBlock;
+    if (regroup) setWords((ws) => (ws.length ? stampAutoSentenceBreaks(ws, next) : ws));
+  };
+
+  useEffect(() => {
+    stylePackRef.current[captionMode] = style;
+  }, [style, captionMode]);
+
   const updateWord = (idx, text) => {
     setWords((prev) => prev.map((w, i) => (i === idx ? { ...w, text } : w)));
   };
@@ -651,14 +367,47 @@ export default function TranscribeApp() {
     if (!serverVideoPath || !words.length) return;
     setPhase('burning'); setError(null); setBurnResult(null);
     try {
+      // Ship the layout the preview actually drew, rather than letting the burner
+      // recompute it. Both sides run the same algorithm but measure text differently —
+      // the editor with ctx.measureText (browser hinting/kerning), the burner with raw
+      // opentype advance widths — so recomputing produced different word widths, wider
+      // lines and visible gaps. These x/y are in the same 720x1280 space the ASS uses.
+      const styleN = normalizeStyle(style);
+      const lookDefaults = MODE_DEFAULTS[captionMode] || MODE_DEFAULTS.styled;
+      const burnStyle = { ...lookDefaults, ...styleN, manualGrouping };
+      const hiScaleN = Math.max(0.2, (burnStyle.highlightScale ?? 125) / 100);
+      const previewBlocks = buildPreviewBlocks(words, burnStyle).map((b) => {
+        const pos = layoutPreviewWords(b.words, burnStyle);
+        return {
+          ...b,
+          words: b.words.map((w, i) => {
+            const line = pos[i]?.line ?? 0;
+            const isHi = usesHighlightSlot(burnStyle, w, line);
+            return {
+              ...w,
+              x: pos[i]?.x,
+              y: pos[i]?.y,
+              line,
+              // Width this word was given on screen. The burner cannot reproduce browser text
+              // metrics, so it scales each word to land in exactly this much space instead of
+              // measuring for itself — otherwise a narrower glyph leaves the slack as a gap.
+              w: measurePreviewWidth(w.text, burnStyle.fontSize, isHi, hiScaleN, burnStyle),
+            };
+          }),
+        };
+      });
+
       const res = await fetch('/api/burn-subtitles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           videoPath: serverVideoPath,
           words,
-          style: { ...normalizeStyle(style), manualGrouping },
-          captionStyle: 'word-highlight',
+          previewBlocks,
+          style: burnStyle,
+          captionStyle: burnStyle.roleBy === 'line'
+            ? 'word-highlight'
+            : (CAPTION_STYLE_BY_MODE[captionMode] || 'word-highlight'),
         }),
       });
       const data = await res.json();
@@ -669,7 +418,7 @@ export default function TranscribeApp() {
       setError(e.message);
       setPhase('ready');
     }
-  }, [serverVideoPath, words, style, manualGrouping]);
+  }, [serverVideoPath, words, style, manualGrouping, captionMode]);
 
   // --- derived preview state ---------------------------------------------
   const sStyle = useMemo(() => normalizeStyle(style), [style]);
@@ -684,39 +433,24 @@ export default function TranscribeApp() {
     return m;
   }, [words]);
   const activeBlock = useMemo(
-    () => blocks.find((b) => time >= b.start && time < b.end) || null,
+    () => findActiveCaptionBlock(blocks, time),
     [blocks, time],
   );
-  const activeWordIdx = useMemo(() => {
-    if (!activeBlock) return -1;
-    let idx = -1;
-    activeBlock.words.forEach((w, i) => { if (time >= w.activeFrom) idx = i; });
-    return idx;
-  }, [activeBlock, time]);
-
-  // Live layout from current style (Word gap / font size update immediately).
-  const layoutWords = useMemo(() => {
-    if (!activeBlock) return [];
-    const positions = layoutPreviewWords(activeBlock.words, sStyle);
-    return activeBlock.words.map((w, i) => ({
-      ...w,
-      x: positions[i].x,
-      y: positions[i].y,
-      line: positions[i].line,
-    }));
-  }, [activeBlock, sStyle]);
 
   const scale = stageWidth ? stageWidth / PLAY_RES_X : 0;
   const setS = (patch) => setStyle((prev) => normalizeStyle({ ...prev, ...patch }));
+  // Styled and Podcast Red both reveal word by word and share the same preview, controls
+  // and generator; Basic and Strong render a whole line per card.
+  const isWordLook = captionMode === 'styled' || captionMode === 'podcastred';
 
   const busy = phase === 'transcribing' || phase === 'burning';
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-inter">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-inter" style={PINTU_DARK_VARS}>
       <header className="border-b border-neutral-900 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <Type className="w-4 h-4 text-red-500" />
-          <h1 className="text-sm font-semibold tracking-tight">Word-Level Captions</h1>
+          <h1 className="text-sm font-semibold tracking-tight">Captions</h1>
           <span className="text-[11px] text-neutral-600 ml-1">Groq Whisper large-v3 → ASS burn-in</span>
         </div>
         <a href="/" className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors">
@@ -731,6 +465,15 @@ export default function TranscribeApp() {
             ref={stageRef}
             className="relative w-full bg-black rounded-xl overflow-hidden border border-neutral-900"
             style={{ aspectRatio: String(aspect) }}
+            // Dropping a clip on the stage swaps it, loaded or not — no round trip to the
+            // empty state. Word drags from the transcript carry no files, so they fall through.
+            onDragOver={(e) => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); }}
+            onDrop={(e) => {
+              const f = e.dataTransfer?.files?.[0];
+              if (!f || !f.type.startsWith('video/')) return;
+              e.preventDefault();
+              replaceVideo(f);
+            }}
           >
             {videoUrl ? (
               <video
@@ -745,7 +488,24 @@ export default function TranscribeApp() {
                 onEnded={() => setPlaying(false)}
                 playsInline
               />
-            ) : (
+            ) : null}
+
+            {videoUrl && (
+              <button
+                type="button"
+                onClick={() => replaceInputRef.current?.click()}
+                disabled={busy}
+                title="Pick a different clip without leaving the editor"
+                className="absolute top-2 right-2 z-10 flex items-center gap-1.5 rounded-md bg-black/70
+                           backdrop-blur px-2.5 py-1.5 text-[11px] text-neutral-200 border border-white/15
+                           hover:bg-black/85 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed
+                           transition-colors"
+              >
+                <Upload className="w-3 h-3" /> Replace video
+              </button>
+            )}
+
+            {!videoUrl && (
               <label className="absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer
                                 text-neutral-600 hover:text-neutral-400 transition-colors">
                 <Upload className="w-7 h-7" />
@@ -760,74 +520,90 @@ export default function TranscribeApp() {
             )}
 
             {/* caption overlay — live from transcript (edits apply immediately) */}
-            {activeBlock && scale > 0 && (
+            {activeBlock && scale > 0 && !isWordLook && (
               <div className="absolute inset-0 pointer-events-none">
-                {layoutWords.map((w, i) => {
-                  // Montserrat words reveal at audio time; Playfair words wait until
-                  // every regular word has risen, then reveal in order.
-                  const spoken = sStyle.reveal === 'all' || time >= w.activeFrom;
-                  const rises = sStyle.riseOn === 'word' || (sStyle.riseOn === 'block' && i === 0);
-                  const travel = spoken ? riseTravelAt(time, w, sStyle) : 1;
-                  const isRising = rises && spoken && sStyle.riseY > 0 && travel < 1;
-                  const isHi = !!w.highlight;
-                  const dy = isRising ? riseOffsetAt(time, w, sStyle) * scale : 0;
-                  const opacity = !spoken
-                    ? 0
-                    : (isRising ? riseOpacityAt(time, w, sStyle, true) : 1);
-                  const color = isHi ? sStyle.activeColor : sStyle.baseColor;
-                  const x = Number.isFinite(w.x) ? w.x : sStyle.posX;
-                  const y = Number.isFinite(w.y) ? w.y : sStyle.posY;
-                  const hiScale = (sStyle.highlightScale ?? 125) / 100;
-                  const fs = sStyle.fontSize * scale * (isHi ? hiScale : 1);
-                  // Playfair: no stroke. Montserrat: thin outline only.
-                  const stroke = isHi ? 0 : Math.max(0, (sStyle.outline ?? 2) * scale);
-                  const glowPx = (sStyle.glowBlur ?? 10) * scale;
-                  const glowSpread = (sStyle.glowBorder ?? 6) * scale * 0.15;
-                  const glowAmt = Math.max(0, Math.min(1, (
-                    isHi
-                      ? (sStyle.highlightGlowStrength ?? 35)
-                      : (sStyle.baseGlowStrength ?? 35)
-                  ) / 100));
-                  const shadow = !sStyle.glow || opacity <= 0.05 || glowAmt <= 0.01
-                    ? 'none'
-                    : [
-                        `0 0 ${Math.max(2, glowPx * 0.35)}px ${hexToRgba(color, glowAmt)}`,
-                        `0 0 ${Math.max(4, glowPx * 0.75 + glowSpread)}px ${hexToRgba(color, glowAmt * 0.7)}`,
-                        `0 0 ${Math.max(6, glowPx * 1.35 + glowSpread)}px ${hexToRgba(color, glowAmt * 0.4)}`,
-                      ].join(', ');
-                  const hiMeta = findCaptionFont(sStyle.highlightFontName);
-                  const baseMeta = findCaptionFont(sStyle.baseFontName || sStyle.fontName);
-                  const fontMeta = isHi ? hiMeta : baseMeta;
+                {(() => {
+                  const isLineLook = !isWordLook;
+                  const meta = findCaptionFont(sStyle.baseFontName || sStyle.fontName);
+                  const fs = sStyle.fontSize * scale;
+                  const stroke = Math.max(0, (sStyle.outline ?? 3) * scale);
+                  // Glow and drop shadow both come from the shared builder, which the burn
+                  // mirrors layer for layer — Bizz India's red bloom, the Playbook's offset
+                  // shadow, or both. Same function the playbook editor's cards draw with.
+                  const shadow = captionTextShadow(sStyle, scale);
+                  const textCase = sStyle.textCase === 'lower'
+                    ? 'lowercase'
+                    : sStyle.textCase === 'upper' ? 'uppercase' : 'none';
                   return (
-                    <span
-                      key={`${w.id || w.start}-${w.text}-${i}`}
+                    <div
                       style={{
                         position: 'absolute',
-                        left: `${(x / PLAY_RES_X) * 100}%`,
-                        top: `${(y / PLAY_RES_Y) * 100}%`,
-                        display: 'inline-block',
-                        opacity,
-                        transform: `translate(-50%, -50%) rotate(${-sStyle.slantDeg}deg) translateY(${dy}px)`,
-                        fontFamily: `"${fontMeta?.cssFamily || (isHi ? 'Playfair Display Bold Italic' : 'Montserrat Black')}", "Segoe UI Emoji", "Apple Color Emoji", "Twemoji Mozilla", sans-serif`,
-                        fontWeight: fontMeta?.weight || (isHi ? 700 : 900),
-                        fontStyle: fontMeta?.style || (isHi ? 'italic' : 'normal'),
-                        fontSize: `${fs}px`,
-                        letterSpacing: `${(sStyle.letterSpacing || 0) * scale}px`,
-                        color,
-                        WebkitTextStrokeWidth: stroke > 0 ? `${stroke}px` : undefined,
-                        WebkitTextStrokeColor: stroke > 0 ? (sStyle.outlineColor || '#000') : undefined,
-                        paintOrder: stroke > 0 ? 'stroke fill' : undefined,
-                        textShadow: shadow,
-                        whiteSpace: 'nowrap',
+                        left: '50%',
+                        top: `${(sStyle.posY / PLAY_RES_Y) * 100}%`,
+                        transform: 'translate(-50%, -50%)',
+                        width: '86%',
+                        textAlign: 'center',
                       }}
                     >
-                      {w.text}
-                    </span>
+                      {blockToPreviewLineWords(activeBlock.words).map((line, i) => (
+                        <div
+                          key={`line-${i}-${line[0]?.id || line[0]?.text || ''}`}
+                          style={{
+                            // Inter second: the burn substitutes it per character for glyphs
+                            // the caption font lacks, so the preview shows the same substitute.
+                            fontFamily: `"${meta?.cssFamily || 'Inter Bold Caption'}", "Inter Bold Caption", "Segoe UI Emoji", sans-serif`,
+                            fontWeight: meta?.weight || 700,
+                            fontStyle: meta?.style || 'normal',
+                            fontSize: `${fs}px`,
+                            lineHeight: sStyle.lineHeightMul || 1.2,
+                            letterSpacing: `${(sStyle.letterSpacing || 0) * scale}px`,
+                            color: sStyle.baseColor || '#FFFFFF',
+                            textTransform: textCase,
+                            WebkitTextStrokeWidth: stroke > 0 ? `${stroke}px` : undefined,
+                            WebkitTextStrokeColor: stroke > 0 ? (sStyle.outlineColor || '#000') : undefined,
+                            paintOrder: stroke > 0 ? 'stroke fill' : undefined,
+                            textShadow: shadow,
+                            whiteSpace: 'pre-wrap',
+                          }}
+                        >
+                          {line.map((w, wi) => (
+                            <span
+                              key={w.id || `${i}-${wi}`}
+                              // Emphasis only shows once a different colour is picked, which is
+                              // how the Bizz Playbook preset ships (white on white = off).
+                              style={isLineLook && w.highlight
+                                ? { color: sStyle.activeColor || sStyle.baseColor || '#FFFFFF' }
+                                : undefined}
+                            >
+                              {wi > 0 ? ' ' : ''}{w.text}
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
                   );
-                })}
+                })()}
               </div>
             )}
+            {activeBlock && scale > 0 && isWordLook && (
+              <CaptionWordOverlay
+                block={activeBlock}
+                style={sStyle}
+                scale={scale}
+                time={time}
+              />
+            )}
           </div>
+
+          {/* One input behind both the stage button and the filename link. Clearing value on
+              change means picking the same file twice still fires. */}
+          <input
+            ref={replaceInputRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; replaceVideo(f); }}
+          />
 
           {/* transport */}
           {videoUrl && (
@@ -858,9 +634,18 @@ export default function TranscribeApp() {
           )}
 
           {file && (
-            <p className="mt-2 text-[11px] text-neutral-600 truncate">
-              {file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB
-            </p>
+            <div className="mt-2 flex items-baseline gap-2 text-[11px] text-neutral-600">
+              <span className="truncate">{file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB</span>
+              <button
+                type="button"
+                onClick={() => replaceInputRef.current?.click()}
+                disabled={busy}
+                className="shrink-0 text-neutral-500 underline underline-offset-2 hover:text-neutral-300
+                           disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Replace
+              </button>
+            </div>
           )}
           {words.length > 0 && (
             <p className="mt-2 text-[11px] text-amber-500/80 leading-relaxed">
@@ -921,169 +706,297 @@ export default function TranscribeApp() {
             </div>
           </section>
 
-          {/* step 2 — style (simple; motion baked in) */}
-          <section className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <h2 className="text-xs font-semibold text-neutral-300">2 · Style</h2>
+          {/* step 2 - style. Card + collapsible groups, same shapes as the Bizz India
+              Playbook panel. Only the six everyday controls sit up top; everything
+              else lives behind "Show advanced" so the panel is not a wall of sliders. */}
+          <section className="bg-[var(--pintu-card-bg)] rounded-xl overflow-hidden border border-[var(--pintu-card-border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_32px_rgba(0,0,0,0.5)]">
+            <div className="flex items-center gap-2 bg-[var(--pintu-card-header-bg)] px-4 py-2.5 border-b border-[var(--pintu-card-header-border)]">
+              <Type className="w-3.5 h-3.5 text-[var(--pintu-accent)]" />
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--pintu-text-secondary)]">Style</h2>
               <button
-                onClick={() => setStyle(DEFAULT_STYLE)}
-                className="flex items-center gap-1.5 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors"
+                onClick={() => setStyle(MODE_DEFAULTS[captionMode] || DEFAULT_STYLE)}
+                className="ml-auto flex items-center gap-1.5 text-[11px] text-[var(--pintu-text-faint)] hover:text-[var(--pintu-text-secondary)] transition-colors"
               >
                 <RotateCcw className="w-3 h-3" /> Reset
               </button>
             </div>
-            <p className="text-[11px] text-neutral-600 mb-4">
-              Motion updates live in the preview. Re-burn to bake changes into the export.
-            </p>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-4">
-              <FontSelect
-                label="Base font"
-                role="base"
-                value={sStyle.baseFontName}
-                onChange={(v) => {
-                  const meta = findCaptionFont(v);
-                  setS({ baseFontName: meta?.id || v, fontName: meta?.assName || v });
-                }}
-              />
-              <FontSelect
-                label="Highlight font"
-                role="highlight"
-                value={sStyle.highlightFontName}
-                onChange={(v) => setS({ highlightFontName: findCaptionFont(v)?.id || v })}
-              />
-              <Slider
-                label="Base font size"
-                value={sStyle.fontSize}
-                min={28}
-                max={96}
-                onChange={(v) => setS({ fontSize: v })}
-              />
-              <Slider
-                label="Highlight font size"
-                value={Math.round(sStyle.fontSize * (sStyle.highlightScale ?? 125) / 100)}
-                min={28}
-                max={140}
-                onChange={(v) => setS({
-                  highlightScale: Math.max(80, Math.min(180, Math.round((v / Math.max(1, sStyle.fontSize)) * 100))),
-                })}
-              />
-              <ColorInput label="Highlight color" value={sStyle.activeColor} onChange={(v) => setS({ activeColor: v })} />
-              <ColorInput label="Base color" value={sStyle.baseColor} onChange={(v) => setS({ baseColor: v })} />
-              <label className="flex items-center gap-2 cursor-pointer self-end pb-1">
-                <input
-                  type="checkbox"
-                  checked={sStyle.glow}
-                  onChange={(e) => setS({ glow: e.target.checked })}
-                  className="w-3.5 h-3.5 rounded accent-red-500"
-                />
-                <span className="text-[11px] uppercase tracking-wider text-neutral-500">Outer glow</span>
-              </label>
-              <Slider
-                label="Glow · base font"
-                value={sStyle.baseGlowStrength}
-                min={0}
-                max={100}
-                step={1}
-                suffix="%"
-                onChange={(v) => setS({ baseGlowStrength: v, glow: true })}
-              />
-              <Slider
-                label="Glow · highlight font"
-                value={sStyle.highlightGlowStrength}
-                min={0}
-                max={100}
-                step={1}
-                suffix="%"
-                onChange={(v) => setS({ highlightGlowStrength: v, glow: true })}
-              />
-              <Slider
-                label="Letter spacing"
-                value={sStyle.letterSpacing}
-                min={-2}
-                max={16}
-                step={0.5}
-                suffix="px"
-                onChange={(v) => setS({ letterSpacing: v })}
-              />
-              <Slider label="Caption height" value={sStyle.posY} min={200} max={1200} step={10} onChange={(v) => setS({ posY: v })} />
-              <Slider
-                label="Sentence start"
-                value={sStyle.lineStartX}
-                min={20}
-                max={280}
-                step={2}
-                onChange={(v) => setS({ lineStartX: v })}
-              />
-              <Slider
-                label="Max lines"
-                value={sStyle.maxLines}
-                min={1}
-                max={3}
-                step={1}
-                onChange={(v) => setS({ maxLines: v })}
-              />
-              <Slider label="Words / sentence" value={sStyle.maxWordsPerBlock} min={2} max={12} onChange={(v) => setS({ maxWordsPerBlock: v })} />
-              <Slider
-                label="Word gap"
-                value={Math.round(sStyle.wordGapMul * 100)}
-                min={5}
-                max={120}
-                step={5}
-                suffix="%"
-                onChange={(v) => setS({ wordGapMul: v / 100 })}
-              />
-
-              <Slider
-                label="Rise speed"
-                value={sStyle.riseMs}
-                min={100}
-                max={800}
-                step={10}
-                suffix="ms"
-                onChange={(v) => setS({ riseMs: v })}
-              />
-              <Slider
-                label="Rise height"
-                value={sStyle.riseY}
-                min={0}
-                max={100}
-                onChange={(v) => setS({ riseY: v })}
-              />
-              <Slider
-                label="Sentence hold"
-                value={sStyle.lingerAfterLast}
-                min={0.1}
-                max={4}
-                step={0.1}
-                suffix="s"
-                onChange={(v) => setS({ lingerAfterLast: v })}
-              />
-            </div>
-
-            <p className="mt-3 text-[10px] text-neutral-600 leading-relaxed">
-              Every line is center-aligned. Wrapped line 2+ stays centered under line 1
-              (tucked-in). Works the same for 1–2 words or a full sentence.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setShowAdvanced((v) => !v)}
-              className="mt-4 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors"
-            >
-              {showAdvanced ? 'Hide advanced' : 'Show advanced'}
-            </button>
-
-            {showAdvanced && (
-              <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-4 border-t border-neutral-900 pt-4">
-                <ColorInput label="Outline" value={sStyle.outlineColor} onChange={(v) => setS({ outlineColor: v })} />
-                <Slider label="Outline width" value={sStyle.outline} min={0} max={10} onChange={(v) => setS({ outline: v })} />
-                <Slider label="Slant" value={sStyle.slantDeg} min={-15} max={15} suffix="°" onChange={(v) => setS({ slantDeg: v })} />
-                <Slider label="Max sentence time" value={sStyle.maxBlockDuration} min={0.8} max={5} step={0.1} suffix="s" onChange={(v) => setS({ maxBlockDuration: v })} />
-                <Slider label="Outer glow blur" value={sStyle.glowBlur} min={0} max={28} onChange={(v) => setS({ glowBlur: v, glow: true })} />
-                <Slider label="Outer glow size" value={sStyle.glowBorder} min={0} max={16} onChange={(v) => setS({ glowBorder: v, glow: true })} />
+            <div className="p-4 space-y-2.5">
+              <div className="flex items-center justify-between gap-2 px-1 flex-wrap">
+                <span className="text-[11px] text-[var(--pintu-text-muted)]">Caption look</span>
+                <div className="flex flex-wrap bg-[var(--pintu-toggle-bg)] rounded-md p-0.5 border border-[var(--pintu-toggle-border)]">
+                  {['styled', 'bizz', 'bizzindia', 'podcastred'].map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => switchCaptionMode(mode)}
+                      className={`px-2.5 py-1 text-[11px] rounded transition-all ${
+                        captionMode === mode ? 'bg-violet-500 text-white font-semibold' : 'text-[var(--pintu-text-muted)] hover:text-[var(--pintu-text-secondary)]'
+                      }`}
+                    >
+                      {MODE_LABELS[mode]}
+                    </button>
+                  ))}
+                </div>
               </div>
-            )}
+
+              {captionMode === 'podcastred' && (
+                <div className="space-y-3 rounded-lg border border-[var(--pintu-card-header-border)] bg-[var(--pintu-card-header-bg)] px-3.5 py-3">
+                  <p className="text-[11px] font-medium text-[var(--pintu-text-secondary)]">Caption lines</p>
+                  <Slider
+                    label="Top line size"
+                    value={sStyle.fontSize}
+                    min={28}
+                    max={96}
+                    hint="Red line (first sentence)."
+                    onChange={(v) => setS({ fontSize: v })}
+                  />
+                  <Slider
+                    label="Bottom line size"
+                    value={Math.round(sStyle.fontSize * (sStyle.highlightScale ?? 51) / 100)}
+                    min={16}
+                    max={120}
+                    hint="White line (second sentence)."
+                    onChange={(v) => {
+                      const pct = Math.round((v / Math.max(1, sStyle.fontSize)) * 100);
+                      setS({ highlightScale: Math.max(20, Math.min(300, pct)) });
+                    }}
+                  />
+                  <Slider
+                    label="Line gap"
+                    value={Math.round(sStyle.lineHeightMul * 100)}
+                    min={50}
+                    max={200}
+                    step={1}
+                    suffix="%"
+                    hint="Space between the red line and the white line."
+                    onChange={(v) => setS({ lineHeightMul: v / 100 })}
+                  />
+                </div>
+              )}
+
+              <CollapsibleSection title="Fonts">
+                <FontSelect
+                  label="Base font"
+                  role="base"
+                  value={sStyle.baseFontName}
+                  hint={isWordLook ? 'The font the ordinary words use.' : 'The font every caption word uses.'}
+                  onChange={(v) => {
+                    const meta = findCaptionFont(v);
+                    setS({ baseFontName: meta?.id || v, fontName: meta?.assName || v });
+                  }}
+                />
+                {isWordLook && (
+                <FontSelect
+                  label="Highlight font"
+                  role="highlight"
+                  value={sStyle.highlightFontName}
+                  hint="The font the marked word switches to."
+                  onChange={(v) => setS({ highlightFontName: findCaptionFont(v)?.id || v })}
+                />
+                )}
+              </CollapsibleSection>
+
+              <CollapsibleSection title="Size">
+                {captionMode !== 'podcastred' && (
+                <Slider
+                  label={isWordLook ? 'Base font size' : 'Font size'}
+                  value={sStyle.fontSize}
+                  min={28}
+                  max={96}
+                  hint="How big the ordinary words are on the video."
+                  onChange={(v) => setS({ fontSize: v })}
+                />
+                )}
+                {isWordLook && captionMode !== 'podcastred' && (
+                <Slider
+                  label="Highlight font size"
+                  value={Math.round(sStyle.fontSize * (sStyle.highlightScale ?? 125) / 100)}
+                  min={16}
+                  max={140}
+                  hint="How big the marked word grows compared to the rest."
+                  onChange={(v) => {
+                    const pct = Math.round((v / Math.max(1, sStyle.fontSize)) * 100);
+                    setS({
+                      highlightScale: Math.max(20, Math.min(300, pct)),
+                    });
+                  }}
+                />
+                )}
+                <Slider
+                  label="Words / line"
+                  value={sStyle.maxWordsPerBlock}
+                  min={2}
+                  max={12}
+                  hint="How many words are grouped onto one line."
+                  onChange={(v) => setS({ maxWordsPerBlock: v })}
+                />
+                {!isWordLook && (
+                <Slider
+                  label="Max characters"
+                  value={sStyle.maxCharsPerBlock}
+                  min={0}
+                  max={60}
+                  step={1}
+                  hint="Splits earlier when two words would run too long. 0 turns the cap off."
+                  onChange={(v) => setS({ maxCharsPerBlock: v })}
+                />
+                )}
+              </CollapsibleSection>
+
+              <CollapsibleSection title="Colour">
+                {captionMode === 'podcastred' ? (
+                <>
+                <ColorInput
+                  label="Top line colour"
+                  value={sStyle.baseColor}
+                  hint="Colour of the red / first line."
+                  onChange={(v) => setS({ baseColor: v })}
+                />
+                <ColorInput
+                  label="Bottom line colour"
+                  value={sStyle.activeColor}
+                  hint="Colour of the white / second line."
+                  onChange={(v) => setS({ activeColor: v })}
+                />
+                </>
+                ) : (
+                <>
+                {isWordLook && (
+                <ColorInput
+                  label="Highlight colour"
+                  value={sStyle.activeColor}
+                  hint="Colour of the word being spoken."
+                  onChange={(v) => setS({ activeColor: v })}
+                />
+                )}
+                <ColorInput
+                  label={isWordLook ? 'Base colour' : 'Text colour'}
+                  value={sStyle.baseColor}
+                  hint="Colour of the ordinary words."
+                  onChange={(v) => setS({ baseColor: v })}
+                />
+                {!isWordLook && (
+                <ColorInput
+                  label="Emphasis colour"
+                  value={sStyle.activeColor}
+                  hint="Colour marked words switch to. Leave it white to keep emphasis off."
+                  onChange={(v) => setS({ activeColor: v })}
+                />
+                )}
+                </>
+                )}
+              </CollapsibleSection>
+
+              {!isWordLook && (
+              <CollapsibleSection title="Case & shadow">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sStyle.textCase === 'lower'}
+                    onChange={(e) => setS({ textCase: e.target.checked ? 'lower' : 'none' })}
+                    className="w-3.5 h-3.5 rounded accent-violet-500"
+                  />
+                  <span className="text-xs font-medium text-[var(--pintu-text-secondary)]">all lowercase</span>
+                </label>
+                <ColorInput
+                  label="Shadow colour"
+                  value={sStyle.shadowColor}
+                  hint="Colour of the drop shadow behind the line."
+                  onChange={(v) => setS({ shadowColor: v })}
+                />
+                <Slider label="Shadow X" value={sStyle.shadowOffsetX} min={-20} max={20} step={1} suffix="px" hint="How far right the shadow sits." onChange={(v) => setS({ shadowOffsetX: v })} />
+                <Slider label="Shadow Y" value={sStyle.shadowOffsetY} min={-20} max={20} step={1} suffix="px" hint="How far down the shadow sits." onChange={(v) => setS({ shadowOffsetY: v })} />
+                <Slider label="Shadow blur" value={sStyle.shadowBlur} min={0} max={40} step={1} hint="How soft the shadow edge is. 0 is a hard offset copy." onChange={(v) => setS({ shadowBlur: v })} />
+                <Slider label="Shadow opacity" value={sStyle.shadowOpacity} min={0} max={100} step={1} suffix="%" hint="How solid the shadow is." onChange={(v) => setS({ shadowOpacity: v })} />
+                <Slider label="Stroke width" value={sStyle.outline} min={0} max={12} step={0.5} suffix="px" hint="Black outline drawn around each letter." onChange={(v) => setS({ outline: v })} />
+              </CollapsibleSection>
+              )}
+
+              <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed px-1">
+                {!isWordLook
+                  ? 'Two words a card, one line, burned as one block: The Bizz Playbook runs lowercase with a drop shadow, Bizz India uppercase with a red glow. Mark a word in the transcript and give emphasis a colour to make it pop.'
+                  : 'Motion, glow and spacing are already tuned - open advanced only if you want to change them. Re-burn to bake changes into the export.'}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="text-[11px] text-[var(--pintu-text-faint)] hover:text-[var(--pintu-text-secondary)] transition-colors"
+              >
+                {showAdvanced ? 'Hide advanced' : 'Show advanced'}
+              </button>
+
+              {showAdvanced && (
+                <div className="space-y-2.5 border-t border-[var(--pintu-card-header-border)] pt-3">
+                  {isWordLook && (
+                  <CollapsibleSection title="Glow">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={sStyle.glow}
+                        onChange={(e) => setS({ glow: e.target.checked })}
+                        className="w-3.5 h-3.5 rounded accent-violet-500"
+                      />
+                      <span className="text-xs font-medium text-[var(--pintu-text-secondary)]">Glow on</span>
+                    </label>
+                    <Slider label="Glow spread" value={sStyle.glowBlur} min={0} max={120} hint="How far the glow bleeds out from the letters." onChange={(v) => setS({ glowBlur: v, glow: true })} />
+                    <Slider label="Glow thickness" value={sStyle.glowBorder} min={0} max={80} hint="How fat the glow ring around each letter is." onChange={(v) => setS({ glowBorder: v, glow: true })} />
+                    <Slider label="Glow strength - base" value={sStyle.baseGlowStrength} min={0} max={GLOW_OUTER_MAX} step={1} suffix="%" hint="Outer glow brightness on the ordinary / red words." onChange={(v) => setS({ baseGlowStrength: v, glow: true })} />
+                    <Slider label="Glow core - base" value={sStyle.baseInnerGlowStrength} min={0} max={GLOW_OUTER_MAX} step={1} suffix="%" hint="Tight centre glow on the ordinary / red words." onChange={(v) => setS({ baseInnerGlowStrength: v, glow: true })} />
+                    <Slider label="Glow strength - highlight" value={sStyle.highlightGlowStrength} min={0} max={GLOW_OUTER_MAX} step={1} suffix="%" hint="Outer glow brightness on the marked / white words." onChange={(v) => setS({ highlightGlowStrength: v, glow: true })} />
+                    <Slider label="Glow core - highlight" value={sStyle.highlightInnerGlowStrength} min={0} max={GLOW_OUTER_MAX} step={1} suffix="%" hint="Brightness right at the centre of the marked word." onChange={(v) => setS({ highlightInnerGlowStrength: v, glow: true })} />
+                    <Slider label="Glow core blur" value={sStyle.innerGlowBlur} min={0} max={24} step={0.5} hint="How soft that centre glow is." onChange={(v) => setS({ innerGlowBlur: v, glow: true })} />
+                    {captionMode === 'podcastred' && (
+                      <>
+                        <Slider
+                          label="Red edge highlight"
+                          value={sStyle.baseEdgeHighlight ?? 3}
+                          min={0}
+                          max={5}
+                          step={0.5}
+                          suffix="px"
+                          hint="Very subtle white on the top-left edges of red letters."
+                          onChange={(v) => setS({ baseEdgeHighlight: v })}
+                        />
+                        <ColorInput
+                          label="Edge highlight colour"
+                          value={sStyle.edgeHighlightColor || '#FFFFFF'}
+                          onChange={(v) => setS({ edgeHighlightColor: v })}
+                        />
+                      </>
+                    )}
+                  </CollapsibleSection>
+                  )}
+
+                  <CollapsibleSection title="Placement & spacing">
+                    <Slider label="Caption height" value={sStyle.posY} min={200} max={1200} step={10} hint="How far down the frame the captions sit." onChange={(v) => setS({ posY: v })} />
+                    {isWordLook && (
+                    <Slider label="Sentence start" value={sStyle.lineStartX} min={20} max={280} step={2} hint="Left margin each sentence starts from." onChange={(v) => setS({ lineStartX: v })} />
+                    )}
+                    <Slider label="Lines on screen" value={sStyle.maxLines} min={1} max={3} step={1} hint="How many lines stack up at once." onChange={(v) => setS({ maxLines: v })} />
+                    <Slider label="Line height" value={Math.round(sStyle.lineHeightMul * 100)} min={50} max={300} step={1} suffix="%" hint="Vertical gap between stacked lines." onChange={(v) => setS({ lineHeightMul: v / 100 })} />
+                    <Slider label="Letter spacing" value={sStyle.letterSpacing} min={-12} max={16} step={0.5} suffix="px" hint="Space between letters. Negative tracks the words in tight." onChange={(v) => setS({ letterSpacing: v })} />
+                    {isWordLook && (
+                    <Slider label="Word gap" value={Math.round(sStyle.wordGapMul * 100)} min={0} max={120} step={1} suffix="%" hint="Space between words on a line." onChange={(v) => setS({ wordGapMul: v / 100 })} />
+                    )}
+                    <Slider label="Slant" value={sStyle.slantDeg} min={-15} max={15} suffix="°" hint="Tilts the whole caption block." onChange={(v) => setS({ slantDeg: v })} />
+                  </CollapsibleSection>
+
+                  <CollapsibleSection title="Timing">
+                    {isWordLook && (
+                    <>
+                    <Slider label="Rise speed" value={sStyle.riseMs} min={100} max={800} step={10} suffix="ms" hint="How quickly each line slides up into place." onChange={(v) => setS({ riseMs: v })} />
+                    <Slider label="Rise height" value={sStyle.riseY} min={0} max={100} hint="How far each line travels while rising." onChange={(v) => setS({ riseY: v })} />
+                    </>
+                    )}
+                    <Slider label="Sentence hold" value={sStyle.lingerAfterLast} min={0} max={4} step={0.05} suffix="s" hint="How long a sentence stays after its last word. 0 clears as soon as the last word ends." onChange={(v) => setS({ lingerAfterLast: v })} />
+                    <Slider label="Max sentence time" value={sStyle.maxBlockDuration} min={0.8} max={5} step={0.1} suffix="s" hint="Longest a single sentence may stay on screen." onChange={(v) => setS({ maxBlockDuration: v })} />
+                  </CollapsibleSection>
+
+                </div>
+              )}
+            </div>
           </section>
 
           {/* step 3 — transcript */}
@@ -1101,7 +1014,7 @@ export default function TranscribeApp() {
               </div>
               <p className="text-[11px] text-neutral-600 mb-3">
                 Drag words between sentences to regroup — the preview overlay updates live.
-                Double-click to edit text. Click to mark Playfair highlight. Right-click to split after.
+                Double-click to edit text.{isWordLook ? ' Click to mark a highlight word.' : ''}{!isWordLook ? ' Click to mark an emphasised word.' : ''} Right-click to split after.
               </p>
               <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
                 {sentences.map((sent, si) => {

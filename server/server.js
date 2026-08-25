@@ -7,15 +7,26 @@ import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { createWriteStream, existsSync } from 'fs';
 import archiver from 'archiver';
+import ffmpeg from 'fluent-ffmpeg';
 import { createVideoProcessor } from './videoProcessor.js';
 import { createJobQueue } from './simpleQueue.js'; // Use your simpleQueue or Bull
 import { transcribeVideo } from './groqTranscriber.js';
 import {
   generateASS,
+  generateNormalASS,
   generateIndianFounderASS,
   generateWordHighlightASS,
+  generateBizzPlaybookASS,
   buildCaptionSpec,
 } from './subtitleGenerator.js';
+import {
+  CAPTION_DEFAULT_STYLE,
+  CAPTION_DEFAULT_NORMAL_STYLE,
+  CAPTION_DEFAULT_BIZZ_STYLE,
+  CAPTION_DEFAULT_BIZZ_INDIA_STYLE,
+  CAPTION_DEFAULT_PODCAST_RED_STYLE,
+  missingStyleKeys,
+} from '../shared/captionDefaults.js';
 import { uploadToCloudinary } from './cloudinaryUploader.js';
 import { uploadExportToDrive } from './driveUploader.js';
 import { burnSubtitles } from './subtitleBurner.js';
@@ -335,9 +346,83 @@ function serializeBurn(task) {
   return run;
 }
 
+// Author-space the caption editor lays out in: x/font against 720, y against 1280.
+const CAPTION_AUTHOR_W = 720;
+const CAPTION_AUTHOR_H = 1280;
+
+function probeVideoSize(videoPath) {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(videoPath, (err, metadata) => {
+      if (err) return resolve(null);
+      const v = metadata?.streams?.find(s => s.codec_type === 'video');
+      if (!v?.width || !v?.height) return resolve(null);
+      // Rotated phone footage reports pre-rotation dimensions; swap so we match display.
+      const rot = Math.abs(Number(v.rotation ?? v.tags?.rotate ?? 0)) % 180;
+      resolve(rot === 90
+        ? { width: v.height, height: v.width }
+        : { width: v.width, height: v.height });
+    });
+  });
+}
+
+/**
+ * Map editor 720×1280 layout into the clip's pixels.
+ *
+ * Use ONE uniform scale (width-based, same as the preview's font scale = stageW/720)
+ * for fonts, gaps, glow, AND vertical positions — then letterbox Y into the frame.
+ * Scaling X by sx and Y by sy independently was squashing line gaps on landscape
+ * clips (1024×768 → sy/sx ≈ 0.42) so the white line crashed into the red line.
+ */
+function captionResolutionFor(size, style, previewBlocks) {
+  if (!size?.width || !size?.height) {
+    return { style, previewBlocks, resX: CAPTION_AUTHOR_W, resY: CAPTION_AUTHOR_H };
+  }
+  const resX = size.width;
+  const resY = size.height;
+  // Type scales from the content box width / 720, which is what the preview does.
+  const s = resX / CAPTION_AUTHOR_W;
+  // Vertical placement is a FRACTION OF THE FRAME HEIGHT, because that is what the preview
+  // draws: every word is positioned with top: (y / 1280) * 100% of the stage, and the stage
+  // carries the clip's own aspect. Scaling y by the width factor and centring the 720x1280
+  // canvas instead only agreed with the preview on a 9:16 clip — on 16:9 podcast footage it
+  // put the caption 24 points of frame height too high, which is the export/preview drift.
+  const sy = resY / CAPTION_AUTHOR_H;
+  const mul = (v, k, digits = 2) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return v;
+    const f = 10 ** digits;
+    return Math.round(n * k * f) / f;
+  };
+
+  const scaled = { ...style, resX, resY };
+  for (const k of ['fontSize', 'posX', 'lineStartX', 'maxLineWidth', 'letterSpacing', 'outline', 'glowBlur', 'glowBorder', 'innerGlowBlur', 'shadowOffsetX', 'shadowOffsetY', 'shadowBlur', 'baseEdgeHighlight', 'riseY']) {
+    if (style?.[k] != null) scaled[k] = mul(style[k], s);
+  }
+  if (style?.posY != null) {
+    scaled.posY = Math.round(mul(style.posY, sy, 1));
+  }
+  if (Number.isFinite(Number(scaled.fontSize))) {
+    scaled.fontSize = Math.max(1, Math.round(Number(scaled.fontSize)));
+  }
+  if (Number.isFinite(Number(scaled.posX))) scaled.posX = Math.round(Number(scaled.posX));
+
+  const scaledBlocks = Array.isArray(previewBlocks)
+    ? previewBlocks.map((b) => ({
+      ...b,
+      words: (b.words || []).map((w) => ({
+        ...w,
+        x: Number.isFinite(Number(w.x)) ? Math.round(Number(w.x) * s) : w.x,
+        y: Number.isFinite(Number(w.y)) ? Math.round(Number(w.y) * sy) : w.y,
+        w: Number.isFinite(Number(w.w)) ? Number(w.w) * s : w.w,
+      })),
+    }))
+    : previewBlocks;
+  return { style: scaled, previewBlocks: scaledBlocks, resX, resY };
+}
+
 app.post('/api/burn-subtitles', express.json(), async (req, res) => {
   try {
-    const { videoPath, segments, words, style, captionStyle = 'word-highlight' } = req.body;
+    const { videoPath, segments, words, previewBlocks, style, captionStyle = 'word-highlight' } = req.body;
     if (!videoPath || (!segments?.length && !words?.length)) {
       return res.status(400).json({ error: 'videoPath and segments/words are required.' });
     }
@@ -345,20 +430,68 @@ app.post('/api/burn-subtitles', express.json(), async (req, res) => {
       return res.status(404).json({ error: `Video not found: ${videoPath}` });
     }
 
+    const probed = await probeVideoSize(videoPath);
+    const { style: fittedStyle, previewBlocks: fittedBlocks, resX, resY } =
+      captionResolutionFor(probed, style || {}, previewBlocks);
+
+    // Route by what the style IS, not only the captionStyle string — a mismatched
+    // label (e.g. an older client sending an unknown token) used to fall through to
+    // generateNormalASS and burn flat red+black-outline captions while the preview
+    // showed Podcast Red glow / white edge / two-tone lines.
+    const isPodcastRed = style?.roleBy === 'line'
+      || captionStyle === 'podcast-red'
+      || captionStyle === 'podcastred';
+    const isWordHighlight = captionStyle === 'word-highlight' || isPodcastRed;
+    const lookDefaults = (() => {
+      if (captionStyle === 'bizz-playbook') {
+        return style?.glow
+          ? CAPTION_DEFAULT_BIZZ_INDIA_STYLE
+          : CAPTION_DEFAULT_BIZZ_STYLE;
+      }
+      if (captionStyle === 'normal' && !isPodcastRed) return CAPTION_DEFAULT_NORMAL_STYLE;
+      if (isPodcastRed) return CAPTION_DEFAULT_PODCAST_RED_STYLE;
+      if (isWordHighlight) return CAPTION_DEFAULT_STYLE;
+      return CAPTION_DEFAULT_STYLE;
+    })();
+    const mergedStyle = {
+      ...lookDefaults,
+      ...(isPodcastRed ? { roleBy: 'line', outline: 0, textCase: 'upper' } : {}),
+      ...fittedStyle,
+      ...(isPodcastRed ? { outline: 0 } : {}),
+    };
+    const missing = missingStyleKeys(style || {}, lookDefaults);
+    if (missing.length) {
+      console.warn(`[burn-subtitles] PARITY: ${missing.length} setting(s) not sent by the editor, ` +
+        `filled from ${isPodcastRed ? 'podcast-red' : captionStyle} defaults: ${missing.join(', ')}`);
+    } else {
+      console.log('[burn-subtitles] PARITY: all style settings supplied by the editor');
+    }
+    console.log(
+      `[burn-subtitles] clip=${probed ? `${probed.width}x${probed.height}` : 'unprobed'} ` +
+      `PlayRes=${resX}x${resY} fontScale=${probed ? (probed.width / CAPTION_AUTHOR_W).toFixed(3) : 'n/a'} ` +
+      `generator=${isWordHighlight ? (isPodcastRed ? 'podcast-red' : 'word-highlight') : captionStyle} ` +
+      `font ${style?.fontSize} -> ${mergedStyle.fontSize} posY ${style?.posY} -> ${mergedStyle.posY} ` +
+      `roleBy=${mergedStyle.roleBy} baseFont=${mergedStyle.baseFontName} oblique=${mergedStyle.obliqueDeg} ` +
+      `glow=${mergedStyle.glow} glowBlur=${mergedStyle.glowBlur} edge=${mergedStyle.baseEdgeHighlight}`
+    );
+
     const stamp = Date.now();
     const outputDir = join(__dirname, 'outputs', `subtitled-${stamp}`);
     await fs.mkdir(outputDir, { recursive: true });
 
     let assContent;
-    if (captionStyle === 'word-highlight') {
+    if (isWordHighlight) {
       if (!words?.length) {
         return res.status(400).json({ error: 'word-highlight captions require word-level timestamps.' });
       }
-      assContent = generateWordHighlightASS(words, style || {});
+      assContent = generateWordHighlightASS(words, { ...mergedStyle, previewBlocks: fittedBlocks });
+    } else if (captionStyle === 'bizz-playbook') {
+      assContent = generateBizzPlaybookASS(words?.length ? words : segments, mergedStyle);
     } else if (captionStyle === 'indian-founder') {
-      assContent = generateIndianFounderASS(words || segments, style || {});
+      assContent = generateIndianFounderASS(words || segments, mergedStyle);
     } else {
-      assContent = generateASS(segments, style || {});
+      const source = words?.length ? words : segments;
+      assContent = generateNormalASS(source, mergedStyle);
     }
 
     const assPath = join(outputDir, 'subtitles.ass');
