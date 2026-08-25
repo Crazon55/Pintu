@@ -85,15 +85,50 @@ To change the server port, create a `.env` file in the `server/` directory:
 PORT=3001
 ```
 
+## Caption System
+
+The video editor includes an advanced caption system with multiple styling presets optimized for different content:
+
+### Caption Presets
+- **Styled**: Modern high-contrast style with red glow effect (base style)
+- **Normal**: Clean outline style for general use
+- **Basic (The Bizz Playbook)**: Two-word cards in lowercase Helvetica
+- **Bizz India**: BizzIndiaPlaybook preset with red glow on white uppercase text
+- **Podcast Red**: Two-tier red/white caption style for podcast clips
+
+### Font Families Supported (20+)
+- Helvetica Now Display, Text (Bold, Black)
+- EB Garamond (Regular, Bold, Italic, Extra Bold)
+- Playfair Display (Black, Bold variants)
+- Anton, Montserrat, Inter
+- The Bold Font (for BizzIndia preset)
+- And more...
+
+### Caption Configuration Files
+- `shared/captionDefaults.js` - Style presets and defaults
+- `shared/captionEngine.js` - Rendering and animation engine
+- `captionTool.jsx` - UI component for caption editor
+- `server/subtitleGenerator.js` - Server-side caption burning
+
 ## Usage
 
 1. **Upload Video**: Drag and drop or select a video file
-2. **Select Presets**: Toggle which presets you want to export
-3. **Edit Text**: Modify headlines and credits
-4. **Choose Export Mode**:
+2. **Add Captions** (Optional):
+   - Transcribe video in your preferred language
+   - Select a caption style preset:
+     - **Styled**: Modern glow effect with Helvetica Now (default)
+     - **Normal**: Clean white text with black outline
+     - **Basic (The Bizz Playbook)**: Two-word cards, lowercase Helvetica Now
+     - **Bizz India**: Uppercase heavy grotesque with red glow, The Bold Font
+     - **Podcast Red**: Red/white two-tier captions with Anton font
+   - Customize fonts from 20+ available families (Anton, EB Garamond, Playfair Display, Montserrat, Inter, etc.)
+   - Preview captions in real-time before burning to video
+3. **Select Presets**: Toggle which presets you want to export
+4. **Edit Text**: Modify headlines and credits
+5. **Choose Export Mode**:
    - **Client-Side**: Real-time preview, processes in browser
    - **Server-Side**: Scalable, handles 200+ pages efficiently (recommended)
-5. **Export**: Click "Export X Videos" button
+6. **Export**: Click "Export X Videos" button
 
 ## Export Modes
 
