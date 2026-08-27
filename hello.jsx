@@ -1449,7 +1449,7 @@ const PreviewCard = memo(({
                                             <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: `${brandSize}px`, color: '#FFFFFF', lineHeight: 1, whiteSpace: 'nowrap' }}>{textLogo}</span>
                                             <div className="rounded-full flex items-center justify-center flex-shrink-0" style={{ width: `${badgePx}px`, height: `${badgePx}px`, background: '#1D9BF0', marginLeft: '8px' }}>
                                                 <svg viewBox="0 0 24 24" fill="none" style={{ width: '68%', height: '68%' }}>
-                                                    <path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    <path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
                                                 </svg>
                                             </div>
                                         </div>
@@ -1467,7 +1467,7 @@ const PreviewCard = memo(({
                                 <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 500, fontSize: `${brandSize}px`, color: '#FFFFFF', lineHeight: 1, whiteSpace: 'nowrap' }}>{textLogo}</span>
                                 <div className="rounded-full flex items-center justify-center flex-shrink-0" style={{ width: `${badgePx}px`, height: `${badgePx}px`, background: '#1D9BF0', marginLeft: '8px' }}>
                                     <svg viewBox="0 0 24 24" fill="none" style={{ width: '68%', height: '68%' }}>
-                                        <path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
                                     </svg>
                                 </div>
                                 <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 500, fontSize: `${handleSize}px`, color: '#AAAAAA', lineHeight: 1, whiteSpace: 'nowrap', marginLeft: '18px' }}>{preset.handle}</span>
@@ -1819,18 +1819,18 @@ const PreviewCard = memo(({
                                     }}
                                 >
                                     {usesWordAnimation(captionStyle) ? (
-                                    <CaptionWordOverlay
-                                        block={captionBlock}
-                                        style={captionStyle}
-                                        scale={captionContentRect.w / CAPTION_SRC_W}
-                                        time={captionTime}
-                                    />
+                                        <CaptionWordOverlay
+                                            block={captionBlock}
+                                            style={captionStyle}
+                                            scale={captionContentRect.w / CAPTION_SRC_W}
+                                            time={captionTime}
+                                        />
                                     ) : (
-                                    <CaptionLineOverlay
-                                        block={captionBlock}
-                                        style={captionStyle}
-                                        scale={captionContentRect.w / CAPTION_SRC_W}
-                                    />
+                                        <CaptionLineOverlay
+                                            block={captionBlock}
+                                            style={captionStyle}
+                                            scale={captionContentRect.w / CAPTION_SRC_W}
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -2471,8 +2471,8 @@ function PlaybookCard({ pb, onOpen, isDark, isActive }) {
                 onOpen(pb.id, pb.title);
             }}
             className={`group relative w-48 sm:w-52 rounded-2xl p-6 flex flex-col items-center gap-4 overflow-hidden isolate transition-all duration-300 ${isDark
-                    ? 'bg-white/[0.06] border border-white/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_8px_32px_rgba(0,0,0,0.4)] hover:bg-white/[0.09] hover:border-white/25'
-                    : 'bg-white/80 backdrop-blur-md border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:shadow-[0_16px_40px_rgba(0,0,0,0.12)]'
+                ? 'bg-white/[0.06] border border-white/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_8px_32px_rgba(0,0,0,0.4)] hover:bg-white/[0.09] hover:border-white/25'
+                : 'bg-white/80 backdrop-blur-md border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:shadow-[0_16px_40px_rgba(0,0,0,0.12)]'
                 } ${isActive ? '-translate-y-1 !border-violet-500 ring-2 ring-violet-500/50' : ''} ${pb.enabled ? 'cursor-pointer hover:-translate-y-1' : 'opacity-60 grayscale cursor-not-allowed'}`}
         >
             <div className="scale-125">
@@ -2884,7 +2884,7 @@ export default function App() {
             document.fonts.load("700 54px 'ITC Avant Garde Gothic'"),
             document.fonts.load("700 54px 'Helvetica World'"),
         ])
-            .catch(() => {})
+            .catch(() => { })
             .then(() => document.fonts.ready)
             .then(() => {
                 resetMeasureCtx();
@@ -2892,10 +2892,10 @@ export default function App() {
             });
     }, []);
 
-  // Keep news-ticker output ratios in sync (ifc → 9:16, others → 4:5).
-  // Also strip any leftover credits stamped by global footer sync,
-  // and refresh logo path so white+highlight Founders CORE asset shows in preview.
-  useEffect(() => {
+    // Keep news-ticker output ratios in sync (ifc → 9:16, others → 4:5).
+    // Also strip any leftover credits stamped by global footer sync,
+    // and refresh logo path so white+highlight Founders CORE asset shows in preview.
+    useEffect(() => {
         setPresets(prev => {
             let changed = false;
             const next = prev.map(p => {
@@ -3543,18 +3543,19 @@ export default function App() {
                 return;
             }
 
+            let responseData;
+            try {
+                responseData = await uploadResponse.json();
+            } catch {
+                throw new Error('Invalid server response');
+            }
+
             if (!uploadResponse.ok) {
-                let errorText;
-                try {
-                    const errorJson = await uploadResponse.json();
-                    errorText = errorJson.error || JSON.stringify(errorJson);
-                } catch {
-                    errorText = await uploadResponse.text();
-                }
+                const errorText = responseData.error || JSON.stringify(responseData);
                 throw new Error(`Upload failed: ${errorText}`);
             }
 
-            const { jobId } = await uploadResponse.json();
+            const { jobId } = responseData;
             if (signal.aborted) {
                 await cancelServerJob(jobId);
                 updateExportJob(localId, { status: 'stopped', statusText: 'Stopped' });
@@ -3689,11 +3690,10 @@ export default function App() {
                                     key={f.key}
                                     type="button"
                                     onClick={() => switchPlaybookFormat(f.key)}
-                                    className={`px-3 py-1.5 rounded-lg border-2 text-xs font-semibold transition-colors whitespace-nowrap ${
-                                        isActive
+                                    className={`px-3 py-1.5 rounded-lg border-2 text-xs font-semibold transition-colors whitespace-nowrap ${isActive
                                             ? 'border-violet-500 bg-violet-500 text-white'
                                             : 'border-violet-500 text-violet-500 hover:bg-violet-500/15'
-                                    }`}
+                                        }`}
                                 >
                                     {f.label}
                                 </button>
@@ -3762,290 +3762,290 @@ export default function App() {
 
                     {/* --- TOOL PANEL --- */}
                     <div className="relative flex-1 h-full overflow-hidden bg-[var(--pintu-panel-bg)]">
-                    {/* ambient color blobs behind the glass cards */}
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                        <div className="absolute -top-16 -left-10 w-72 h-72 rounded-full bg-violet-600/10 blur-[100px]" />
-                        <div className="absolute top-1/3 -right-16 w-64 h-64 rounded-full bg-purple-600/10 blur-[100px]" />
-                        <div className="absolute bottom-0 left-1/4 w-72 h-72 rounded-full bg-blue-600/8 blur-[110px]" />
-                    </div>
-                    <div className="relative h-full overflow-y-auto pintu-scroll">
+                        {/* ambient color blobs behind the glass cards */}
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                            <div className="absolute -top-16 -left-10 w-72 h-72 rounded-full bg-violet-600/10 blur-[100px]" />
+                            <div className="absolute top-1/3 -right-16 w-64 h-64 rounded-full bg-purple-600/10 blur-[100px]" />
+                            <div className="absolute bottom-0 left-1/4 w-72 h-72 rounded-full bg-blue-600/8 blur-[110px]" />
+                        </div>
+                        <div className="relative h-full overflow-y-auto pintu-scroll">
 
-                    {/* Kept mounted rather than unmounted when another tool is picked: a
+                            {/* Kept mounted rather than unmounted when another tool is picked: a
                         transcription or caption burn in flight would otherwise be thrown away
                         the moment you stepped over to Text & Layout. */}
-                    <div className={`p-4 space-y-3 ${activeTool === 'video' ? '' : 'hidden'}`}>
-                            <div
-                                className={`border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-all duration-200 relative cursor-pointer group ${isDraggingVideo ? 'border-violet-500 bg-violet-500/10 scale-105' : 'border-[var(--pintu-input-border)] bg-[var(--pintu-card-header-bg)] hover:border-violet-500 hover:bg-violet-500/10 hover:scale-[1.02]'}`}
-                                onDragOver={onDragOverVideo}
-                                onDragLeave={onDragLeaveVideo}
-                                onDrop={onDropVideo}
-                            >
-                                <span className={`text-sm transition-colors duration-200 ${isDraggingVideo ? 'text-violet-500' : 'text-[var(--pintu-text-muted)] group-hover:text-violet-500'}`}>{videoSrc ? 'Replace Video' : 'upload or browse video'}</span>
-                                <input type="file" accept="video/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleVideoUpload} />
-                            </div>
+                            <div className={`p-4 space-y-3 ${activeTool === 'video' ? '' : 'hidden'}`}>
+                                <div
+                                    className={`border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-all duration-200 relative cursor-pointer group ${isDraggingVideo ? 'border-violet-500 bg-violet-500/10 scale-105' : 'border-[var(--pintu-input-border)] bg-[var(--pintu-card-header-bg)] hover:border-violet-500 hover:bg-violet-500/10 hover:scale-[1.02]'}`}
+                                    onDragOver={onDragOverVideo}
+                                    onDragLeave={onDragLeaveVideo}
+                                    onDrop={onDropVideo}
+                                >
+                                    <span className={`text-sm transition-colors duration-200 ${isDraggingVideo ? 'text-violet-500' : 'text-[var(--pintu-text-muted)] group-hover:text-violet-500'}`}>{videoSrc ? 'Replace Video' : 'upload or browse video'}</span>
+                                    <input type="file" accept="video/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleVideoUpload} />
+                                </div>
 
-                            {/* Captions come first: transcribe and burn into the A-roll here, then
+                                {/* Captions come first: transcribe and burn into the A-roll here, then
                                 move on to the hook. The burn hands back a captioned File, which is
                                 swapped in as the editor's source — every preset and the export pick
                                 it up without knowing captions were involved. */}
-                            <CaptionsSection
-                                videoSrc={videoSrc}
-                                videoFileRef={videoFileRef}
-                                serverUrl={SERVER_URL}
-                                onCaptionedVideo={applyCaptionedVideo}
-                                onCaptionsChange={setCaptions}
-                            />
+                                <CaptionsSection
+                                    videoSrc={videoSrc}
+                                    videoFileRef={videoFileRef}
+                                    serverUrl={SERVER_URL}
+                                    onCaptionedVideo={applyCaptionedVideo}
+                                    onCaptionsChange={setCaptions}
+                                />
 
-                            {videoSrc && (
-                                <>
-                                    <div
-                                        ref={arollStageRef}
-                                        className="relative w-full max-h-[280px] aspect-video rounded-lg border border-[var(--pintu-input-border)] bg-black overflow-hidden"
-                                    >
-                                        <video
-                                            ref={arollPreviewRef}
-                                            src={videoSrc}
-                                            className="w-full h-full object-cover"
-                                            style={{ transform: `scale(${playbookFormat === 'news' ? 1 : videoScale / 100})`, transformOrigin: 'center' }}
-                                            muted={arollMuted}
-                                            playsInline
-                                            preload="auto"
-                                            onLoadedMetadata={(e) => {
-                                                const v = e.currentTarget;
-                                                setArollDuration(v.duration || 0);
-                                                setArollVideoSize({
-                                                    w: v.videoWidth || 0,
-                                                    h: v.videoHeight || 0,
-                                                });
-                                            }}
-                                            onPlay={() => setArollPlaying(true)}
-                                            onPause={() => setArollPlaying(false)}
-                                            onEnded={() => setArollPlaying(false)}
-                                        />
-                                        {/* Live caption overlay for sync — same burn layout as the preset cards.
-                                            Hidden once burned (captions are then in the pixels). */}
-                                        {activeCaptionBlock && captions?.style && arollCaptionRect && !captions.burned && (
-                                            <div
-                                                className="absolute pointer-events-none z-10"
-                                                style={{
-                                                    left: arollCaptionRect.x,
-                                                    top: arollCaptionRect.y,
-                                                    width: arollCaptionRect.w,
-                                                    height: arollCaptionRect.h,
+                                {videoSrc && (
+                                    <>
+                                        <div
+                                            ref={arollStageRef}
+                                            className="relative w-full max-h-[280px] aspect-video rounded-lg border border-[var(--pintu-input-border)] bg-black overflow-hidden"
+                                        >
+                                            <video
+                                                ref={arollPreviewRef}
+                                                src={videoSrc}
+                                                className="w-full h-full object-cover"
+                                                style={{ transform: `scale(${playbookFormat === 'news' ? 1 : videoScale / 100})`, transformOrigin: 'center' }}
+                                                muted={arollMuted}
+                                                playsInline
+                                                preload="auto"
+                                                onLoadedMetadata={(e) => {
+                                                    const v = e.currentTarget;
+                                                    setArollDuration(v.duration || 0);
+                                                    setArollVideoSize({
+                                                        w: v.videoWidth || 0,
+                                                        h: v.videoHeight || 0,
+                                                    });
                                                 }}
-                                            >
-                                                {usesWordAnimation(captions.style) ? (
-                                                    <CaptionWordOverlay
-                                                        block={activeCaptionBlock}
-                                                        style={captions.style}
-                                                        scale={arollCaptionRect.w / CAPTION_SRC_W}
-                                                        time={captionTime}
-                                                    />
-                                                ) : (
-                                                    <CaptionLineOverlay
-                                                        block={activeCaptionBlock}
-                                                        style={captions.style}
-                                                        scale={arollCaptionRect.w / CAPTION_SRC_W}
-                                                    />
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={toggleArollPlay}
-                                                className="flex items-center justify-center w-8 h-8 rounded-md bg-violet-500 hover:bg-violet-600 text-white shrink-0"
-                                                title={arollPlaying ? 'Pause' : 'Play'}
-                                            >
-                                                {arollPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setArollMuted((m) => !m)}
-                                                className="flex items-center justify-center w-8 h-8 rounded-md border border-[var(--pintu-input-border)] text-[var(--pintu-text-secondary)] hover:bg-white/5 shrink-0"
-                                                title={arollMuted ? 'Unmute' : 'Mute'}
-                                            >
-                                                {arollMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                                            </button>
-                                            <input
-                                                type="range"
-                                                min={0}
-                                                max={Math.max(0.1, arollDuration)}
-                                                step={0.01}
-                                                value={Math.min(captionTime, arollDuration || captionTime)}
-                                                onChange={(e) => seekAroll(parseFloat(e.target.value))}
-                                                className="flex-1 h-1 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                                onPlay={() => setArollPlaying(true)}
+                                                onPause={() => setArollPlaying(false)}
+                                                onEnded={() => setArollPlaying(false)}
                                             />
-                                            <span className="text-[10px] tabular-nums text-[var(--pintu-text-muted)] shrink-0 min-w-[4.5rem] text-right">
-                                                {`${Math.floor(captionTime / 60)}:${String(Math.floor(captionTime % 60)).padStart(2, '0')}`}
-                                                {arollDuration > 0
-                                                    ? ` / ${Math.floor(arollDuration / 60)}:${String(Math.floor(arollDuration % 60)).padStart(2, '0')}`
-                                                    : ''}
-                                            </span>
+                                            {/* Live caption overlay for sync — same burn layout as the preset cards.
+                                            Hidden once burned (captions are then in the pixels). */}
+                                            {activeCaptionBlock && captions?.style && arollCaptionRect && !captions.burned && (
+                                                <div
+                                                    className="absolute pointer-events-none z-10"
+                                                    style={{
+                                                        left: arollCaptionRect.x,
+                                                        top: arollCaptionRect.y,
+                                                        width: arollCaptionRect.w,
+                                                        height: arollCaptionRect.h,
+                                                    }}
+                                                >
+                                                    {usesWordAnimation(captions.style) ? (
+                                                        <CaptionWordOverlay
+                                                            block={activeCaptionBlock}
+                                                            style={captions.style}
+                                                            scale={arollCaptionRect.w / CAPTION_SRC_W}
+                                                            time={captionTime}
+                                                        />
+                                                    ) : (
+                                                        <CaptionLineOverlay
+                                                            block={activeCaptionBlock}
+                                                            style={captions.style}
+                                                            scale={arollCaptionRect.w / CAPTION_SRC_W}
+                                                        />
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
-                                        <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">
-                                            Play with sound on to sync captions to speech. Scrub to check timing.
-                                        </p>
-                                    </div>
 
-                                    {playbookFormat === 'news' ? (
-                                        <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">
-                                            Each news card has its own zoom — hit <span className="text-violet-400 font-semibold">RE-SIZE</span> on that card and drag the handles. Scaling one format never changes the others.
-                                        </p>
-                                    ) : (
                                         <div className="space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-xs text-[var(--pintu-text-secondary)] font-semibold tracking-wide">
-                                                    Zoom
-                                                </label>
-                                                <span className="text-xs text-[var(--pintu-text-muted)]">{videoScale}%</span>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={toggleArollPlay}
+                                                    className="flex items-center justify-center w-8 h-8 rounded-md bg-violet-500 hover:bg-violet-600 text-white shrink-0"
+                                                    title={arollPlaying ? 'Pause' : 'Play'}
+                                                >
+                                                    {arollPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setArollMuted((m) => !m)}
+                                                    className="flex items-center justify-center w-8 h-8 rounded-md border border-[var(--pintu-input-border)] text-[var(--pintu-text-secondary)] hover:bg-white/5 shrink-0"
+                                                    title={arollMuted ? 'Unmute' : 'Mute'}
+                                                >
+                                                    {arollMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                                                </button>
+                                                <input
+                                                    type="range"
+                                                    min={0}
+                                                    max={Math.max(0.1, arollDuration)}
+                                                    step={0.01}
+                                                    value={Math.min(captionTime, arollDuration || captionTime)}
+                                                    onChange={(e) => seekAroll(parseFloat(e.target.value))}
+                                                    className="flex-1 h-1 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                                />
+                                                <span className="text-[10px] tabular-nums text-[var(--pintu-text-muted)] shrink-0 min-w-[4.5rem] text-right">
+                                                    {`${Math.floor(captionTime / 60)}:${String(Math.floor(captionTime % 60)).padStart(2, '0')}`}
+                                                    {arollDuration > 0
+                                                        ? ` / ${Math.floor(arollDuration / 60)}:${String(Math.floor(arollDuration % 60)).padStart(2, '0')}`
+                                                        : ''}
+                                                </span>
                                             </div>
-                                            <input
-                                                type="range"
-                                                min="100"
-                                                max="300"
-                                                step="1"
-                                                value={videoScale}
-                                                onChange={(e) => handleVideoScaleChange(parseInt(e.target.value, 10))}
-                                                className="w-full h-1 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
-                                            />
                                             <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">
-                                                Zooms the video across every preset preview.
+                                                Play with sound on to sync captions to speech. Scrub to check timing.
                                             </p>
                                         </div>
-                                    )}
-                                </>
-                            )}
-                    </div>
 
-                    {activeTool === 'text' && (
-                    <div className="p-6 space-y-6 pb-8">
-
-                        {/* IDEA NAME (GLOBAL) */}
-                        <div className="bg-[var(--pintu-card-bg)] backdrop-blur-2xl rounded-xl overflow-hidden border border-[var(--pintu-card-border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_32px_rgba(0,0,0,0.5)]">
-                            <div className="flex items-center gap-2 bg-[var(--pintu-card-header-bg)] px-6 py-3 border-b border-[var(--pintu-card-header-border)]">
-                                <Edit2 className="w-4 h-4 text-[var(--pintu-accent)]" />
-                                <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--pintu-text-secondary)]">Idea Name</h2>
-                                <span className="text-[10px] normal-case font-normal tracking-normal text-[var(--pintu-text-faint)]">(as written on FSOS)</span>
-                            </div>
-                            <div className="p-6 space-y-2">
-                                <label className="text-xs text-[var(--pintu-text-muted)]">What's this video about?</label>
-                                <input
-                                    type="text"
-                                    value={ideaName}
-                                    onChange={(e) => setIdeaName(e.target.value)}
-                                    placeholder="e.g. The trick to making your employees loyal"
-                                    className="w-full px-4 py-3 text-sm text-[var(--pintu-text-primary)] bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 placeholder:text-[var(--pintu-text-faint)] transition-all"
-                                />
-                            </div>
-                        </div>
-
-                        {/* APPLY CHANGES TO: All Brands / Per Brand — sits above the Text & Layout card */}
-                        <div className="flex items-center justify-between px-1">
-                            <span className="text-xs text-[var(--pintu-text-muted)]">Apply changes to</span>
-                            <div className="flex bg-[var(--pintu-toggle-bg)] backdrop-blur-md rounded-lg p-1 border border-[var(--pintu-toggle-border)]">
-                                <button
-                                    onClick={() => setEditMode('global')}
-                                    className={`px-3 py-1.5 text-xs rounded-md transition-all ${editMode === 'global' ? 'bg-violet-500 text-white font-semibold' : 'text-[var(--pintu-text-muted)] hover:text-[var(--pintu-text-secondary)]'}`}
-                                >
-                                    All Brands
-                                </button>
-                                <button
-                                    onClick={() => setEditMode('individual')}
-                                    className={`px-3 py-1.5 text-xs rounded-md transition-all ${editMode === 'individual' ? 'bg-violet-500 text-white font-semibold' : 'text-[var(--pintu-text-muted)] hover:text-[var(--pintu-text-secondary)]'}`}
-                                >
-                                    Per Brand
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* TEXT EDIT */}
-                        <div className="bg-[var(--pintu-card-bg)] backdrop-blur-2xl rounded-xl overflow-hidden border border-[var(--pintu-card-border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_32px_rgba(0,0,0,0.5)]">
-                            <div className="flex items-center gap-2 bg-[var(--pintu-card-header-bg)] px-6 py-3 border-b border-[var(--pintu-card-header-border)]">
-                                <Type className="w-4 h-4 text-[var(--pintu-accent)]" />
-                                <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--pintu-text-secondary)]">Text &amp; Layout</h2>
-                            </div>
-                            <div className="p-6 space-y-4">
-
-                                {/* EDIT MODE: GLOBAL */}
-                                {editMode === 'global' && (
-                                    <>
-                                        <CollapsibleSection title="Hook Text (Bold)">
-                                            <RichTextEditor
-                                                value={globalHeadline}
-                                                onChange={(html) => updateGlobalText(html, globalFooter)}
-                                                placeholder="Hook....."
-                                                className="w-full bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded p-3 text-sm text-[var(--pintu-text-primary)] placeholder-[var(--pintu-text-faint)] focus:border-violet-500 focus:outline-none font-medium min-h-[80px]"
-                                            />
-                                        </CollapsibleSection>
-                                        <p className="text-[10px] text-[var(--pintu-text-faint)] px-1">Updating this overwrites all brands.</p>
+                                        {playbookFormat === 'news' ? (
+                                            <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">
+                                                Each news card has its own zoom — hit <span className="text-violet-400 font-semibold">RE-SIZE</span> on that card and drag the handles. Scaling one format never changes the others.
+                                            </p>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="text-xs text-[var(--pintu-text-secondary)] font-semibold tracking-wide">
+                                                        Zoom
+                                                    </label>
+                                                    <span className="text-xs text-[var(--pintu-text-muted)]">{videoScale}%</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="100"
+                                                    max="300"
+                                                    step="1"
+                                                    value={videoScale}
+                                                    onChange={(e) => handleVideoScaleChange(parseInt(e.target.value, 10))}
+                                                    className="w-full h-1 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                                />
+                                                <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">
+                                                    Zooms the video across every preset preview.
+                                                </p>
+                                            </div>
+                                        )}
                                     </>
                                 )}
-
-                                {/* TYPOGRAPHY: Text Size, Letter Spacing — only in All (global) mode; per-brand has its own below */}
-                                {editMode === 'global' && (
-                                    <CollapsibleSection title="Typography">
-                                        <div className="space-y-1.5">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Text Size</label>
-                                                <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round(fontScale * 100)}%</span>
-                                            </div>
-                                            <input
-                                                type="range"
-                                                min="0.5"
-                                                max="1.5"
-                                                step="0.1"
-                                                value={fontScale}
-                                                onChange={(e) => setFontScale(parseFloat(e.target.value))}
-                                                className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
-                                            />
-                                            <p className="text-[10px] text-[var(--pintu-text-faint)]">How big the headline text is on the video.</p>
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Letter Spacing</label>
-                                                <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round(wordSpacing * 100)}%</span>
-                                            </div>
-                                            <input
-                                                type="range"
-                                                min="0.1"
-                                                max="1.5"
-                                                step="0.05"
-                                                value={wordSpacing}
-                                                onChange={(e) => setWordSpacing(parseFloat(e.target.value))}
-                                                className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
-                                            />
-                                            <p className="text-[10px] text-[var(--pintu-text-faint)]">How much space sits between words.</p>
-                                        </div>
-                                    </CollapsibleSection>
-                                )}
-
-                                {/* EDIT MODE: INDIVIDUAL - only show presets the user has selected for export */}
-                                {editMode === 'individual' && (
-                                    <div className="space-y-4">
-                                        {presets.filter(p => p.active).map(p => (
-                                            <PerBrandPresetCard
-                                                key={p.id}
-                                                p={p}
-                                                fontScale={fontScale}
-                                                wordSpacing={wordSpacing}
-                                                setPresets={setPresets}
-                                                updateIndividualText={updateIndividualText}
-                                            />
-                                        ))}
-                                        {presets.filter(p => p.active).length === 0 && (
-                                            <p className="text-sm text-[var(--pintu-text-faint)] italic text-center py-4">No presets selected. Select presets using the checkboxes on the cards or in BRAND ASSETS below, then use Per Brand to edit them.</p>
-                                        )}
-                                    </div>
-                                )}
                             </div>
+
+                            {activeTool === 'text' && (
+                                <div className="p-6 space-y-6 pb-8">
+
+                                    {/* IDEA NAME (GLOBAL) */}
+                                    <div className="bg-[var(--pintu-card-bg)] backdrop-blur-2xl rounded-xl overflow-hidden border border-[var(--pintu-card-border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_32px_rgba(0,0,0,0.5)]">
+                                        <div className="flex items-center gap-2 bg-[var(--pintu-card-header-bg)] px-6 py-3 border-b border-[var(--pintu-card-header-border)]">
+                                            <Edit2 className="w-4 h-4 text-[var(--pintu-accent)]" />
+                                            <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--pintu-text-secondary)]">Idea Name</h2>
+                                            <span className="text-[10px] normal-case font-normal tracking-normal text-[var(--pintu-text-faint)]">(as written on FSOS)</span>
+                                        </div>
+                                        <div className="p-6 space-y-2">
+                                            <label className="text-xs text-[var(--pintu-text-muted)]">What's this video about?</label>
+                                            <input
+                                                type="text"
+                                                value={ideaName}
+                                                onChange={(e) => setIdeaName(e.target.value)}
+                                                placeholder="e.g. The trick to making your employees loyal"
+                                                className="w-full px-4 py-3 text-sm text-[var(--pintu-text-primary)] bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 placeholder:text-[var(--pintu-text-faint)] transition-all"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* APPLY CHANGES TO: All Brands / Per Brand — sits above the Text & Layout card */}
+                                    <div className="flex items-center justify-between px-1">
+                                        <span className="text-xs text-[var(--pintu-text-muted)]">Apply changes to</span>
+                                        <div className="flex bg-[var(--pintu-toggle-bg)] backdrop-blur-md rounded-lg p-1 border border-[var(--pintu-toggle-border)]">
+                                            <button
+                                                onClick={() => setEditMode('global')}
+                                                className={`px-3 py-1.5 text-xs rounded-md transition-all ${editMode === 'global' ? 'bg-violet-500 text-white font-semibold' : 'text-[var(--pintu-text-muted)] hover:text-[var(--pintu-text-secondary)]'}`}
+                                            >
+                                                All Brands
+                                            </button>
+                                            <button
+                                                onClick={() => setEditMode('individual')}
+                                                className={`px-3 py-1.5 text-xs rounded-md transition-all ${editMode === 'individual' ? 'bg-violet-500 text-white font-semibold' : 'text-[var(--pintu-text-muted)] hover:text-[var(--pintu-text-secondary)]'}`}
+                                            >
+                                                Per Brand
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* TEXT EDIT */}
+                                    <div className="bg-[var(--pintu-card-bg)] backdrop-blur-2xl rounded-xl overflow-hidden border border-[var(--pintu-card-border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_32px_rgba(0,0,0,0.5)]">
+                                        <div className="flex items-center gap-2 bg-[var(--pintu-card-header-bg)] px-6 py-3 border-b border-[var(--pintu-card-header-border)]">
+                                            <Type className="w-4 h-4 text-[var(--pintu-accent)]" />
+                                            <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--pintu-text-secondary)]">Text &amp; Layout</h2>
+                                        </div>
+                                        <div className="p-6 space-y-4">
+
+                                            {/* EDIT MODE: GLOBAL */}
+                                            {editMode === 'global' && (
+                                                <>
+                                                    <CollapsibleSection title="Hook Text (Bold)">
+                                                        <RichTextEditor
+                                                            value={globalHeadline}
+                                                            onChange={(html) => updateGlobalText(html, globalFooter)}
+                                                            placeholder="Hook....."
+                                                            className="w-full bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded p-3 text-sm text-[var(--pintu-text-primary)] placeholder-[var(--pintu-text-faint)] focus:border-violet-500 focus:outline-none font-medium min-h-[80px]"
+                                                        />
+                                                    </CollapsibleSection>
+                                                    <p className="text-[10px] text-[var(--pintu-text-faint)] px-1">Updating this overwrites all brands.</p>
+                                                </>
+                                            )}
+
+                                            {/* TYPOGRAPHY: Text Size, Letter Spacing — only in All (global) mode; per-brand has its own below */}
+                                            {editMode === 'global' && (
+                                                <CollapsibleSection title="Typography">
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Text Size</label>
+                                                            <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round(fontScale * 100)}%</span>
+                                                        </div>
+                                                        <input
+                                                            type="range"
+                                                            min="0.5"
+                                                            max="1.5"
+                                                            step="0.1"
+                                                            value={fontScale}
+                                                            onChange={(e) => setFontScale(parseFloat(e.target.value))}
+                                                            className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                                        />
+                                                        <p className="text-[10px] text-[var(--pintu-text-faint)]">How big the headline text is on the video.</p>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Letter Spacing</label>
+                                                            <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round(wordSpacing * 100)}%</span>
+                                                        </div>
+                                                        <input
+                                                            type="range"
+                                                            min="0.1"
+                                                            max="1.5"
+                                                            step="0.05"
+                                                            value={wordSpacing}
+                                                            onChange={(e) => setWordSpacing(parseFloat(e.target.value))}
+                                                            className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                                        />
+                                                        <p className="text-[10px] text-[var(--pintu-text-faint)]">How much space sits between words.</p>
+                                                    </div>
+                                                </CollapsibleSection>
+                                            )}
+
+                                            {/* EDIT MODE: INDIVIDUAL - only show presets the user has selected for export */}
+                                            {editMode === 'individual' && (
+                                                <div className="space-y-4">
+                                                    {presets.filter(p => p.active).map(p => (
+                                                        <PerBrandPresetCard
+                                                            key={p.id}
+                                                            p={p}
+                                                            fontScale={fontScale}
+                                                            wordSpacing={wordSpacing}
+                                                            setPresets={setPresets}
+                                                            updateIndividualText={updateIndividualText}
+                                                        />
+                                                    ))}
+                                                    {presets.filter(p => p.active).length === 0 && (
+                                                        <p className="text-sm text-[var(--pintu-text-faint)] italic text-center py-4">No presets selected. Select presets using the checkboxes on the cards or in BRAND ASSETS below, then use Per Brand to edit them.</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    </div>
-                    )}
-                    </div>
                     </div>
                 </div>
 
@@ -4107,9 +4107,8 @@ export default function App() {
                                             <div className="flex items-start justify-between gap-2 mb-1.5">
                                                 <div className="min-w-0 flex-1">
                                                     <p className="text-xs font-bold text-white truncate">{job.label}</p>
-                                                    <p className={`text-[11px] truncate mt-0.5 ${
-                                                        isDone ? 'text-green-400' : isFail ? 'text-red-400' : 'text-neutral-400'
-                                                    }`}>
+                                                    <p className={`text-[11px] truncate mt-0.5 ${isDone ? 'text-green-400' : isFail ? 'text-red-400' : 'text-neutral-400'
+                                                        }`}>
                                                         {job.statusText}
                                                     </p>
                                                 </div>
