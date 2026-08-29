@@ -17,7 +17,7 @@
  * there come out identical.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Wand2, Check, RotateCcw } from 'lucide-react';
+import { Loader2, Wand2, Check, RotateCcw, Trash2 } from 'lucide-react';
 import { findCaptionFont, fontsForRole } from './captionFonts.js';
 import {
   PLAY_RES_X,
@@ -548,6 +548,13 @@ export default function CaptionsSection({
   const updateWord = (id, text) => setWords((prev) => prev.map((w) => (
     w.id === id ? { ...w, text } : w
   )));
+  const deleteWord = (id) => setWords((prev) => prev.filter((w) => w.id !== id));
+  const clearAllWords = () => {
+    if (window.confirm('Delete all captions? This cannot be undone.')) {
+      setWords([]);
+      setBurned(false);
+    }
+  };
   const regroup = () => setWords((prev) => stampAutoSentenceBreaks(prev, sStyle));
 
   if (!videoSrc) return null;
@@ -636,18 +643,30 @@ export default function CaptionsSection({
                 <span className="text-[10px] text-emerald-400">
                   {words.length} words · {blocks.length} cards
                 </span>
-                <button
-                  type="button"
-                  onClick={regroup}
-                  className="text-[10px] text-[var(--pintu-text-faint)] hover:text-[var(--pintu-text-secondary)]"
-                >
-                  Re-group
-                </button>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={regroup}
+                    className="text-[10px] text-[var(--pintu-text-faint)] hover:text-[var(--pintu-text-secondary)]"
+                  >
+                    Re-group
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearAllWords}
+                    className="text-[10px] text-red-400 hover:text-red-300"
+                    title="Delete all captions"
+                  >
+                    Clear all
+                  </button>
+                </div>
               </div>
               <div className="max-h-[190px] overflow-y-auto pintu-scroll pr-1 space-y-1.5">
                 {sentences.map((sent, si) => (
                   <div key={`s-${si}-${sent[0]?.id || si}`} className="flex flex-wrap gap-1">
-                    {sent.map((w) => (editing === w.id ? (
+                    {sent.map((w) => (
+                      <div key={w.id} className="group relative inline-block">
+                        {editing === w.id ? (
                       <input
                         key={w.id}
                         autoFocus
@@ -675,6 +694,16 @@ export default function CaptionsSection({
                       >
                         {w.text}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteWord(w.id)}
+                        title="Delete this word"
+                        className="absolute -right-1 -top-1.5 opacity-0 group-hover:opacity-100 transition-opacity
+                                   bg-red-600 hover:bg-red-500 rounded px-0.5 py-0 text-[9px] font-bold text-white"
+                      >
+                        ✕
+                      </button>
+                    </div>
                     )))}
                   </div>
                 ))}
