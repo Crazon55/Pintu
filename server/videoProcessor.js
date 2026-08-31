@@ -197,7 +197,7 @@ try {
   if (existsSync(avantGardeBold)) { _otAvantGardeBold = opentypeLoad(avantGardeBold); console.log('✓ ITC Avant Garde Gothic Bold loaded via opentype.js'); }
 } catch (e) { console.warn('ITC Avant Garde Gothic opentype load failed:', e.message); }
 
-// Helvetica World Bold for indianfounderscore (ifc2-news). Drop the licensed file at
+// Helvetica World Bold for indiafounderscore (ifc2-news). Drop the licensed file at
 // server/assets/fonts/HelveticaWorld-Bold.otf (or .ttf) — commercial Monotype face.
 const helveticaWorldBoldCandidates = [
   resolve(fontsDir, 'HelveticaWorld-Bold.otf'),
@@ -964,7 +964,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const isIBCNews = (preset.name || '').toLowerCase() === 'indiabusinesscom-news';
   const isISSNews = (preset.name || '').toLowerCase() === 'indiastartupstory-news';
   const isIFCNews = (preset.name || '').toLowerCase() === 'ifc-news';
-  // Highlights are coloured text with no pill behind them (indianfounderscore style)
+  // Highlights are coloured text with no pill behind them (indiafounderscore style)
   const isPlainText = isPlainTextNewsTicker(preset);
   // Derive canvas height from preset ratio (e.g. 4:5 → 900, 9:16 → 1280)
   const [wR, hR] = (preset.ratio || '9:16').split(':').map(Number);
