@@ -730,7 +730,7 @@ export default function CaptionsSection({
                       </>
                     )}
                     </div>
-                    )))}
+                  ))}
                   </div>
                 ))}
             </div>
