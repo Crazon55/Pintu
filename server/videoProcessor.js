@@ -2747,7 +2747,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
     }
 
     ffmpegCmd.complexFilter(filterChain)
-      .outputOptions(['-map [out]', '-map 0:a?', '-c:v libx264', '-preset superfast', '-crf 20', '-pix_fmt yuv420p'])
+      .outputOptions(['-map [out]', '-map 0:a?', '-c:v libx264', '-preset ultrafast', '-crf 23', '-pix_fmt yuv420p'])
       .on('progress', (progress) => {
         try {
           onEncodeProgress?.(progress);
