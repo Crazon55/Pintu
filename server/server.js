@@ -596,13 +596,16 @@ app.post('/api/upload-to-drive', express.json(), async (req, res) => {
   }
 });
 
-app.post('/api/upload-base-edit', express.json(), async (req, res) => {
+app.post('/api/upload-base-edit-file', upload.single('video'), async (req, res) => {
   try {
-    const { videoPath, videoName } = req.body;
-    if (!videoPath) return res.status(400).json({ error: 'videoPath is required.' });
-    if (!existsSync(videoPath)) return res.status(400).json({ error: 'Video file not found.' });
+    if (!req.file) return res.status(400).json({ error: 'No video file uploaded.' });
 
-    const result = await uploadBaseEditToDrive(videoPath, { videoName });
+    const videoName = req.body.videoName || req.file.originalname || 'base-edit.mp4';
+    const withCaptions = req.body.withCaptions === 'true';
+
+    const result = await uploadBaseEditToDrive(req.file.path, { videoName });
+
+    console.log(`[drive] Base edit uploaded: ${videoName} ${withCaptions ? '(with captions)' : ''}`);
     res.json({ success: true, file: result });
   } catch (err) {
     console.error('[drive] Base edit upload error:', err.message);

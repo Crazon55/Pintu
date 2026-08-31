@@ -559,30 +559,33 @@ export default function CaptionsSection({
 
   const [uploadingBaseEdit, setUploadingBaseEdit] = useState(false);
   const uploadBaseEdit = useCallback(async () => {
-    if (!serverVideoPath) {
-      setError('Transcribe first, then upload');
+    const videoFile = videoFileRef?.current;
+    if (!videoFile) {
+      setError('No video to upload');
       return;
     }
     setUploadingBaseEdit(true);
     try {
-      const res = await fetch(`${serverUrl}/api/upload-base-edit`, {
+      const formData = new FormData();
+      formData.append('video', videoFile);
+      formData.append('videoName', videoFile.name || 'base-edit.mp4');
+      formData.append('withCaptions', burned ? 'true' : 'false');
+
+      const res = await fetch(`${serverUrl}/api/upload-base-edit-file`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoPath: serverVideoPath,
-          videoName: sourceFileRef.current?.name || 'base-edit.mp4',
-        }),
+        body: formData,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
       setError(null);
-      alert('✓ Base edit uploaded to Google Drive\nFolder: Base Edits/' + new Date().toISOString().split('T')[0]);
+      const today = new Date().toISOString().split('T')[0];
+      alert(`✓ Base edit ${burned ? 'with captions ' : ''}uploaded to Google Drive\nFolder: Base Edits/${today}`);
     } catch (e) {
       setError(`Upload failed: ${e.message}`);
     } finally {
       setUploadingBaseEdit(false);
     }
-  }, [serverUrl, serverVideoPath, sourceFileRef]);
+  }, [serverUrl, videoFileRef, burned]);
 
   if (!videoSrc) return null;
 
