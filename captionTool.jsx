@@ -559,27 +559,30 @@ export default function CaptionsSection({
 
   const [uploadingBaseEdit, setUploadingBaseEdit] = useState(false);
   const uploadBaseEdit = useCallback(async () => {
-    if (!sourceFileRef.current) return;
+    if (!serverVideoPath) {
+      setError('Transcribe first, then upload');
+      return;
+    }
     setUploadingBaseEdit(true);
     try {
       const res = await fetch(`${serverUrl}/api/upload-base-edit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videoPath: sourceFileRef.current.path || sourceFileRef.current.name,
-          videoName: sourceFileRef.current.name,
+          videoPath: serverVideoPath,
+          videoName: sourceFileRef.current?.name || 'base-edit.mp4',
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
       setError(null);
-      alert('✓ Base edit uploaded to Google Drive');
+      alert('✓ Base edit uploaded to Google Drive\nFolder: Base Edits/' + new Date().toISOString().split('T')[0]);
     } catch (e) {
       setError(`Upload failed: ${e.message}`);
     } finally {
       setUploadingBaseEdit(false);
     }
-  }, [serverUrl]);
+  }, [serverUrl, serverVideoPath, sourceFileRef]);
 
   if (!videoSrc) return null;
 
