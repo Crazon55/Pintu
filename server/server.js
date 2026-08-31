@@ -28,7 +28,7 @@ import {
   missingStyleKeys,
 } from '../shared/captionDefaults.js';
 import { uploadToCloudinary } from './cloudinaryUploader.js';
-import { uploadExportToDrive } from './driveUploader.js';
+import { uploadExportToDrive, uploadBaseEditToDrive } from './driveUploader.js';
 import { burnSubtitles } from './subtitleBurner.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -139,7 +139,7 @@ app.post('/api/export', upload.single('video'), async (req, res) => {
       presetsWithScale.map(p => `${p.name}:${p.videoScale}%@${p.position?.x ?? 50},${p.position?.y ?? 50}`).join(' | '));
 
     const showCredit = req.body.showCredit === 'true' || req.body.showCredit === true;
-    
+
     const jobData = {
       videoPath: req.file.path,
       presets: presetsWithScale,
@@ -184,7 +184,7 @@ app.post('/api/job/:jobId/cancel', async (req, res) => {
 app.get('/api/download/:jobId', async (req, res) => {
   const job = await jobQueue.getJob(req.params.jobId);
   if (!job?.returnvalue) return res.status(404).json({ error: 'Not ready' });
-  
+
   const videoPaths = job.returnvalue.videoPaths || [];
   if (videoPaths.length === 0) return res.status(404).json({ error: 'No videos to download' });
 
@@ -202,7 +202,7 @@ app.get('/api/download/:jobId', async (req, res) => {
         console.log(`Video file exists: ${videoPath}`);
       } catch (err) {
         console.warn(`Video file not found: ${videoPath}`, err.message);
-  }
+      }
     }
 
     if (existingVideos.length === 0) {
@@ -219,7 +219,7 @@ app.get('/api/download/:jobId', async (req, res) => {
     output.on('close', () => {
       const sizeInMB = (archive.pointer() / 1024 / 1024).toFixed(2);
       console.log(`Zip file created: ${zipPath} (${sizeInMB} MB)`);
-      
+
       if (archive.pointer() === 0) {
         console.error('Warning: Zip file is empty!');
         return res.status(500).json({ error: 'Zip file is empty' });
@@ -235,7 +235,7 @@ app.get('/api/download/:jobId', async (req, res) => {
             fs.unlink(zipPath).catch(err => console.error('Error deleting zip file:', err));
           }, 60000); // Delete after 60 seconds
           resolve();
-    }
+        }
       });
     });
 
@@ -567,14 +567,14 @@ app.post('/api/upload-to-drive', express.json(), async (req, res) => {
     // Prefer explicit pageName pairing from export; fall back to presets / basename
     const paired = Array.isArray(job.returnvalue.videos) && job.returnvalue.videos.length > 0
       ? job.returnvalue.videos
-          .filter((v) => v?.path && existsSync(v.path))
-          .map((v) => ({ path: v.path, pageName: v.pageName || 'unknown-page' }))
+        .filter((v) => v?.path && existsSync(v.path))
+        .map((v) => ({ path: v.path, pageName: v.pageName || 'unknown-page' }))
       : job.returnvalue.videoPaths
-          .filter((p) => existsSync(p))
-          .map((path, i) => ({
-            path,
-            pageName: job.data?.presets?.[i]?.name || basename(path, '.mp4') || 'unknown-page',
-          }));
+        .filter((p) => existsSync(p))
+        .map((path, i) => ({
+          path,
+          pageName: job.data?.presets?.[i]?.name || basename(path, '.mp4') || 'unknown-page',
+        }));
 
     if (paired.length === 0) {
       return res.status(400).json({ error: 'No video files found.' });
@@ -592,6 +592,20 @@ app.post('/api/upload-to-drive', express.json(), async (req, res) => {
     res.json({ success: true, files: results });
   } catch (err) {
     console.error('[drive] Upload error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/upload-base-edit', express.json(), async (req, res) => {
+  try {
+    const { videoPath, videoName } = req.body;
+    if (!videoPath) return res.status(400).json({ error: 'videoPath is required.' });
+    if (!existsSync(videoPath)) return res.status(400).json({ error: 'Video file not found.' });
+
+    const result = await uploadBaseEditToDrive(videoPath, { videoName });
+    res.json({ success: true, file: result });
+  } catch (err) {
+    console.error('[drive] Base edit upload error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

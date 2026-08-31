@@ -220,6 +220,22 @@ export async function uploadExportToDrive(filePath, { pageName, ideaName, fileNa
   return uploadToDrive(filePath, fileName || basename(filePath), leafFolderId);
 }
 
+export async function uploadBaseEditToDrive(filePath, { videoName } = {}) {
+  const root = await resolveRootFolderId();
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  // Create: Base Edits / [YYYY-MM-DD] / videoName
+  const baseEditsFolderId = await findOrCreateFolder(root, 'Base Edits');
+  const dateFolderId = await findOrCreateFolder(baseEditsFolderId, dateStr);
+
+  const fileName = videoName || basename(filePath);
+  const result = await uploadToDrive(filePath, fileName, dateFolderId);
+
+  console.log(`[drive] Base edit uploaded: ${fileName} to Base Edits/${dateStr}`);
+  return result;
+}
+
 /**
  * Upload multiple files to a subfolder in Drive.
  * Creates the subfolder if it doesn't exist.

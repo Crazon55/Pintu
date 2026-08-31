@@ -17,7 +17,7 @@
  * there come out identical.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Wand2, Check, RotateCcw, Trash2 } from 'lucide-react';
+import { Loader2, Wand2, Check, RotateCcw, Trash2, Cloud } from 'lucide-react';
 import { findCaptionFont, fontsForRole } from './captionFonts.js';
 import {
   PLAY_RES_X,
@@ -557,6 +557,30 @@ export default function CaptionsSection({
   };
   const regroup = () => setWords((prev) => stampAutoSentenceBreaks(prev, sStyle));
 
+  const [uploadingBaseEdit, setUploadingBaseEdit] = useState(false);
+  const uploadBaseEdit = useCallback(async () => {
+    if (!sourceFileRef.current) return;
+    setUploadingBaseEdit(true);
+    try {
+      const res = await fetch(`${serverUrl}/api/upload-base-edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoPath: sourceFileRef.current.path || sourceFileRef.current.name,
+          videoName: sourceFileRef.current.name,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      setError(null);
+      alert('✓ Base edit uploaded to Google Drive');
+    } catch (e) {
+      setError(`Upload failed: ${e.message}`);
+    } finally {
+      setUploadingBaseEdit(false);
+    }
+  }, [serverUrl]);
+
   if (!videoSrc) return null;
 
   return (
@@ -875,6 +899,22 @@ export default function CaptionsSection({
               </button>
             )}
           </div>
+
+          {words.length > 0 && (
+            <button
+              type="button"
+              onClick={uploadBaseEdit}
+              disabled={uploadingBaseEdit || !sourceFileRef.current}
+              className="w-full flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-500
+                         text-white text-[11px] font-semibold rounded-md px-3 py-2 disabled:opacity-40
+                         disabled:cursor-not-allowed transition-colors"
+              title="Upload original video to Google Drive Base Edits folder (organized by date)"
+            >
+              {uploadingBaseEdit
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
+                : <><Cloud className="w-3.5 h-3.5" /> Save base edit to Drive</>}
+            </button>
+          )}
           <p className="text-[10px] text-[var(--pintu-text-faint)] leading-relaxed">
             Captions are burned into the clip itself, so every preset picks them up. Do this
             before the hook — then switch to Text &amp; Layout and lay out the rest.
