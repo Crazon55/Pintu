@@ -307,7 +307,7 @@ export const NEWS_TICKER_PLAIN_LINE_HEIGHT = 1.0;
  * Tickers that paint highlights as coloured text instead of a filled pill behind
  * black text. Drives line advance, so preview and export must agree.
  */
-export const PLAIN_TEXT_NEWS_TICKER_NAMES = ['ifc2-news', 'foundersinindia-news'];
+export const PLAIN_TEXT_NEWS_TICKER_NAMES = ['indiafounderscore-news', 'foundersinindia-news'];
 
 export function isPlainTextNewsTicker(preset) {
   return PLAIN_TEXT_NEWS_TICKER_NAMES.includes((preset?.name || '').toLowerCase());
@@ -355,7 +355,7 @@ export function applyNewsHookCasing(preset, html) {
  * Does NOT change horizontal alignment or highlight style.
  */
 export const BLACK_BAR_ANCHORED_NEWS_NAMES = [
-  'ifc2-news',
+  'indiafounderscore-news',
   'foundersinindia-news',
   'indiabusinesscom-news',
   'indiastartupstory-news',

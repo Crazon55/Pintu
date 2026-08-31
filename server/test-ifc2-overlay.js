@@ -8,8 +8,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const preset = {
   id: 97,
-  name: 'ifc2-news',
-  handle: '@indianfounderscore',
+  name: 'indiafounderscore-news',
+  handle: '@indiafounderscore',
   ratio: '9:16',
   color: '#E0E140',
   layout: 'news_ticker',
@@ -19,7 +19,7 @@ const preset = {
   showLogo: false,
   alignment: 'center',
   lineSpacing: 1.25,
-  rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'indianfounderscore-handle.png', width: 188, height: 25, gap: 5 } },
+  rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'indiafounderscore-handle.png', width: 188, height: 25, gap: 5 } },
 };
 
 async function main() {
@@ -38,7 +38,7 @@ async function main() {
     videoScale: 100,
     fitMode: 'cover',
     showCredit: true,
-    ideaName: 'ifc2-hook-test',
+    ideaName: 'indiafounderscore-hook-test',
     onProgress: ({ current, total, preset: name }) => console.log(`Progress: ${current}/${total} – ${name}`),
   });
   console.log('OK', result.videoPaths);
@@ -49,7 +49,7 @@ async function main() {
   if (latest) {
     const ovl = join(tempRoot, latest, 'ovl-97.png');
     if (existsSync(ovl)) {
-      const out = join(__dirname, 'test-assets', 'ifc2-overlay-check.png');
+      const out = join(__dirname, 'test-assets', 'indiafounderscore-overlay-check.png');
       await fs.copyFile(ovl, out);
       console.log('Overlay copied to', out);
     }

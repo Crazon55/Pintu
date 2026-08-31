@@ -197,7 +197,7 @@ try {
   if (existsSync(avantGardeBold)) { _otAvantGardeBold = opentypeLoad(avantGardeBold); console.log('✓ ITC Avant Garde Gothic Bold loaded via opentype.js'); }
 } catch (e) { console.warn('ITC Avant Garde Gothic opentype load failed:', e.message); }
 
-// Helvetica World Bold for indiafounderscore (ifc2-news). Drop the licensed file at
+// Helvetica World Bold for indiafounderscore (indiafounderscore-news). Drop the licensed file at
 // server/assets/fonts/HelveticaWorld-Bold.otf (or .ttf) — commercial Monotype face.
 const helveticaWorldBoldCandidates = [
   resolve(fontsDir, 'HelveticaWorld-Bold.otf'),
@@ -1023,7 +1023,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const shiftY = clampNewsTickerShiftPx(preset, {
     canvasH, fontSize, totalBarsH, lockupBlockH, shiftY: rawShiftY,
   });
-  // Black-bar-anchored (IBC/ISS/ifc2/foundersinindia): same first-line height as preview.
+  // Black-bar-anchored (IBC/ISS/indiafounderscore-news/foundersinindia): same first-line height as preview.
   // Others: bottom-margin layout. Geometry lives in shared/headlineLayout.js.
   let barY = getNewsTickerHookBarY(preset, {
     canvasH, fontSize, totalBarsH, lockupBlockH, shiftY,
@@ -2390,7 +2390,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
     // the frame on that axis — so the term vanished and the crop collapsed to a constant
     // (dead centre) no matter what pos was. Zooming creates frame*(z−1) of real travel on
     // that axis, but nothing ever mapped pos into it, so the axis was frozen at every zoom
-    // level. That is the "ifc2 zoomed video won't move" bug: a 9:16 source in the 9:16
+    // level. That is the "indiafounderscore-news zoomed video won't move" bug: a 9:16 source in the 9:16
     // full-bleed frame has zero cover slack on BOTH axes, so both froze.
     //
     // Travel on an axis is (scaled − box), full stop. Map pos straight onto it.
@@ -2484,7 +2484,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       'indiabusinesscom-news',
       'indiastartupstory-news',
       'ifc-news',
-      'ifc2-news',
+      'indiafounderscore-news',
       'foundersinindia-news',
       '101xtechnology-top',
       '101xtechnology-mid',
