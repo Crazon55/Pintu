@@ -704,29 +704,31 @@ export default function CaptionsSection({
                                    text-white focus:outline-none"
                       />
                     ) : (
-                      <button
-                        key={w.id}
-                        type="button"
-                        onClick={() => toggleEmphasis(w.id)}
-                        onDoubleClick={() => setEditing(w.id)}
-                        title="Click to emphasise · double-click to edit"
-                        className={`rounded px-1 py-0.5 text-[11px] transition-colors ${
-                          w.highlight
-                            ? 'bg-violet-500/25 text-violet-200'
-                            : 'text-[var(--pintu-text-muted)] hover:bg-white/5'
-                        }`}
-                      >
-                        {w.text}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteWord(w.id)}
-                        title="Delete this word"
-                        className="absolute -right-1 -top-1.5 opacity-0 group-hover:opacity-100 transition-opacity
-                                   bg-red-600 hover:bg-red-500 rounded px-0.5 py-0 text-[9px] font-bold text-white"
-                      >
-                        ✕
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => toggleEmphasis(w.id)}
+                          onDoubleClick={() => setEditing(w.id)}
+                          title="Click to emphasise · double-click to edit"
+                          className={`rounded px-1 py-0.5 text-[11px] transition-colors ${
+                            w.highlight
+                              ? 'bg-violet-500/25 text-violet-200'
+                              : 'text-[var(--pintu-text-muted)] hover:bg-white/5'
+                          }`}
+                        >
+                          {w.text}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteWord(w.id)}
+                          title="Delete this word"
+                          className="absolute -right-1 -top-1.5 opacity-0 group-hover:opacity-100 transition-opacity
+                                     bg-red-600 hover:bg-red-500 rounded px-0.5 py-0 text-[9px] font-bold text-white"
+                        >
+                          ✕
+                        </button>
+                      </>
+                    )}
                     </div>
                     )))}
                   </div>
