@@ -1,6 +1,6 @@
 import ffmpeg from 'fluent-ffmpeg';
 import { createCanvas, loadImage, registerFont } from 'canvas';
-import { join, dirname, resolve } from 'path';
+import { join, dirname, resolve, basename } from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { existsSync, statSync } from 'fs';
@@ -27,6 +27,9 @@ import {
   applyHookCasing,
   clampNewsTickerShiftPx,
   getHookBaseFontSize,
+  is101xFoundersAroll,
+  FOUNDERS_AROLL_REGULAR,
+  FOUNDERS_AROLL_HIGHLIGHT,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -96,6 +99,9 @@ const interThin = findFont(fontNames.thin);
 
 if (interRegular) {
   registerFont(interRegular, { family: 'Inter', weight: 'normal' });
+  // Unique family so Windows Cairo cannot confuse Inter Regular with Poppins Regular
+  // (both are registered as weight:normal; family+weight lookup is unreliable here).
+  registerFont(interRegular, { family: 'InterRegular', weight: 'normal' });
   console.log('✓ Inter Regular font registered');
 }
 if (interBold) {
@@ -533,6 +539,10 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   // Tokenize + wrap, preserving explicit newlines (<br> / Line Layout editor) as hard line breaks.
   const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
   const measureHookWordPlain = (text, bold) => {
+    if (is101xFoundersAroll(preset)) {
+      const f = (bold && _otInterBold) ? _otInterBold : (_otInterReg || _otInterBold);
+      if (f) return measureOtWidth(f, text, fontSize);
+    }
     let mFamily, mWeight;
     if (_isIFC || _isIFCore || _isIBC) {
       mFamily = interBold ? 'InterBold' : 'Inter';
@@ -635,27 +645,44 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     let drawX = hookIsCenterAligned ? (720 - line.width + spacing) / 2 : 50;
     for (const t of line.tokens) {
       const grp = groupMap[tokenIdx++];
+      const lineMidY = drawY + fontSize / 2;
+      const foundersOt = is101xFoundersAroll(preset)
+        ? ((t.bold && _otInterBold) ? _otInterBold : _otInterReg)
+        : null;
+      const hookBaselineLine = foundersOt ? middleToBaseline(foundersOt, fontSize, lineMidY) : drawY;
       // Use family-name-based font selection — Cairo doesn't reliably resolve numeric weights.
-      // IBC / IFCore / IFC = Inter Bold (700); others = Inter Regular/Bold by token.
+      // IBC / IFCore / IFC = Inter Bold (700); 101xfounders A-roll is drawn via opentype Inter.
       let fontFamily, fontWeight;
       if (isIBC || isIFC || isIFCore) {
         fontFamily = interBold ? 'InterBold' : 'Inter';
         fontWeight = interBold ? 'normal' : 'bold';
+      } else if (is101xFoundersAroll(preset)) {
+        fontFamily = t.bold && interBold ? 'InterBold' : 'InterRegular';
+        fontWeight = 'normal';
       } else {
         fontFamily = 'Inter';
         fontWeight = t.bold ? 'bold' : 'normal';
       }
-      // Color: IBC uses orange→green dual groups; others use hookColor for bold, white for normal
+      // Color: IBC uses orange→green dual groups; 101xfounders A-roll uses off-white body;
+      // others use hookColor for bold, white for normal
       let fillColor;
       if (isIBC) {
         fillColor = grp === 1 ? '#FF7838' : grp >= 2 ? '#46DB27' : '#FFFFFF';
+      } else if (is101xFoundersAroll(preset)) {
+        fillColor = t.bold ? (hookColor || FOUNDERS_AROLL_HIGHLIGHT) : FOUNDERS_AROLL_REGULAR;
       } else {
         fillColor = t.bold ? hookColor : '#FFFFFF';
       }
       ctx.textBaseline = 'top';
       drawMixedText(ctx, t.text, drawX, fontSize, {
-        emojiTopY: drawY + fontSize * 0.15,
+        emojiTopY: foundersOt
+          ? (hookBaselineLine - fontSize * EMOJI_SIZE_RATIO)
+          : (drawY + fontSize * 0.15),
         drawPlain: (plain, px) => {
+          if (foundersOt) {
+            drawOpentypeText(ctx, foundersOt, plain, px, hookBaselineLine, fontSize, fillColor);
+            return measureOtWidth(foundersOt, plain, fontSize);
+          }
           ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
           ctx.fillStyle = fillColor;
           ctx.fillText(plain, px, drawY);
@@ -689,7 +716,9 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     videoX: 0,
     videoW: 720,
     videoH: videoH,
-    watermark: null,
+    watermark: is101xFoundersAroll(preset)
+      ? { text: preset.handle || '@101xfounders', x: 0.5, y: preset.watermarkPosition?.y || 16 }
+      : null,
     logoOverlay: logoPath ? {
       path: logoPath,
       position: preset.rules?.logoPosition || 'top-right',
@@ -2504,6 +2533,8 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       let xPercentage = 0.40; // Default for bizzindia
       if (presetName === '101xfounders') {
         xPercentage = 0.35; // More to the left for 101xfounders
+      } else if (is101xFoundersAroll(preset)) {
+        xPercentage = 0.50; // Centered handle on the video frame
       }
 
       // Calculate x position using percentage
@@ -2517,17 +2548,21 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       // it should be bold like the preview.
       const escapedText = layout.watermark.text.replace(/\\/g, "\\\\").replace(/'/g, '\u2019');
       let fontFileParam = '';
-      // Choose bold fontfile only for these two watermark presets
-      const isBoldWatermarkPreset = presetName === 'bizzindia' || presetName === '101xfounders' || presetName === 'indian-founders-co';
-      if (isBoldWatermarkPreset && existsSync(interBold)) {
-        const relativeFontPath = 'assets/fonts/Inter_18pt-Bold.ttf';
-        fontFileParam = `:fontfile=${relativeFontPath}`;
-      } else if (existsSync(interThin)) {
-        // Default watermark font: Inter Thin
-        const relativeFontPath = 'assets/fonts/Inter_18pt-Thin.ttf';
-        fontFileParam = `:fontfile=${relativeFontPath}`;
+      const isBoldWatermarkPreset = presetName === 'bizzindia' || presetName === '101xfounders' || presetName === 'indian-founders-co' || is101xFoundersAroll(preset);
+      if (isBoldWatermarkPreset && interBold && existsSync(interBold)) {
+        fontFileParam = `:fontfile=assets/fonts/${basename(interBold)}`;
+      } else if (interThin && existsSync(interThin)) {
+        fontFileParam = `:fontfile=assets/fonts/${basename(interThin)}`;
       }
-      const drawtextFilter = `[ovl]drawtext=text='${escapedText}':expansion=none:fontcolor=white@0.4:fontsize=24:x=${textX}:y=${textY}:text_align=center${fontFileParam}[watermarked]`;
+      // 101xfounders A-roll: center with (w-text_w)/2 — text_align=center is ignored on
+      // some FFmpeg builds, which left-anchors at x=50% and shoves the handle right.
+      // white@0.5 is the same opacity syntax the other watermarks already use.
+      let drawtextFilter;
+      if (is101xFoundersAroll(preset)) {
+        drawtextFilter = `[ovl]drawtext=text='${escapedText}':expansion=none:fontcolor=white@0.5:fontsize=24:x=${sx}+(${sw}-text_w)/2:y=${textY}${fontFileParam}[watermarked]`;
+      } else {
+        drawtextFilter = `[ovl]drawtext=text='${escapedText}':expansion=none:fontcolor=white@0.4:fontsize=24:x=${textX}:y=${textY}:text_align=center${fontFileParam}[watermarked]`;
+      }
       console.log('Watermark filter:', drawtextFilter);
       filterChain.push(drawtextFilter);
 

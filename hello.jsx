@@ -29,6 +29,8 @@ import {
     isUppercaseArollHook,
     uppercaseHeadlineHtml,
     applyHookCasing,
+    is101xFoundersAroll,
+    FOUNDERS_AROLL_REGULAR,
 } from './shared/headlineLayout.js';
 import CaptionsSection, { CaptionLineOverlay, CaptionWordOverlay } from './captionTool.jsx';
 import { PLAY_RES_X as CAPTION_SRC_W, buildPreviewBlocks, usesWordAnimation, findActiveCaptionBlock } from './shared/captionEngine.js';
@@ -161,6 +163,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 98, name: '101xtechnology-aroll', handle: '@101xtechnology', ratio: '16:9', color: '#4898ab', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: '101xt.', highlightColors: ['#4898ab', '#90d46c'], topGlow: true } },
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 102, name: '101xfounders-aroll', handle: '@101xfounders', ratio: '4:3', color: '#fda207', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
 ];
 
 // All presets are shown in a single unified list (no active/inactive division).
@@ -177,12 +180,12 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
 }));
 
 // Presets configured during the "Experiment X" pass — surfaced in their own quick-pick section
-const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
+const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', '101xfounders-aroll', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
 // Archived out of Bizz India Playbook for now — tech pages + news-ticker formats. Kept here so they're easy to bring back.
 const ARCHIVED_PRESET_NAMES = ['101xtechnology-aroll', 'indiantechdaily-aroll', 'indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news'];
 const BIZZINDIA_PLAYBOOK_PRESET_NAMES = EXPERIMENT_X_PRESET_NAMES.filter(n => !ARCHIVED_PRESET_NAMES.includes(n));
 // Bizz India Playbook format switch (inside the playbook header): "A-roll" is the
-// original 4-preset default set above; "News formats" is the archived news-ticker group.
+// hook+video pages (IBC, IFCore, IFC, ISS, 101xfounders); "News formats" is the archived news-ticker group.
 // The archived tech/aroll-layout pages stay unused.
 const BIZZINDIA_NEWS_PRESET_NAMES = ['indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news'];
 
@@ -1363,7 +1366,7 @@ const PreviewCard = memo(({
                                                         fontSynthesis: 'none',
                                                         color: preset.name === 'indiabusinesscom'
                                                             ? (grp === 1 ? '#FF7838' : grp >= 2 ? '#46DB27' : '#FFFFFF')
-                                                            : (t.bold ? preset.color : '#FFFFFF'),
+                                                            : (t.bold ? preset.color : (is101xFoundersAroll(preset) ? FOUNDERS_AROLL_REGULAR : '#FFFFFF')),
                                                         fontWeight: isInterBoldHook ? 700 : (t.bold ? 700 : 400),
                                                     }}
                                                 >
@@ -2178,7 +2181,7 @@ const PreviewCard = memo(({
                         )}
 
                         {/* WATERMARK OVERLAY */}
-                        {preset.layout === 'watermark' && preset.name !== 'The Rising Founder' && preset.name !== 'ceo hustle advice' && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && preset.name !== 'indian business com' && !isAicrackedOrEvolvingPreset && (
+                        {(preset.layout === 'watermark' || is101xFoundersAroll(preset)) && preset.name !== 'The Rising Founder' && preset.name !== 'ceo hustle advice' && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && preset.name !== 'indian business com' && !isAicrackedOrEvolvingPreset && (
                             <div
                                 ref={watermarkRef}
                                 className={`absolute left-0 w-full flex justify-center z-20 ${isRepositioningWatermark ? 'cursor-move ring-2 ring-yellow-500' : 'pointer-events-none'}`}
@@ -2199,10 +2202,12 @@ const PreviewCard = memo(({
                                     </div>
                                 )}
                                 <span
-                                    className={preset.name === '101xfounders' || preset.name === 'bizzindia' || preset.name === 'indian-founders-co' ? "font-light tracking-wide font-inter" : "font-bold tracking-wide font-inter"}
+                                    className={is101xFoundersAroll(preset)
+                                        ? "font-bold tracking-wide font-inter"
+                                        : (preset.name === '101xfounders' || preset.name === 'bizzindia' || preset.name === 'indian-founders-co' ? "font-light tracking-wide font-inter" : "font-bold tracking-wide font-inter")}
                                     style={{
                                         fontSize: '11px',
-                                        color: 'rgba(255, 255, 255, 0.5)',
+                                        color: is101xFoundersAroll(preset) ? 'rgba(245, 243, 245, 0.5)' : 'rgba(255, 255, 255, 0.5)',
                                         textShadow: '0px 1px 2px rgba(0,0,0,0.8)'
                                     }}
                                 >

@@ -181,11 +181,19 @@ export function getHookBaseFontSize(preset) {
   return HOOK_BASE_FONT_OVERRIDES[(preset?.name || '').toLowerCase()] ?? 38;
 }
 
+/** 101xfounders A-roll: Inter Bold highlight / Inter Regular body, handle watermark. */
+export const FOUNDERS_AROLL_HIGHLIGHT = '#fda207';
+export const FOUNDERS_AROLL_REGULAR = '#f5f3f5';
+
+export function is101xFoundersAroll(preset) {
+  return (preset?.name || '').toLowerCase() === '101xfounders-aroll';
+}
+
 /** Font size at 720px export canvas — mirrors server/videoProcessor.js */
 export function getExportFontSize(preset, headline, fontScale = 1) {
   const layout = preset?.layout;
   const scale = fontScale || 1;
-  if (layout === 'hook_video' || layout === 'aroll') {
+  if (layout === 'hook_video' || layout === 'aroll' || is101xFoundersAroll(preset)) {
     return Math.round(getHookBaseFontSize(preset) * scale);
   }
   if (layout === 'news_ticker') {
@@ -670,6 +678,7 @@ export function getHookVideoGap(preset) {
   if (preset?.layout === 'aroll') return 18;
   // ISS a-roll: match IFC hook_video gap (was watermark default 20 + last-line slack).
   if ((preset?.name || '').toLowerCase() === 'indiastartupstory') return 18;
+  if (is101xFoundersAroll(preset)) return 18;
 
   const name = preset?.name || '';
   const nameLower = name.toLowerCase();
