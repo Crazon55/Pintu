@@ -30,7 +30,21 @@ import {
     uppercaseHeadlineHtml,
     applyHookCasing,
     is101xFoundersAroll,
+    is101xFoundersNews,
+    isIhnNews,
+    isInterNewsTicker,
+    isFullBleedNewsTicker,
+    getNewsSupportingText,
+    getNewsSupportingFontSize,
+    getNewsSupportingColor,
+    getPngNewsHeaderAssets,
+    wrapPlainWords,
+    getNewsTickerMaxLines,
+    getNewsTickerBaseFontSize,
     FOUNDERS_AROLL_REGULAR,
+    FOUNDERS_AROLL_HIGHLIGHT,
+    IHN_NEWS_HIGHLIGHT,
+    IHN_NEWS_REGULAR,
 } from './shared/headlineLayout.js';
 import CaptionsSection, { CaptionLineOverlay, CaptionWordOverlay } from './captionTool.jsx';
 import { PLAY_RES_X as CAPTION_SRC_W, buildPreviewBlocks, usesWordAnimation, findActiveCaptionBlock } from './shared/captionEngine.js';
@@ -164,6 +178,8 @@ const INITIAL_PRESETS_RAW = [
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
     { id: 102, name: '101xfounders-aroll', handle: '@101xfounders', ratio: '4:3', color: '#fda207', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 103, name: '101xfounders-news', handle: '@101xfounders', ratio: '9:16', color: '#fda207', active: true, layout: 'news_ticker', logo: '101xfounders-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 42, logoPadX: 20, logoPadY: 84, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, bottomMarginPct: 4.5 } },
+    { id: 104, name: 'indianhappeningnow-news', handle: '@indianhappeningnow', ratio: '9:16', color: '#ffa928', active: true, layout: 'news_ticker', logo: 'indianhappeningnow-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 72, logoPadX: 20, logoPadY: 84, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, bottomMarginPct: 8 } },
 ];
 
 // All presets are shown in a single unified list (no active/inactive division).
@@ -187,7 +203,7 @@ const BIZZINDIA_PLAYBOOK_PRESET_NAMES = EXPERIMENT_X_PRESET_NAMES.filter(n => !A
 // Bizz India Playbook format switch (inside the playbook header): "A-roll" is the
 // hook+video pages (IBC, IFCore, IFC, ISS, 101xfounders); "News formats" is the archived news-ticker group.
 // The archived tech/aroll-layout pages stay unused.
-const BIZZINDIA_NEWS_PRESET_NAMES = ['indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news'];
+const BIZZINDIA_NEWS_PRESET_NAMES = ['indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xfounders-news', 'indianhappeningnow-news'];
 
 // Pan needs travel and travel needs zoom: a 16:9 clip covers these frames' height exactly,
 // so vertical pan has none at 100%. A starved axis gets enough zoom to travel this fraction
@@ -212,7 +228,11 @@ const getLogoUrl = (logo) => {
     // Cache-bust so preset previews pick up logo color edits immediately
     const bust = (logo === 'FoundersCORE-white.png' || logo === 'FoundersCORE-removebg-preview.png')
         ? `?v=ifc2-white-ffd412`
-        : '';
+        : (logo === '101xfounders-news-logo.png' || logo === '101xfounders-news-kicker.png')
+            ? `?v=png-overlay-1`
+            : (logo === 'indianhappeningnow-news-logo.png')
+                ? `?v=ihn-operator-1`
+                : '';
     return `${base}/assets/logos/${logo}${bust}`;
 };
 
@@ -347,21 +367,22 @@ function buildNewsTickerPreviewLines(headline, { fontSize, maxWidth, fontFamily,
 }
 
 /** Auto-fit news ticker like Canva/export: same min size + wrap budget as server. */
-function fitNewsTickerPreview(headline, { baseFontSize, userScale = 1, maxWidth, fontFamily, boldWeight = 700, maxTotalBarsH, fitRatios }) {
+function fitNewsTickerPreview(headline, { baseFontSize, userScale = 1, maxWidth, fontFamily, boldWeight = 700, regularWeight = null, maxTotalBarsH, fitRatios, maxLines = 3 }) {
     const ctx = getMeasureCtx();
     if (!ctx || !headline) return { fontSize: baseFontSize, lines: [] };
     const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
+    const measureWeight = regularWeight ?? boldWeight;
     return fitNewsTickerFontSize({
         cleanedHtml: cleaned,
         measureWordAtSize: (text, fs) => {
-            ctx.font = `${boldWeight} ${fs}px ${fontFamily}`;
+            ctx.font = `${measureWeight} ${fs}px ${fontFamily}`;
             return ctx.measureText(text).width;
         },
         maxLineW: maxWidth,
         baseFontSize,
         userScale,
         minFontSize: 22, // match server generateNewsTickerOverlay
-        maxLines: 3,
+        maxLines,
         maxTotalBarsH,
         barLineHeight: NEWS_TICKER_BAR_LINE_HEIGHT,
         ...(fitRatios || {}),
@@ -545,6 +566,17 @@ const PerBrandPresetCard = ({ p, fontScale, wordSpacing, setPresets, updateIndiv
                     className="w-full bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded-lg p-4 text-sm text-[var(--pintu-text-primary)] focus:border-violet-500 focus:outline-none min-h-[100px]"
                 />
             </CollapsibleSection>
+            {isInterNewsTicker(p) && (
+                <CollapsibleSection title="Supporting line" flat collapsible={false}>
+                    <textarea
+                        value={p.footer || ''}
+                        onChange={(e) => updateIndividualText(p.id, 'footer', e.target.value)}
+                        placeholder="Parkobot connects drivers with empty private parking spots..."
+                        rows={3}
+                        className="w-full px-4 py-3 text-sm text-[var(--pintu-text-primary)] bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 placeholder:text-[var(--pintu-text-faint)] transition-all resize-y min-h-[72px]"
+                    />
+                </CollapsibleSection>
+            )}
 
             {cardOpen && (
                 <>
@@ -827,7 +859,7 @@ const PreviewCard = memo(({
             zoomForPanTravel(coverH, rect.height),
             zoomForPanTravel(coverW, rect.width)
         );
-        const maxZoom = ((preset.name || '').toLowerCase() === 'ifc-news' || isPlainTextNewsTicker(preset)) ? 220 : 300;
+        const maxZoom = isFullBleedNewsTicker(preset) ? 220 : 300;
         const next = Math.min(maxZoom, start + PAN_AUTO_ZOOM_CAP, needed);
         if (next > start + 0.5) {
             setLocalVideoScale(next);
@@ -896,7 +928,7 @@ const PreviewCard = memo(({
         let currentPosY = localPos.y;
         const isNews = preset.layout === 'news_ticker';
         const presetNameLower = (preset.name || '').toLowerCase();
-        const isFullBleedNews = presetNameLower === 'ifc-news' || isPlainTextNewsTicker(preset);
+        const isFullBleedNews = isFullBleedNewsTicker(preset);
         // full-bleed 9:16 — cap zoom so face doesn't disappear before captions are covered
         const maxZoom = isFullBleedNews ? 220 : 300;
         const rect0 = containerRef.current?.getBoundingClientRect();
@@ -1846,11 +1878,52 @@ const PreviewCard = memo(({
                                 className="absolute inset-0 z-30"
                                 style={{ pointerEvents: 'none' }}
                             >
-                                {preset.rules?.textLogo ? (
+                                {(() => {
+                                    const pngHeader = getPngNewsHeaderAssets(preset);
+                                    if (!pngHeader) return null;
+                                    const [rw, rh] = (preset.ratio || '9:16').split(':').map(Number);
+                                    const canvasH = Math.round(720 * (rh / rw));
+                                    const { padX, logoFile, kickerFile, logoH, kickerH, logoY, kickerY } = pngHeader;
+                                    return (
+                                        <>
+                                            {getLogoUrl(logoFile) && (
+                                                <img
+                                                    src={getLogoUrl(logoFile)}
+                                                    alt=""
+                                                    className="absolute z-50 pointer-events-none"
+                                                    style={{
+                                                        top: `${(logoY / canvasH) * 100}%`,
+                                                        left: canvasPxToPercent(padX),
+                                                        height: `${(logoH / canvasH) * 100}%`,
+                                                        width: 'auto',
+                                                        objectFit: 'contain',
+                                                        display: 'block',
+                                                    }}
+                                                />
+                                            )}
+                                            {getLogoUrl(kickerFile) && (
+                                                <img
+                                                    src={getLogoUrl(kickerFile)}
+                                                    alt=""
+                                                    className="absolute z-50 pointer-events-none"
+                                                    style={{
+                                                        top: `${(kickerY / canvasH) * 100}%`,
+                                                        right: canvasPxToPercent(padX),
+                                                        height: `${(kickerH / canvasH) * 100}%`,
+                                                        width: 'auto',
+                                                        objectFit: 'contain',
+                                                        display: 'block',
+                                                    }}
+                                                />
+                                            )}
+                                        </>
+                                    );
+                                })() || (preset.rules?.textLogo && !isInterNewsTicker(preset) ? (
                                     <div
-                                        className="absolute z-50 text-white font-black leading-tight"
+                                        className="absolute z-50 text-white leading-tight font-black"
                                         style={{
                                             fontFamily: "'Inter', sans-serif",
+                                            fontWeight: 900,
                                             whiteSpace: 'pre-line',
                                             fontSize: `${Math.round((preset.rules?.logoSize || 42) * 0.9 * previewScale)}px`,
                                             lineHeight: 1.1,
@@ -1872,7 +1945,7 @@ const PreviewCard = memo(({
                                     >
                                         {preset.rules.textLogo}
                                     </div>
-                                ) : getLogoUrl(preset.logo) && preset.rules?.logoPosition !== 'bottom-left' ? (
+                                ) : getLogoUrl(preset.logo) && preset.rules?.logoPosition !== 'bottom-left' && !isInterNewsTicker(preset) ? (
                                     <div className="absolute z-50" style={{ top: canvasPxToPercent(preset.rules?.logoPadY ?? 41), left: canvasPxToPercent(preset.rules?.logoPadX ?? 46) }}>
                                         <img
                                             src={getLogoUrl(preset.logo)}
@@ -1880,7 +1953,7 @@ const PreviewCard = memo(({
                                             style={{ width: canvasPxToPercent(preset.rules?.logoSize || 48), height: 'auto', objectFit: 'contain', display: 'block', opacity: preset.rules?.logoOpacity ?? 1 }}
                                         />
                                     </div>
-                                ) : null}
+                                ) : null)}
                                 {preset.name === 'indiabusinesscom-news' && (
                                     <div className="absolute z-50" style={{ top: canvasPxToPercent(15), right: canvasPxToPercent(5) }}>
                                         <img src={getLogoUrl('IndianBusinessCom NewsStatic Format (1).png')} style={{ width: canvasPxToPercent(32), height: 'auto', objectFit: 'contain' }} />
@@ -1916,46 +1989,67 @@ const PreviewCard = memo(({
                                     const isIFC = preset.name === 'ifc-news';
                                     const isIFC2 = isPlainTextNewsTicker(preset);
                                     const isPlainText = isPlainTextNewsTicker(preset);
+                                    const isFoundersNews = is101xFoundersNews(preset);
+                                    const isIhn = isIhnNews(preset);
+                                    const isInterNews = isInterNewsTicker(preset);
+                                    const skipPills = isPlainText || isInterNews;
+                                    const centerTicker = isIBC || isIFC || isIFC2;
                                     // Bold (700) — Avant Garde / Helvetica World Bold files, not Black/ExtraBold
-                                    const ntFontWeight = 700;
+                                    const ntFontWeight = isFoundersNews ? 400 : 700;
                                     const ntFontFamily = getNewsTickerFontFamily(preset);
                                     const [rw, rh] = (preset.ratio || '9:16').split(':').map(Number);
                                     const exportCanvasH = Math.round(720 * (rh / rw));
                                     // Handle lockup reserves a fixed box under the hook (mirrors export)
                                     const handleLockup = getNewsTickerHandleLockup(preset);
-                                    const lockupBlockH = handleLockup ? handleLockup.gap + handleLockup.height : 0;
+                                    const supportText = getNewsSupportingText(preset);
+                                    const supportReserve = supportText ? Math.round(exportCanvasH * 0.08) : 0;
+                                    const lockupBlockH = (handleLockup ? handleLockup.gap + handleLockup.height : 0) + supportReserve;
                                     // Same wrap budget as export (getExportNewsMaxLineWidth already leaves pad room)
                                     const { fontSize: fittedExportFs, lines } = fitNewsTickerPreview(preset.headline, {
-                                        baseFontSize: 54,
+                                        baseFontSize: getNewsTickerBaseFontSize(preset),
                                         userScale: effectiveFontScale,
                                         maxWidth: getExportNewsMaxLineWidth(preset),
                                         fontFamily: ntFontFamily,
-                                        boldWeight: ntFontWeight,
-                                        maxTotalBarsH: Math.round(exportCanvasH * 0.28) - lockupBlockH,
+                                        boldWeight: 700,
+                                        regularWeight: isFoundersNews ? 400 : 700,
+                                        maxLines: getNewsTickerMaxLines(preset),
+                                        maxTotalBarsH: Math.round(exportCanvasH * (isInterNews ? 0.36 : 0.28)) - lockupBlockH,
                                         fitRatios: getNewsTickerFitRatios(preset),
                                     });
                                     const ntFontSize = Math.max(8, fittedExportFs * previewScale);
                                     // Mirror generateNewsTickerOverlay geometry (percent of frame height)
                                     const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fittedExportFs);
                                     const totalBarsH = getNewsTickerStackHeight(preset, fittedExportFs, lines.length);
+                                    const supportFs = supportText ? getNewsSupportingFontSize(preset, fittedExportFs) : 0;
+                                    const supportGap = supportText ? Math.round(fittedExportFs * 0.38) : 0;
+                                    const supportLineH = supportText ? Math.round(supportFs * 1.28) : 0;
+                                    const supportMeasureCtx = getMeasureCtx();
+                                    const supportLines = (supportText && supportMeasureCtx)
+                                        ? wrapPlainWords(supportText, (w) => {
+                                            supportMeasureCtx.font = `${isIhn ? 700 : 400} ${supportFs}px ${ntFontFamily}`;
+                                            return supportMeasureCtx.measureText(w).width;
+                                        }, getExportNewsMaxLineWidth(preset)).slice(0, 3)
+                                        : [];
+                                    const layoutLockupH = (handleLockup ? handleLockup.gap + handleLockup.height : 0)
+                                        + (supportText ? supportGap + supportLines.length * supportLineH : 0);
                                     // headlinePosition.y = % to raise (+) or lower (−) hook stack
                                     const shiftUpPct = Math.max(-22, Math.min(48, localHeadlinePos?.y || 0));
                                     const shiftYPx = clampNewsTickerShiftPx(preset, {
                                         canvasH: exportCanvasH,
                                         fontSize: fittedExportFs,
                                         totalBarsH,
-                                        lockupBlockH,
+                                        lockupBlockH: layoutLockupH,
                                         shiftY: Math.round(exportCanvasH * shiftUpPct / 100),
                                     });
                                     const barYPx = getNewsTickerHookBarY(preset, {
                                         canvasH: exportCanvasH,
                                         fontSize: fittedExportFs,
                                         totalBarsH,
-                                        lockupBlockH,
+                                        lockupBlockH: layoutLockupH,
                                         shiftY: shiftYPx,
                                     });
                                     const blackTopPx = getNewsTickerSolidTopY(
-                                        preset, exportCanvasH, barYPx, fittedExportFs, totalBarsH, shiftYPx,
+                                        preset, exportCanvasH, barYPx, fittedExportFs, totalBarsH, shiftYPx, layoutLockupH,
                                     );
                                     const solidBlackHPct = ((exportCanvasH - blackTopPx) / exportCanvasH) * 100;
                                     const gradientHPct = (getNewsTickerGradientHeight(preset, exportCanvasH) / exportCanvasH) * 100;
@@ -1963,7 +2057,7 @@ const PreviewCard = memo(({
                                     const gradientBottomPct = solidBlackHPct;
                                     // CSS bottom-%: text block ends at last line; lockup sits under it with gap
                                     const textBottomPct = ((exportCanvasH - (barYPx + totalBarsH)) / exportCanvasH) * 100;
-                                    const lockupBottomPct = ((exportCanvasH - (barYPx + totalBarsH + lockupBlockH)) / exportCanvasH) * 100;
+                                    const lockupBottomPct = ((exportCanvasH - (barYPx + totalBarsH + layoutLockupH)) / exportCanvasH) * 100;
                                     // ISS bottom logo tracks under the hook with a gap (never overlaps)
                                     const bottomLogoH = Math.round(preset.rules?.logoSize || 55);
                                     const bottomLogoY = newsTickerHasDynamicBottomLogo(preset) && getLogoUrl(preset.logo)
@@ -2006,10 +2100,10 @@ const PreviewCard = memo(({
                                                 style={{
                                                     bottom: `${textBottomPct}%`,
                                                     gap: `${lineGapPx}px`,
-                                                    paddingLeft: isISS ? canvasPxToPercent(56) : canvasPxToPercent(16),
-                                                    paddingRight: canvasPxToPercent(16),
+                                                    paddingLeft: isInterNews ? canvasPxToPercent(40) : (isISS ? canvasPxToPercent(56) : canvasPxToPercent(16)),
+                                                    paddingRight: canvasPxToPercent(isInterNews ? 40 : 16),
                                                     boxSizing: 'border-box',
-                                                    alignItems: (isIBC || isIFC || isIFC2) ? 'center' : 'flex-start',
+                                                    alignItems: centerTicker ? 'center' : 'flex-start',
                                                 }}
                                             >
                                                 {lines.map((lineTokens, i) => {
@@ -2023,7 +2117,7 @@ const PreviewCard = memo(({
                                                     return (
                                                         <div key={i} style={{
                                                             display: 'flex', alignItems: 'stretch',
-                                                            justifyContent: (isIBC || isIFC || isIFC2) ? 'center' : 'flex-start',
+                                                            justifyContent: centerTicker ? 'center' : 'flex-start',
                                                             fontFamily: ntFontFamily,
                                                             fontWeight: ntFontWeight,
                                                             fontSynthesis: 'none',
@@ -2035,11 +2129,16 @@ const PreviewCard = memo(({
                                                         }}>
                                                             {runs.map((run, j) => (
                                                                 <span key={j} style={{
-                                                                    background: (run.bold && !isPlainText) ? (isIBC ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : preset.color) : 'transparent',
-                                                                    color: isPlainText
-                                                                        ? (run.bold ? preset.color : '#ffffff')
-                                                                        : (isIBC || isIFC || isIFC2) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff',
-                                                                    padding: (run.bold && !isPlainText) ? '0 4px' : '0 2px',
+                                                                    background: (run.bold && !skipPills) ? (isIBC ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : preset.color) : 'transparent',
+                                                                    color: isIhn
+                                                                        ? (run.bold ? IHN_NEWS_HIGHLIGHT : IHN_NEWS_REGULAR)
+                                                                        : isFoundersNews
+                                                                        ? (run.bold ? FOUNDERS_AROLL_HIGHLIGHT : FOUNDERS_AROLL_REGULAR)
+                                                                        : isPlainText
+                                                                            ? (run.bold ? preset.color : '#ffffff')
+                                                                            : (isIBC || isIFC || isIFC2) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff',
+                                                                    fontWeight: isIhn ? 700 : isFoundersNews ? (run.bold ? 700 : 400) : ntFontWeight,
+                                                                    padding: (run.bold && !skipPills) ? '0 4px' : '0 2px',
                                                                     borderRadius: (isISS && run.bold) ? '6px' : undefined,
                                                                     flexShrink: 1,
                                                                     minWidth: 0,
@@ -2051,6 +2150,26 @@ const PreviewCard = memo(({
                                                     );
                                                 })}
                                             </div>
+                                            {isInterNews && supportLines.length > 0 && (
+                                                <div
+                                                    className="absolute left-0 right-0 z-20 pointer-events-none"
+                                                    style={{
+                                                        top: `${((barYPx + totalBarsH + supportGap) / exportCanvasH) * 100}%`,
+                                                        paddingLeft: canvasPxToPercent(40),
+                                                        paddingRight: canvasPxToPercent(40),
+                                                        fontFamily: ntFontFamily,
+                                                        fontWeight: isIhn ? 700 : 400,
+                                                        fontSize: `${Math.max(8, supportFs * previewScale)}px`,
+                                                        lineHeight: `${supportLineH * previewScale}px`,
+                                                        color: getNewsSupportingColor(preset),
+                                                        textAlign: 'left',
+                                                    }}
+                                                >
+                                                    {supportLines.map((line, i) => (
+                                                        <div key={i}>{line}</div>
+                                                    ))}
+                                                </div>
+                                            )}
                                             {/* Handle lockup (Instagram + Facebook + wordmark) under the hook */}
                                             {handleLockup && (
                                                 <div
@@ -2708,10 +2827,12 @@ export default function App() {
         return INITIAL_PRESETS.filter(p => names.includes(p.name)).map(p => ({
             ...p,
             headline: applyHookCasing(p, headline),
-            // News / hook_video / aroll never use credits
-            footer: (format === 'news' || p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
-                ? ''
-                : footer,
+            // News / hook_video / aroll never use credits; 101xfounders news keeps the supporting line.
+            footer: isInterNewsTicker(p)
+                ? ((footer && !/^credit:/i.test(String(footer).trim())) ? footer : (p.footer || ''))
+                : ((format === 'news' || p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
+                    ? ''
+                    : footer),
             // Each news card starts with its own scale (not shared)
             videoScale: p.layout === 'news_ticker' ? (p.videoScale ?? 100) : p.videoScale,
             hookEyebrow,
@@ -2889,6 +3010,8 @@ export default function App() {
         Promise.all([
             document.fonts.load("700 54px 'ITC Avant Garde Gothic'"),
             document.fonts.load("700 54px 'Helvetica World'"),
+            document.fonts.load("400 42px 'Inter'"),
+            document.fonts.load("700 42px 'Inter'"),
         ])
             .catch(() => { })
             .then(() => document.fonts.ready)
@@ -2916,7 +3039,21 @@ export default function App() {
                     changed = true;
                     nextP = { ...nextP, logo: src.logo };
                 }
-                if (nextP.footer) {
+                if (isInterNewsTicker(nextP) && src?.rules) {
+                    const nextRules = { ...nextP.rules, ...src.rules };
+                    delete nextRules.textLogo;
+                    delete nextRules.kickerYear;
+                    delete nextRules.kickerPlace;
+                    if (
+                        nextP.logo !== src.logo
+                        || nextP.rules?.textLogo
+                        || nextP.rules?.kickerLogo !== src.rules.kickerLogo
+                    ) {
+                        changed = true;
+                        nextP = { ...nextP, logo: src.logo, rules: nextRules };
+                    }
+                }
+                if (nextP.footer && !isInterNewsTicker(nextP)) {
                     changed = true;
                     nextP = { ...nextP, footer: '' };
                 }
@@ -3128,9 +3265,11 @@ export default function App() {
         setPresets(prev => prev.map(p => ({
             ...p,
             headline: applyHookCasing(p, headline),
-            footer: (p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
-                ? ''
-                : footer,
+            footer: isInterNewsTicker(p)
+                ? p.footer
+                : ((p.layout === 'news_ticker' || p.layout === 'hook_video' || p.layout === 'aroll')
+                    ? ''
+                    : footer),
         })));
     };
 
@@ -3209,8 +3348,7 @@ export default function App() {
             if (p.id !== id || p.layout !== 'news_ticker') return p;
             let position = p.position || { x: 50, y: 50 };
             if (next > 100 && !p.panTouched) {
-                const nameLower = (p.name || '').toLowerCase();
-                const isFullBleed = nameLower === 'ifc-news' || nameLower === 'indiafounderscore-news' || nameLower === 'foundersinindia-news';
+                const isFullBleed = isFullBleedNewsTicker(p);
                 const maxZ = isFullBleed ? 220 : 300;
                 const tt = Math.min(1, (next - 100) / (maxZ - 100));
                 const y = Math.max(isFullBleed ? 8 : 5, 50 * (1 - tt * 0.85));
@@ -3450,7 +3588,9 @@ export default function App() {
         const activePresets = latestPresets
             .filter(p => p.active)
             .map(p => {
-                const base = p.layout === 'news_ticker' ? { ...p, footer: '' } : { ...p };
+                const base = p.layout === 'news_ticker'
+                    ? { ...p, footer: getNewsSupportingText(p) }
+                    : { ...p };
                 // News only: each card keeps its own zoom. A-roll uses global zoom.
                 const presetScale = Number(base.videoScale);
                 const exportScale = base.layout === 'news_ticker'
@@ -3596,7 +3736,10 @@ export default function App() {
                 return;
             }
             console.error('Server export error:', error);
-            updateExportJob(localId, { status: 'failed', statusText: `Error: ${error.message}` });
+            const msg = error.message === 'Failed to fetch'
+                ? 'Export server is not running. Start it with: cd server && npm start'
+                : error.message;
+            updateExportJob(localId, { status: 'failed', statusText: `Error: ${msg}` });
             clearExportJobController(localId);
         }
     };
@@ -3987,6 +4130,26 @@ export default function App() {
                                                             className="w-full bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded p-3 text-sm text-[var(--pintu-text-primary)] placeholder-[var(--pintu-text-faint)] focus:border-violet-500 focus:outline-none font-medium min-h-[80px]"
                                                         />
                                                     </CollapsibleSection>
+                                                    {playbookFormat === 'news' && (
+                                                        <CollapsibleSection title="Supporting line">
+                                                            <textarea
+                                                                value={(() => {
+                                                                    const raw = (presets.find(p => isInterNewsTicker(p))?.footer)
+                                                                        || (globalFooter && !/^credit:/i.test(globalFooter) ? globalFooter : '');
+                                                                    return raw;
+                                                                })()}
+                                                                onChange={(e) => {
+                                                                    const v = e.target.value;
+                                                                    setGlobalFooter(v);
+                                                                    setPresets(prev => prev.map(p => isInterNewsTicker(p) ? { ...p, footer: v } : p));
+                                                                }}
+                                                                placeholder="Parkobot connects drivers with empty private parking spots..."
+                                                                rows={3}
+                                                                className="w-full px-4 py-3 text-sm text-[var(--pintu-text-primary)] bg-[var(--pintu-input-bg)] border border-[var(--pintu-input-border)] rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 placeholder:text-[var(--pintu-text-faint)] transition-all resize-y min-h-[72px]"
+                                                            />
+                                                            <p className="text-[10px] text-[var(--pintu-text-faint)]">Shows under the hook on 101xfounders news and IndianhappeningNow. Bold words in the hook use each brand&apos;s highlight colour.</p>
+                                                        </CollapsibleSection>
+                                                    )}
                                                     <p className="text-[10px] text-[var(--pintu-text-faint)] px-1">Updating this overwrites all brands.</p>
                                                 </>
                                             )}

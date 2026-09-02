@@ -28,8 +28,20 @@ import {
   clampNewsTickerShiftPx,
   getHookBaseFontSize,
   is101xFoundersAroll,
+  is101xFoundersNews,
+  isIhnNews,
+  isInterNewsTicker,
+  getNewsSupportingText,
+  getNewsSupportingFontSize,
+  getNewsSupportingColor,
+  getPngNewsHeaderAssets,
+  wrapPlainWords,
+  getNewsTickerMaxLines,
+  getNewsTickerBaseFontSize,
   FOUNDERS_AROLL_REGULAR,
   FOUNDERS_AROLL_HIGHLIGHT,
+  IHN_NEWS_HIGHLIGHT,
+  IHN_NEWS_REGULAR,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -223,6 +235,7 @@ try {
 } catch (e) { console.warn('Helvetica World Bold opentype load failed:', e.message); }
 
 function newsTickerOpentypeFont(preset) {
+  if (isInterNewsTicker(preset)) return _otInterBold || _otInterReg;
   if (isPlainTextNewsTicker(preset) && _otHelveticaWorldBold) return _otHelveticaWorldBold;
   return _otAvantGardeBold;
 }
@@ -993,8 +1006,12 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const isIBCNews = (preset.name || '').toLowerCase() === 'indiabusinesscom-news';
   const isISSNews = (preset.name || '').toLowerCase() === 'indiastartupstory-news';
   const isIFCNews = (preset.name || '').toLowerCase() === 'ifc-news';
+  const isFoundersNews = is101xFoundersNews(preset);
+  const isIhn = isIhnNews(preset);
+  const isInterNews = isInterNewsTicker(preset);
   // Highlights are coloured text with no pill behind them (indiafounderscore style)
   const isPlainText = isPlainTextNewsTicker(preset);
+  const skipPills = isPlainText || isInterNews;
   // Derive canvas height from preset ratio (e.g. 4:5 → 900, 9:16 → 1280)
   const [wR, hR] = (preset.ratio || '9:16').split(':').map(Number);
   let canvasH = Math.round(720 * hR / wR);
@@ -1005,14 +1022,14 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   // Measure + draw with the same opentype face so wrap never drifts from FFmpeg.
   const maxLineW = getExportNewsMaxLineWidth(preset);
-  // Unscaled: fontScale is handed to the fitter as userScale and applied after the fit.
-  const baseFontSize = 54;
   // Handle lockup (IG + FB + wordmark) reserves a fixed box under the hook, so the
   // text budget shrinks by it and the bottom margin still measures from the lockup.
   const handleLockup = getNewsTickerHandleLockup(preset);
-  const lockupBlockH = handleLockup ? handleLockup.gap + handleLockup.height : 0;
-  // keep video dominant like Canva (~bottom 28%)
-  const maxTickerH = Math.round(canvasH * 0.28) - lockupBlockH;
+  const supportText = getNewsSupportingText(preset);
+  const supportReserve = supportText ? Math.round(canvasH * 0.08) : 0;
+  const lockupBlockH = (handleLockup ? handleLockup.gap + handleLockup.height : 0) + supportReserve;
+  // keep video dominant like Canva (~bottom 28%); Inter-news hooks run longer
+  const maxTickerH = Math.round(canvasH * (isInterNews ? 0.36 : 0.28)) - lockupBlockH;
   let cleanedHtml = cleanHTML(headline || '');
   const otFace = newsTickerOpentypeFont(preset);
   // Helvetica World / Avant Garde lack ₹ (and some other currency marks). Inter has them.
@@ -1034,10 +1051,10 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     cleanedHtml,
     measureWordAtSize,
     maxLineW,
-    baseFontSize,
+    baseFontSize: getNewsTickerBaseFontSize(preset),
     userScale: fontScale || 1,
     minFontSize: 22,
-    maxLines: 3,
+    maxLines: getNewsTickerMaxLines(preset),
     maxTotalBarsH: maxTickerH,
     ...getNewsTickerFitRatios(preset),
   });
@@ -1045,23 +1062,42 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fontSize);
   const totalBarsH = getNewsTickerStackHeight(preset, fontSize, lines.length);
+  const supportFs = supportText ? getNewsSupportingFontSize(preset, fontSize) : 0;
+  const supportGap = supportText ? Math.round(fontSize * 0.38) : 0;
+  const supportLineH = supportText ? Math.round(supportFs * 1.28) : 0;
+  const supportOtFace = isIhn
+    ? (_otInterBold || _otInterReg || otFace)
+    : (_otInterReg || _otInterBold || otFace);
+  const supportMeasure = (word) => {
+    if (!supportOtFace) {
+      ctx.font = `${isIhn ? 'bold' : 'normal'} ${supportFs}px Inter`;
+      return ctx.measureText(word).width;
+    }
+    return measureOtWidthWithFallback(supportOtFace, otGlyphFallback, word, supportFs);
+  };
+  const supportLines = supportText
+    ? wrapPlainWords(supportText, supportMeasure, maxLineW).slice(0, 3)
+    : [];
+  const supportH = supportLines.length * supportLineH;
+  const layoutLockupH = (handleLockup ? handleLockup.gap + handleLockup.height : 0)
+    + (supportText ? supportGap + supportH : 0);
   // headlinePosition.y = % of frame to raise (+) or lower (−) the hook + gradient
   const rawShiftY = Math.round(
     canvasH * Math.max(-22, Math.min(48, Number(preset.headlinePosition?.y) || 0)) / 100,
   );
   const shiftY = clampNewsTickerShiftPx(preset, {
-    canvasH, fontSize, totalBarsH, lockupBlockH, shiftY: rawShiftY,
+    canvasH, fontSize, totalBarsH, lockupBlockH: layoutLockupH, shiftY: rawShiftY,
   });
   // Black-bar-anchored (IBC/ISS/indiafounderscore-news/foundersinindia): same first-line height as preview.
   // Others: bottom-margin layout. Geometry lives in shared/headlineLayout.js.
   let barY = getNewsTickerHookBarY(preset, {
-    canvasH, fontSize, totalBarsH, lockupBlockH, shiftY,
+    canvasH, fontSize, totalBarsH, lockupBlockH: layoutLockupH, shiftY,
   });
-  const blackTop = getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH, shiftY);
+  const blackTop = getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH, shiftY, layoutLockupH);
 
   const spaceW = measureWordAtSize(' ', fontSize);
 
-  console.log(`[news_ticker] ${preset.name} fs=${fontSize} lines=${lines.length} maxW=${maxLineW} gap=${lineGap} barY=${barY} shiftY=${shiftY} plain=${isPlainText} lockupH=${lockupBlockH}`,
+  console.log(`[news_ticker] ${preset.name} fs=${fontSize} lines=${lines.length} maxW=${maxLineW} gap=${lineGap} barY=${barY} shiftY=${shiftY} plain=${isPlainText} lockupH=${layoutLockupH} support=${supportLines.length}`,
     lines.map(l => l.map(t => t.text).join(' ')));
 
   // Gradient sits above the solid cover. Reach full black early so video text
@@ -1111,7 +1147,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     let runStartX = null;
     let runEndX = 0;
     let x = lineStartX;
-    if (!isPlainText) {
+    if (!skipPills) {
       for (let i = 0; i < lineTokens.length; i++) {
         const t = lineTokens[i];
         const w = wordWidths[i];
@@ -1159,23 +1195,34 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     const emojiTopY = baselineY - fontSize * EMOJI_SIZE_RATIO;
     for (let i = 0; i < lineTokens.length; i++) {
       const t = lineTokens[i];
-      const color = isPlainText
-        ? (t.bold ? (preset.color || '#FFFFFF') : '#FFFFFF')
-        : (isIBCNews || isIFCNews)
-          ? (t.bold ? '#000000' : '#FFFFFF')
-          : '#FFFFFF';
+      const color = isIhn
+        ? (t.bold ? IHN_NEWS_HIGHLIGHT : IHN_NEWS_REGULAR)
+        : isFoundersNews
+          ? (t.bold ? FOUNDERS_AROLL_HIGHLIGHT : FOUNDERS_AROLL_REGULAR)
+          : isPlainText
+            ? (t.bold ? (preset.color || '#FFFFFF') : '#FFFFFF')
+            : (isIBCNews || isIFCNews)
+              ? (t.bold ? '#000000' : '#FFFFFF')
+              : '#FFFFFF';
+      const tokenFace = isIhn
+        ? (_otInterBold || _otInterReg || otFace)
+        : isFoundersNews
+          ? ((t.bold && _otInterBold) ? _otInterBold : (_otInterReg || _otInterBold || otFace))
+          : otFace;
       drawMixedText(ctx, t.text, x, fontSize, {
         emojiTopY,
         drawPlain: (plain, px) => {
-          if (otFace) {
-            drawOpentypeTextWithFallback(ctx, otFace, otGlyphFallback, plain, px, baselineY, fontSize, color);
-            return measurePlainWordAtSize(plain, fontSize);
+          if (tokenFace) {
+            drawOpentypeTextWithFallback(ctx, tokenFace, otGlyphFallback, plain, px, baselineY, fontSize, color);
+            return isInterNews
+              ? measureOtWidthWithFallback(tokenFace, otGlyphFallback, plain, fontSize)
+              : measurePlainWordAtSize(plain, fontSize);
           }
-          ctx.font = `bold ${fontSize}px Inter`;
+          ctx.font = `${(isFoundersNews && !t.bold) ? 'normal' : 'bold'} ${fontSize}px Inter`;
           ctx.fillStyle = color;
           ctx.textBaseline = 'alphabetic';
           ctx.fillText(plain, px, baselineY);
-          return ctx.measureText(plain).width * 1.22;
+          return ctx.measureText(plain).width * (isInterNews ? 1 : 1.22);
         },
       });
       x += wordWidths[i] + spaceW;
@@ -1183,7 +1230,26 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     y += highlightH + lineGap;
   }
 
-  // News formats never render credits / footer lines.
+  // Inter-news: supporting paragraph under the hook.
+  if (supportLines.length) {
+    const supportColor = getNewsSupportingColor(preset);
+    let supportY = barY + totalBarsH + supportGap;
+    const supportX = getNewsTickerLineStartX(preset, maxLineW, 720);
+    for (const line of supportLines) {
+      const baselineY = supportY + supportFs * 0.82;
+      if (supportOtFace) {
+        drawOpentypeTextWithFallback(
+          ctx, supportOtFace, otGlyphFallback, line, supportX, baselineY, supportFs, supportColor,
+        );
+      } else {
+        ctx.font = `${isIhn ? 'bold' : 'normal'} ${supportFs}px Inter`;
+        ctx.fillStyle = supportColor;
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(line, supportX, baselineY);
+      }
+      supportY += supportLineH;
+    }
+  }
 
   // Handle lockup (Instagram + Facebook + wordmark) centred under the hook.
   // The box was already reserved above, so a missing PNG shifts nothing.
@@ -1222,17 +1288,39 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   }
 
   // Text logo drawn directly on canvas (for presets without a PNG logo file)
-  if (preset.rules?.textLogo) {
+  if (preset.rules?.textLogo && !isInterNews) {
     const textLogoLines = String(preset.rules.textLogo).split('\n');
     const textLogoSize = Math.round((preset.rules?.logoSize || 42) * 0.9);
+    const tlX = preset.rules?.logoPadX ?? (isIFCNews ? 30 : 20);
+    const tlY = preset.rules?.logoPadY ?? (isIFCNews ? 56 : 45);
     ctx.font = `900 ${textLogoSize}px Inter`;
     ctx.fillStyle = '#FFFFFF';
     ctx.textBaseline = 'top';
-    const tlX = preset.rules?.logoPadX ?? (isIFCNews ? 30 : 20);
-    const tlY = preset.rules?.logoPadY ?? (isIFCNews ? 56 : 45);
     textLogoLines.forEach((line, idx) => {
       ctx.fillText(line, tlX, tlY + idx * Math.round(textLogoSize * 1.1));
     });
+  }
+
+  // Inter-news: operator PNGs for wordmark (left) and 2026/India (right).
+  const pngHeader = getPngNewsHeaderAssets(preset);
+  if (pngHeader) {
+    const { padX, logoFile: logoName, kickerFile: kickerName, logoH, kickerH, logoY, kickerY } = pngHeader;
+    const logoFile = join(__dirname, 'assets', 'logos', logoName);
+    const kickerFile = join(__dirname, 'assets', 'logos', kickerName);
+    if (existsSync(logoFile)) {
+      const logoImg = await loadImage(logoFile);
+      const w = Math.round(logoImg.width * (logoH / logoImg.height));
+      ctx.drawImage(logoImg, padX, logoY, w, logoH);
+    } else {
+      console.warn(`[news_ticker] ${preset.name} logo missing: ${logoFile}`);
+    }
+    if (existsSync(kickerFile)) {
+      const kickerImg = await loadImage(kickerFile);
+      const w = Math.round(kickerImg.width * (kickerH / kickerImg.height));
+      ctx.drawImage(kickerImg, 720 - padX - w, kickerY, w, kickerH);
+    } else {
+      console.warn(`[news_ticker] ${preset.name} kicker missing: ${kickerFile}`);
+    }
   }
 
   // ISS-news: bottom-left logo sits under the hook with a gap (tracks drag; never overlaps)
@@ -1259,9 +1347,9 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   await fs.writeFile(savePath, canvas.toBuffer('image/png'));
 
-  // For ISS-news the logo is already on canvas — skip FFmpeg logoOverlay to avoid double rendering
+  // For ISS-news / Inter-news the logo is already on canvas — skip FFmpeg overlay
   let logoPath = null;
-  if (!isISSNews && preset.logo && preset.showLogo !== false) {
+  if (!isISSNews && !isInterNews && preset.logo && preset.showLogo !== false) {
     const logoFile = join(__dirname, 'assets', 'logos', preset.logo);
     if (existsSync(logoFile)) logoPath = logoFile;
   }
@@ -1473,9 +1561,9 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
   // News-ticker layout: full-frame video, gradient bars at bottom
   if (preset.layout === 'news_ticker') {
     const resolvedHeadline = (preset.headline && String(preset.headline).trim()) ? preset.headline : (headline || '');
-    // Always strip credits — global hook sync used to stamp DEFAULT_FOOTER onto news presets.
+    // Keep supporting copy for Inter-news (101xf / IHN); drop leftover Credit: lines.
     return generateNewsTickerOverlay(
-      { ...preset, footer: '' },
+      { ...preset, footer: getNewsSupportingText(preset) },
       resolvedHeadline,
       fontScale,
       wordSpacingMultiplier,
@@ -2515,6 +2603,8 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       'ifc-news',
       'indiafounderscore-news',
       'foundersinindia-news',
+      '101xfounders-news',
+      'indianhappeningnow-news',
       '101xtechnology-top',
       '101xtechnology-mid',
       '101xtechnology-low'

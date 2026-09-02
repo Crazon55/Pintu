@@ -189,6 +189,131 @@ export function is101xFoundersAroll(preset) {
   return (preset?.name || '').toLowerCase() === '101xfounders-aroll';
 }
 
+export function is101xFoundersNews(preset) {
+  return (preset?.name || '').toLowerCase() === '101xfounders-news';
+}
+
+export function isIhnNews(preset) {
+  return (preset?.name || '').toLowerCase() === 'indianhappeningnow-news';
+}
+
+/** 9:16 Inter news tickers with PNG header + supporting line (101xf + IHN). */
+export function isInterNewsTicker(preset) {
+  return is101xFoundersNews(preset) || isIhnNews(preset);
+}
+
+export const IHN_NEWS_HIGHLIGHT = '#ffa928';
+export const IHN_NEWS_REGULAR = '#ffffff';
+export const IHN_NEWS_SUBTEXT = '#b4b4b4';
+
+/** Supporting paragraph under Inter-news hooks. Ignores leftover Credit: footers. */
+export function getNewsSupportingText(preset) {
+  if (!isInterNewsTicker(preset)) return '';
+  const raw = String(preset?.footer || '').trim();
+  if (!raw || /^credit:/i.test(raw)) return '';
+  return raw;
+}
+
+/** @deprecated use getNewsSupportingText */
+export function getFoundersNewsSupportingText(preset) {
+  if (!is101xFoundersNews(preset)) return '';
+  return getNewsSupportingText(preset);
+}
+
+export function getNewsSupportingFontSize(preset, hookFs) {
+  const scale = isIhnNews(preset) ? 0.40 : 0.42;
+  return Math.max(13, Math.round(hookFs * scale));
+}
+
+export function getNewsSupportingColor(preset) {
+  return isIhnNews(preset) ? IHN_NEWS_SUBTEXT : FOUNDERS_AROLL_REGULAR;
+}
+
+/** Top-right year / place lockup. hookEyebrow overrides rules when typed. */
+export function get101xFoundersNewsKicker(preset) {
+  const eyebrow = String(preset?.hookEyebrow || '').trim();
+  if (eyebrow) {
+    const parts = eyebrow.split(/\s+/);
+    return { year: parts[0] || '2026', place: parts.slice(1).join(' ') || 'India' };
+  }
+  return {
+    year: String(preset?.rules?.kickerYear || '2026'),
+    place: String(preset?.rules?.kickerPlace || 'India'),
+  };
+}
+
+/**
+ * Header insets at the 720px canvas. Generous top (Reels chrome), small matching
+ * left/right so 101xf. and 2026/India sit off the corners as a pair.
+ */
+export const FOUNDERS_NEWS_PAD_X = 20;
+export const FOUNDERS_NEWS_PAD_Y = 84;
+
+export function get101xFoundersNewsHeaderPad() {
+  return { padX: FOUNDERS_NEWS_PAD_X, padY: FOUNDERS_NEWS_PAD_Y };
+}
+
+/** Operator-supplied wordmark / year-place PNGs (white on transparent). Heights at 720 canvas. */
+export const FOUNDERS_NEWS_LOGO_FILE = '101xfounders-news-logo.png';
+export const FOUNDERS_NEWS_KICKER_FILE = '101xfounders-news-kicker.png';
+export const FOUNDERS_NEWS_LOGO_H = 42;
+export const FOUNDERS_NEWS_KICKER_H = 58;
+
+export const IHN_NEWS_LOGO_FILE = 'indianhappeningnow-news-logo.png';
+export const IHN_NEWS_KICKER_FILE = FOUNDERS_NEWS_KICKER_FILE;
+export const IHN_NEWS_LOGO_H = 72;
+export const IHN_NEWS_KICKER_H = FOUNDERS_NEWS_KICKER_H;
+
+// Opaque-row fractions in the cropped header PNGs — align 2026's cap-top
+// with 101xf. / INDIA (not the star, not the "India" subtitle).
+const FOUNDERS_LOGO_CAP_TOP = 4 / 79;
+const IHN_INDIA_CAP_TOP = 29 / 143;
+const KICKER_YEAR_CAP_TOP = 4 / 89;
+
+/** Operator PNGs for 101xfounders-news / indianhappeningnow-news headers. */
+export function getPngNewsHeaderAssets(preset) {
+  if (!isInterNewsTicker(preset)) return null;
+  const ihn = isIhnNews(preset);
+  const logoH = Math.round(Number(preset.rules?.logoSize) || (ihn ? IHN_NEWS_LOGO_H : FOUNDERS_NEWS_LOGO_H));
+  const kickerH = Math.round(Number(preset.rules?.kickerSize) || FOUNDERS_NEWS_KICKER_H);
+  const { padX, padY } = get101xFoundersNewsHeaderPad();
+  const logoY = padY;
+  const typeTop = logoY + logoH * (ihn ? IHN_INDIA_CAP_TOP : FOUNDERS_LOGO_CAP_TOP);
+  const kickerY = Math.round(typeTop - kickerH * KICKER_YEAR_CAP_TOP);
+  return {
+    logoFile: preset.logo || (ihn ? IHN_NEWS_LOGO_FILE : FOUNDERS_NEWS_LOGO_FILE),
+    kickerFile: preset.rules?.kickerLogo || FOUNDERS_NEWS_KICKER_FILE,
+    logoH,
+    kickerH,
+    padX,
+    padY,
+    logoY,
+    kickerY,
+  };
+}
+
+/** Soft-wrap a plain sentence into lines that fit maxWidth. */
+export function wrapPlainWords(text, measureWord, maxWidth) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = [];
+  let curW = 0;
+  for (const word of words) {
+    const w = measureWord(word);
+    const add = cur.length ? measureWord(' ') + w : w;
+    if (curW + add > maxWidth && cur.length) {
+      lines.push(cur.join(' '));
+      cur = [word];
+      curW = w;
+    } else {
+      cur.push(word);
+      curW += add;
+    }
+  }
+  if (cur.length) lines.push(cur.join(' '));
+  return lines;
+}
+
 /** Font size at 720px export canvas — mirrors server/videoProcessor.js */
 export function getExportFontSize(preset, headline, fontScale = 1) {
   const layout = preset?.layout;
@@ -274,6 +399,7 @@ export function getExportNewsMaxLineWidth(preset) {
   const name = (preset?.name || '').toLowerCase();
   // Leave room for left/right inset + bold bar padding (±4px) so lines never clip the frame.
   if (name === 'indiastartupstory-news') return 560; // startX 56 + right pad + bar padding
+  if (isInterNewsTicker({ name })) return 620; // left-aligned, ~40px side pads
   if (isPlainTextNewsTicker({ name })) return 500; // hook block spans ~68% of frame width in the reference
   return 600; // centered brands ~60px side margins + bar padding
 }
@@ -288,6 +414,7 @@ export function getNewsTickerLineStartX(preset, totalLineW, canvasW = CANVAS_REF
   ) {
     return Math.round((canvasW - totalLineW) / 2);
   }
+  if (isInterNewsTicker(preset)) return 40;
   if (name === 'indiastartupstory-news') return 56;
   return 28;
 }
@@ -310,6 +437,9 @@ export const NEWS_TICKER_HIGHLIGHT_HEIGHT = 1.12;
  * the indianfounderscore reference) rather than reserving pill height + gap.
  */
 export const NEWS_TICKER_PLAIN_LINE_HEIGHT = 1.0;
+
+/** Extra leading between mixed Inter Regular/Bold news-hook lines. */
+export const FOUNDERS_NEWS_LINE_GAP = 0.12;
 
 /**
  * Tickers that paint highlights as coloured text instead of a filled pill behind
@@ -374,28 +504,40 @@ export function isBlackBarAnchoredNewsTicker(preset) {
 }
 
 /** Full-bleed 9:16 tickers: taller fade and more solid pad, since there is no letterboxing. */
-function isFullBleedNewsTicker(preset) {
+export function isFullBleedNewsTicker(preset) {
   const name = (preset?.name || '').toLowerCase();
-  return name === 'ifc-news' || isPlainTextNewsTicker(preset);
+  return name === 'ifc-news' || isPlainTextNewsTicker(preset) || isInterNewsTicker(preset);
 }
 
 /** Per-line vertical metrics for a news ticker at a given font size. */
 export function getNewsTickerLineMetrics(preset, fontSize) {
-  const plain = isPlainTextNewsTicker(preset);
+  const interNews = isInterNewsTicker(preset);
+  const plain = isPlainTextNewsTicker(preset) || interNews;
   const highlightH = Math.round(
     fontSize * (plain ? NEWS_TICKER_PLAIN_LINE_HEIGHT : NEWS_TICKER_HIGHLIGHT_HEIGHT),
   );
-  const lineGap = plain ? 0 : Math.round(fontSize * NEWS_TICKER_LINE_GAP);
+  const lineGap = interNews
+    ? Math.round(fontSize * FOUNDERS_NEWS_LINE_GAP)
+    : (plain ? 0 : Math.round(fontSize * NEWS_TICKER_LINE_GAP));
   return { plain, highlightH, lineGap, lineAdvance: highlightH + lineGap };
 }
 
 /** Line-height ratios to hand to fitNewsTickerFontSize so its budget matches the render. */
 export function getNewsTickerFitRatios(preset) {
-  const plain = isPlainTextNewsTicker(preset);
+  const interNews = isInterNewsTicker(preset);
+  const plain = isPlainTextNewsTicker(preset) || interNews;
   return {
     highlightHeightRatio: plain ? NEWS_TICKER_PLAIN_LINE_HEIGHT : NEWS_TICKER_HIGHLIGHT_HEIGHT,
-    lineGapRatio: plain ? 0 : NEWS_TICKER_LINE_GAP,
+    lineGapRatio: interNews ? FOUNDERS_NEWS_LINE_GAP : (plain ? 0 : NEWS_TICKER_LINE_GAP),
   };
+}
+
+export function getNewsTickerMaxLines(preset) {
+  return isInterNewsTicker(preset) ? 5 : 3;
+}
+
+export function getNewsTickerBaseFontSize(preset) {
+  return isInterNewsTicker(preset) ? 42 : 54;
 }
 
 /** Height of a stacked block of `lineCount` ticker lines. */
@@ -408,13 +550,24 @@ export function getNewsTickerStackHeight(preset, fontSize, lineCount) {
 /** Fraction of frame height left empty below the ticker stack (Reels UI clearance). */
 export function getNewsTickerBottomMarginRatio(preset) {
   const pct = Number(preset?.rules?.bottomMarginPct);
-  if (Number.isFinite(pct)) return Math.max(0, Math.min(60, pct)) / 100;
+  if (Number.isFinite(pct) && !is101xFoundersNews(preset)) {
+    return Math.max(0, Math.min(60, pct)) / 100;
+  }
+  if (is101xFoundersNews(preset)) return 0.045;
   if ((preset?.name || '').toLowerCase() === 'ifc-news') return 0.055;
+  if (isInterNewsTicker(preset)) return 0.08;
   return 0.10;
 }
 
 /** Height of the fade that sits on top of the solid black cover. */
 export function getNewsTickerGradientHeight(preset, canvasH) {
+  if (is101xFoundersNews(preset)) {
+    // Compact band immediately under the hook — not IHN's tall fade.
+    return Math.min(160, Math.round(canvasH * 0.12));
+  }
+  if (isIhnNews(preset)) {
+    return Math.min(380, Math.round(canvasH * 0.30));
+  }
   const full = isFullBleedNewsTicker(preset);
   return Math.min(full ? 260 : 160, Math.round(canvasH * (full ? 0.24 : 0.18)));
 }
@@ -431,7 +584,7 @@ export function getNewsTickerBlackPadAbove(preset, fontSize) {
  * up with the hook (`shiftY`) so text + black + gradient move together.
  * Other tickers: pad above the hook bar.
  */
-export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH, shiftY = 0) {
+export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH, shiftY = 0, lockupBlockH = 0) {
   if (isBlackBarAnchoredNewsTicker(preset)) {
     const bandPct = Number(preset?.rules?.solidBandPct);
     // Default ~30% of frame — matches the Canva lower-third slab.
@@ -439,6 +592,20 @@ export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBar
       ? Math.max(0.15, Math.min(0.55, bandPct / 100))
       : 0.30;
     return Math.max(0, Math.round(canvasH * (1 - ratio)) - (shiftY || 0));
+  }
+  const stackH = totalBarsH + (lockupBlockH || 0);
+  if (is101xFoundersNews(preset)) {
+    // Fade starts just below the hook so text sits a little above the gradient.
+    const gap = Math.round(fontSize * 0.18);
+    const fadeStart = barY + totalBarsH + gap;
+    const gradientH = getNewsTickerGradientHeight(preset, canvasH);
+    return Math.min(canvasH, fadeStart + gradientH);
+  }
+  if (isIhnNews(preset)) {
+    // Solid begins at the last line of hook + subtext — stack sits on the fade,
+    // almost at the end of the gradient.
+    const kiss = Math.round(fontSize * 0.22);
+    return Math.max(0, barY + Math.max(0, stackH - kiss));
   }
   const offset = getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH);
   return Math.max(0, barY - offset);
@@ -477,7 +644,9 @@ export function getNewsTickerHookBarY(preset, {
     return Math.max(0, barY);
   }
   const bottomMargin = Math.round(canvasH * getNewsTickerBottomMarginRatio(preset));
-  return canvasH - bottomMargin - lockupBlockH - totalBarsH - shiftY;
+  // 101xf: supporting line hangs into the fade, so it must not push the hook up.
+  const lockup = is101xFoundersNews(preset) ? 0 : lockupBlockH;
+  return canvasH - bottomMargin - lockup - totalBarsH - shiftY;
 }
 
 /**
@@ -487,8 +656,9 @@ export function getNewsTickerHookBarY(preset, {
  * Prefer getNewsTickerSolidTopY for plain-text presets.
  */
 export function getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH) {
-  if (isPlainTextNewsTicker(preset)) {
+  if (isPlainTextNewsTicker(preset) || isIhnNews(preset)) {
     // End of hook stack, minus a thin kiss so the last line still rests on the bar.
+    // Hook sits on the fade, near the solid (IHN: on the gradient, almost the end).
     return -(Math.max(0, totalBarsH - Math.round(fontSize * 0.22)));
   }
   return getNewsTickerBlackPadAbove(preset, fontSize);
@@ -501,6 +671,9 @@ export function getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH) {
 export function getNewsTickerFontFamily(preset) {
   // Inter last so browsers can fall back for ₹ / rare currency glyphs missing from
   // Helvetica World and ITC Avant Garde (export uses the same Inter fallback).
+  if (isInterNewsTicker(preset)) {
+    return "'Inter', sans-serif";
+  }
   if (isPlainTextNewsTicker(preset)) {
     return "'Helvetica World', 'ITC Avant Garde Gothic', Inter, sans-serif";
   }
