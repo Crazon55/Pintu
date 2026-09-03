@@ -29,7 +29,14 @@ import {
     isUppercaseArollHook,
     uppercaseHeadlineHtml,
     applyHookCasing,
-    is101xFoundersAroll,
+    isPoppinsHandleAroll,
+    isHandleWatermarkAroll,
+    isIfcAroll,
+    isIbcAroll,
+    getIbcArollTokenColor,
+    isInterBlackHighlightAroll,
+    getInterBlackArollColors,
+    getPoppinsArollHighlight,
     is101xFoundersNews,
     isIhnNews,
     isInterNewsTicker,
@@ -42,7 +49,7 @@ import {
     getNewsTickerMaxLines,
     getNewsTickerBaseFontSize,
     FOUNDERS_AROLL_REGULAR,
-    FOUNDERS_AROLL_HIGHLIGHT,
+    FOUNDERS_NEWS_HIGHLIGHT,
     IHN_NEWS_HIGHLIGHT,
     IHN_NEWS_REGULAR,
 } from './shared/headlineLayout.js';
@@ -84,7 +91,7 @@ const DEFAULT_FOOTER = "Credit: The Founders Show";
 // --- CONFIGURATION: PRESETS ---
 const INITIAL_PRESETS_RAW = [
     { id: 1, name: '101xfounders', handle: '@101xfounders', ratio: '4:3', color: '#ffa302', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
-    { id: 2, name: 'bizzindia', handle: '@bizzindia', ratio: '4:3', color: '#E31D38', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 2, name: 'bizzindia', handle: '@bizzindia', ratio: '1:1', color: '#f52a46', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
     { id: 3, name: 'Best Founder Clips', handle: '@BestFOunderClips', ratio: '16:9', color: '#ffc002', active: true, layout: 'logo_centered', logo: LOGO_BEST_FOUNDER_CLIPS, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25 },
     { id: 4, name: 'Business Cracked', handle: '@businesscracked', ratio: '4:3', color: '#fdeb01', active: true, layout: 'social', logo: LOGO_BUSINESS_CRACKED, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 5, name: 'The Founders Show', handle: '@thefoundersshow', ratio: '4:3', color: '#E31D38', active: true, layout: 'social', logo: LOGO_THE_FOUNDERS_SHOW, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
@@ -113,8 +120,8 @@ const INITIAL_PRESETS_RAW = [
     { id: 28, name: 'indian business com', handle: '@indianbusinesscom', ratio: '1:1', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 29, name: 'indian-founders-co-old', handle: '@indianfoundersco', ratio: '4:3', color: '#f7EA6A', active: false, hidden: true, layout: 'social', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 30, name: 'founders-in-india-old', handle: '@foundersinindia', ratio: '4:3', color: '#ffffff', active: false, hidden: true, layout: 'social', logo: 'founders-in-india.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
-    { id: 90, name: 'founders-in-india', handle: '@foundersinindia', ratio: '4:3', color: '#7F53FF', active: true, layout: 'hook_video', logo: 'founders-in-india.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 0.5, logoPosition: 'top-right' } },
-    { id: 91, name: 'indian-founders-co', handle: '@indianfoundersco', ratio: '4:3', color: '#32c26c', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 90, name: 'founders-in-india', handle: '@foundersinindia', ratio: '4:3', color: '#439eff', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 91, name: 'indian-founders-co', handle: '@indianfoundersco', ratio: '4:3', color: '#32c26c', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
     { id: 31, name: 'Ads by marketer', handle: '@adsbymarketer', ratio: '4:3', color: '#ffc002', active: true, layout: 'logo_centered', logo: 'ads-by-marketer.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25 },
     { id: 32, name: 'best business clips', handle: '@bestbusinessclips', ratio: '4:3', color: '#ffc002', active: true, layout: 'logo_centered', logo: 'best-business-clips.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25 },
     { id: 33, name: 'Founders wtf', handle: '@founderswtf', ratio: '16:9', color: '#ffffff', active: true, layout: 'social', logo: LOGO_FOUNDERS_WTF, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
@@ -130,7 +137,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 43, name: 'theevolvinggpt', handle: '@theevolvinggpt', ratio: '16:9', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 44, name: 'foundrsonig', handle: '@foundrsonig', ratio: '4:3', color: '#ECECDC', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 45, name: 'indianfoundr', handle: '@indianfoundr', ratio: '1:1', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
-    { id: 46, name: 'indiastartupstory', handle: '@indiastartupstory', ratio: '4:3', color: '#EF5350', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, fontScale: 1.2, hookVideoGap: 18 },
+    { id: 46, name: 'indiastartupstory', handle: '@indiastartupstory', ratio: '4:3', color: '#ef5350', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
     { id: 47, name: 'neworderai', handle: '@neworderai', ratio: '4:3', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 48, name: 'startupsinthelast24hrs', handle: '@startupsinthelast24hrs', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'startupsinthelast24hrs.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 68, name: 'indian ai future', handle: '@indianaifuture', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'indian-ai-future.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
@@ -167,7 +174,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 80, name: 'indian-founders-co-tweet', handle: '@indianfoundersco', ratio: '4:3', color: '#2cb162', active: false, hidden: true, layout: 'social', logo: 'indian-founders-co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 81, name: 'startupbydog', handle: '@startupbydog', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'startupbydog.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 82, name: 'Entrepreneursindia.co', handle: '@entrepreneursindia.co', ratio: '4:3', color: '#6500D1', active: true, layout: 'social', logo: 'Entrepreneursindia.co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
-    { id: 92, name: 'indiabusinesscom', handle: '@indiabusinesscom', ratio: '4:3', color: '#FF7838', active: true, layout: 'hook_video', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 22, logoPadY: 12 } },
+    { id: 92, name: 'indiabusinesscom', handle: '@indiabusinesscom', ratio: '3:4', color: '#ff7838', active: true, layout: 'hook_video', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 22, logoPadY: 12 } },
     { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '4:5', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 46, logoPadY: 41, solidBandPct: 30 } },
     { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55, solidBandPct: 30 } },
     { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 38, textLogo: 'IFC.', logoPadX: 30, logoPadY: 56 } },
@@ -176,9 +183,9 @@ const INITIAL_PRESETS_RAW = [
     { id: 100, name: 'foundersinindia-news', handle: '@foundersinindia', ratio: '9:16', color: '#439eff', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'foundersinindia.png', width: 170, height: 25, gap: 5 } } },
     { id: 98, name: '101xtechnology-aroll', handle: '@101xtechnology', ratio: '16:9', color: '#4898ab', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: '101xt.', highlightColors: ['#4898ab', '#90d46c'], topGlow: true } },
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
-    { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '4:3', color: '#FADB0D', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
-    { id: 102, name: '101xfounders-aroll', handle: '@101xfounders', ratio: '4:3', color: '#fda207', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
-    { id: 103, name: '101xfounders-news', handle: '@101xfounders', ratio: '9:16', color: '#fda207', active: true, layout: 'news_ticker', logo: '101xfounders-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 42, logoPadX: 20, logoPadY: 84, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, bottomMarginPct: 4.5 } },
+    { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '3:4', color: '#ffd412', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 102, name: '101xfounders-aroll', handle: '@101xfounders', ratio: '4:3', color: '#ff7c15', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 103, name: '101xfounders-news', handle: '@101xfounders', ratio: '9:16', color: '#fda207', active: true, layout: 'news_ticker', logo: '101xfounders-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 42, logoPadX: 20, logoPadY: 84, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, solidBandPct: 30 } },
     { id: 104, name: 'indianhappeningnow-news', handle: '@indianhappeningnow', ratio: '9:16', color: '#ffa928', active: true, layout: 'news_ticker', logo: 'indianhappeningnow-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 72, logoPadX: 20, logoPadY: 84, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, bottomMarginPct: 8 } },
 ];
 
@@ -196,7 +203,7 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
 }));
 
 // Presets configured during the "Experiment X" pass — surfaced in their own quick-pick section
-const EXPERIMENT_X_PRESET_NAMES = ['indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', '101xfounders-aroll', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
+const EXPERIMENT_X_PRESET_NAMES = ['bizzindia', 'indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'founders-in-india', '101xfounders-aroll', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
 // Archived out of Bizz India Playbook for now — tech pages + news-ticker formats. Kept here so they're easy to bring back.
 const ARCHIVED_PRESET_NAMES = ['101xtechnology-aroll', 'indiantechdaily-aroll', 'indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news'];
 const BIZZINDIA_PLAYBOOK_PRESET_NAMES = EXPERIMENT_X_PRESET_NAMES.filter(n => !ARCHIVED_PRESET_NAMES.includes(n));
@@ -345,13 +352,14 @@ function resetMeasureCtx() {
 }
 
 /** Match export line-wrap at preview scale (720px reference canvas). */
-function buildPreviewLines(headline, { fontSize, maxWidth, wordSpacing, fontFamily, boldWeight = 700, regularWeight = 400 }) {
+function buildPreviewLines(headline, { fontSize, maxWidth, wordSpacing, fontFamily, boldFontFamily, regularFontFamily, boldWeight = 700, regularWeight = 400 }) {
     const ctx = getMeasureCtx();
     if (!ctx || !headline) return [];
     const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
     const spacing = wordSpacing * fontSize;
     return layoutHeadlineLines(cleaned, (text, bold) => {
-        ctx.font = `${bold ? boldWeight : regularWeight} ${fontSize}px ${fontFamily}`;
+        const family = bold ? (boldFontFamily || fontFamily) : (regularFontFamily || fontFamily);
+        ctx.font = `${bold ? boldWeight : regularWeight} ${fontSize}px ${family}`;
         return ctx.measureText(text).width;
     }, maxWidth, spacing);
 }
@@ -1190,7 +1198,6 @@ const PreviewCard = memo(({
         presetNameLower === 'theevolvinggpt' ||
         presetNameLower === 'foundrsonig' ||
         presetNameLower === 'indianfoundr' ||
-        presetNameLower === 'indiastartupstory' ||
         presetNameLower === 'neworderai' ||
         presetNameLower === 'indiasbestfounders' ||
         presetNameLower === 'elitefoundrs' ||
@@ -1349,7 +1356,11 @@ const PreviewCard = memo(({
                             style={{
                                 fontSize: `${previewFontSize}px`,
                                 lineHeight: effectiveLineSpacing,
-                                fontFamily: "'Inter', sans-serif",
+                                fontFamily: isPoppinsHandleAroll(preset)
+                                    ? "'Poppins', sans-serif"
+                                    : isIbcAroll(preset)
+                                        ? "'Inter Bold', sans-serif"
+                                        : "'Inter', sans-serif",
                                 letterSpacing: preset.name === 'indiabusinesscom'
                                     ? '-0.05em'
                                     : preset.name === 'indianfoundercore'
@@ -1358,17 +1369,29 @@ const PreviewCard = memo(({
                             }}
                         >
                             {(() => {
-                                const hookFontFamily = "'Inter', sans-serif";
-                                const isInterBoldHook = preset.name === 'indiabusinesscom'
-                                    || preset.name === 'indianfoundercore'
-                                    || preset.name === 'indian-founders-co';
+                                const isIbcHook = isIbcAroll(preset);
+                                const hookFontFamily = isPoppinsHandleAroll(preset)
+                                    ? "'Poppins', sans-serif"
+                                    : isIbcHook
+                                        ? "'Inter Bold', sans-serif"
+                                        : "'Inter', sans-serif";
+                                const isBlackHighlightHook = isInterBlackHighlightAroll(preset);
+                                const blackHighlightColors = isBlackHighlightHook ? getInterBlackArollColors(preset) : null;
                                 const lines = buildPreviewLines(applyHookCasing(preset, preset.headline), {
                                     fontSize: previewFontSize,
                                     maxWidth: exportMaxTextW,
                                     wordSpacing: adjustedWordSpacing,
                                     fontFamily: hookFontFamily,
-                                    boldWeight: 700,
-                                    regularWeight: isInterBoldHook ? 700 : 400,
+                                    boldFontFamily: isBlackHighlightHook
+                                        ? "'Inter Black', sans-serif"
+                                        : isIbcHook
+                                            ? "'Inter Bold', sans-serif"
+                                            : undefined,
+                                    regularFontFamily: isBlackHighlightHook || isIbcHook
+                                        ? "'Inter Bold', sans-serif"
+                                        : undefined,
+                                    boldWeight: isBlackHighlightHook ? 900 : 700,
+                                    regularWeight: isIbcHook ? 700 : (isBlackHighlightHook ? 700 : (isIfcAroll(preset) ? 500 : 400)),
                                 });
                                 let highlightGroupIndex = 0;
                                 let prevWasHighlight = false;
@@ -1396,10 +1419,23 @@ const PreviewCard = memo(({
                                                     key={ti}
                                                     style={{
                                                         fontSynthesis: 'none',
-                                                        color: preset.name === 'indiabusinesscom'
-                                                            ? (grp === 1 ? '#FF7838' : grp >= 2 ? '#46DB27' : '#FFFFFF')
-                                                            : (t.bold ? preset.color : (is101xFoundersAroll(preset) ? FOUNDERS_AROLL_REGULAR : '#FFFFFF')),
-                                                        fontWeight: isInterBoldHook ? 700 : (t.bold ? 700 : 400),
+                                                        color: isIbcHook
+                                                            ? getIbcArollTokenColor(grp)
+                                                            : isBlackHighlightHook
+                                                                ? (t.bold ? blackHighlightColors.highlight : blackHighlightColors.regular)
+                                                                : isHandleWatermarkAroll(preset)
+                                                                ? (t.bold ? getPoppinsArollHighlight(preset) : FOUNDERS_AROLL_REGULAR)
+                                                                : (t.bold ? preset.color : '#FFFFFF'),
+                                                        fontWeight: isIbcHook
+                                                            ? 700
+                                                            : isBlackHighlightHook
+                                                                ? (t.bold ? 900 : 700)
+                                                                : (t.bold ? 700 : (isIfcAroll(preset) ? 500 : 400)),
+                                                        fontFamily: isBlackHighlightHook
+                                                            ? (t.bold ? "'Inter Black', sans-serif" : "'Inter Bold', sans-serif")
+                                                            : isIbcHook
+                                                                ? "'Inter Bold', sans-serif"
+                                                                : undefined,
                                                     }}
                                                 >
                                                     {t.text}{' '}
@@ -2133,7 +2169,7 @@ const PreviewCard = memo(({
                                                                     color: isIhn
                                                                         ? (run.bold ? IHN_NEWS_HIGHLIGHT : IHN_NEWS_REGULAR)
                                                                         : isFoundersNews
-                                                                        ? (run.bold ? FOUNDERS_AROLL_HIGHLIGHT : FOUNDERS_AROLL_REGULAR)
+                                                                        ? (run.bold ? FOUNDERS_NEWS_HIGHLIGHT : FOUNDERS_AROLL_REGULAR)
                                                                         : isPlainText
                                                                             ? (run.bold ? preset.color : '#ffffff')
                                                                             : (isIBC || isIFC || isIFC2) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff',
@@ -2300,12 +2336,12 @@ const PreviewCard = memo(({
                         )}
 
                         {/* WATERMARK OVERLAY */}
-                        {(preset.layout === 'watermark' || is101xFoundersAroll(preset)) && preset.name !== 'The Rising Founder' && preset.name !== 'ceo hustle advice' && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && preset.name !== 'indian business com' && !isAicrackedOrEvolvingPreset && (
+                        {(preset.layout === 'watermark' || isHandleWatermarkAroll(preset)) && preset.name !== 'The Rising Founder' && preset.name !== 'ceo hustle advice' && preset.name !== 'peakofai' && preset.name !== 'theprimefounder' && preset.name !== 'neworderai' && preset.name !== 'indian business com' && !isAicrackedOrEvolvingPreset && (
                             <div
                                 ref={watermarkRef}
                                 className={`absolute left-0 w-full flex justify-center z-20 ${isRepositioningWatermark ? 'cursor-move ring-2 ring-yellow-500' : 'pointer-events-none'}`}
                                 style={{
-                                    bottom: `${localWatermarkPos.y}px`,
+                                    bottom: `${isHandleWatermarkAroll(preset) ? 12 : localWatermarkPos.y}px`,
                                     left: `${localWatermarkPos.x}%`,
                                     transform: 'translate(-50%, 0)',
                                     pointerEvents: isRepositioningWatermark ? 'auto' : 'none'
@@ -2321,13 +2357,19 @@ const PreviewCard = memo(({
                                     </div>
                                 )}
                                 <span
-                                    className={is101xFoundersAroll(preset)
-                                        ? "font-bold tracking-wide font-inter"
-                                        : (preset.name === '101xfounders' || preset.name === 'bizzindia' || preset.name === 'indian-founders-co' ? "font-light tracking-wide font-inter" : "font-bold tracking-wide font-inter")}
+                                    className={isHandleWatermarkAroll(preset)
+                                        ? "font-bold tracking-wide"
+                                        : (preset.name === '101xfounders' || preset.name === 'bizzindia' ? "font-light tracking-wide font-inter" : "font-bold tracking-wide font-inter")}
                                     style={{
-                                        fontSize: '11px',
-                                        color: is101xFoundersAroll(preset) ? 'rgba(245, 243, 245, 0.5)' : 'rgba(255, 255, 255, 0.5)',
-                                        textShadow: '0px 1px 2px rgba(0,0,0,0.8)'
+                                        fontSize: isHandleWatermarkAroll(preset) ? '9px' : '11px',
+                                        fontFamily: isPoppinsHandleAroll(preset)
+                                            ? "'Poppins', sans-serif"
+                                            : isIfcAroll(preset)
+                                                ? "'Inter', sans-serif"
+                                                : undefined,
+                                        color: isHandleWatermarkAroll(preset) ? '#f5f3f5' : 'rgba(255, 255, 255, 0.5)',
+                                        opacity: isHandleWatermarkAroll(preset) ? 0.4 : undefined,
+                                        textShadow: isHandleWatermarkAroll(preset) ? 'none' : '0px 1px 2px rgba(0,0,0,0.8)'
                                     }}
                                 >
                                     {preset.handle}
@@ -3012,6 +3054,8 @@ export default function App() {
             document.fonts.load("700 54px 'Helvetica World'"),
             document.fonts.load("400 42px 'Inter'"),
             document.fonts.load("700 42px 'Inter'"),
+            document.fonts.load("900 42px 'Inter Black'"),
+            document.fonts.load("700 42px 'Inter Bold'"),
         ])
             .catch(() => { })
             .then(() => document.fonts.ready)

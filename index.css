@@ -13,10 +13,24 @@
 @font-face {
   font-family: 'Inter';
   font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('/fonts/Inter_18pt-Medium.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
   font-weight: 700;
   font-display: block;
   src: url('/fonts/Inter-Bold.woff2') format('woff2'),
        url('/fonts/Inter-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('/fonts/Inter_18pt-Black.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Inter';
@@ -97,11 +111,25 @@
   src: url('/fonts/Inter_18pt-Black.ttf') format('truetype');
 }
 @font-face {
+  font-family: 'Inter Bold';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/Inter_18pt-Bold.ttf') format('truetype');
+}
+@font-face {
   font-family: 'Inter ExtraBold';
   font-style: normal;
   font-weight: 800;
   font-display: block;
   src: url('/fonts/Inter_18pt-ExtraBold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/Poppins-Regular.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Poppins';

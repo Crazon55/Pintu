@@ -27,7 +27,14 @@ import {
   applyHookCasing,
   clampNewsTickerShiftPx,
   getHookBaseFontSize,
-  is101xFoundersAroll,
+  isPoppinsHandleAroll,
+  isHandleWatermarkAroll,
+  isIfcAroll,
+  isIbcAroll,
+  getIbcArollTokenColor,
+  isInterBlackHighlightAroll,
+  getInterBlackArollColors,
+  getPoppinsArollHighlight,
   is101xFoundersNews,
   isIhnNews,
   isInterNewsTicker,
@@ -39,7 +46,7 @@ import {
   getNewsTickerMaxLines,
   getNewsTickerBaseFontSize,
   FOUNDERS_AROLL_REGULAR,
-  FOUNDERS_AROLL_HIGHLIGHT,
+  FOUNDERS_NEWS_HIGHLIGHT,
   IHN_NEWS_HIGHLIGHT,
   IHN_NEWS_REGULAR,
 } from '../shared/headlineLayout.js';
@@ -93,6 +100,7 @@ const fontNames = {
   regular: ['Inter_18pt-Regular.ttf', 'Inter-Regular.ttf'],
   bold: ['Inter_18pt-Bold.ttf', 'Inter-Bold.ttf'],
   extraBold: ['Inter_18pt-ExtraBold.ttf', 'Inter-ExtraBold.ttf'],
+  medium: ['Inter_18pt-Medium.ttf', 'Inter-Medium.ttf'],
   black: ['Inter_18pt-Black.ttf', 'Inter-Black.ttf'],
   thin: ['Inter_18pt-Thin.ttf', 'Inter-Thin.ttf']
 };
@@ -105,6 +113,7 @@ function findFont(names) {
 }
 const interRegular = findFont(fontNames.regular);
 const interBold = findFont(fontNames.bold);
+const interMedium = findFont(fontNames.medium);
 const interExtraBold = findFont(fontNames.extraBold);
 const interBlack = findFont(fontNames.black);
 const interThin = findFont(fontNames.thin);
@@ -120,6 +129,12 @@ if (interBold) {
   registerFont(interBold, { family: 'Inter', weight: 'bold' });
   registerFont(interBold, { family: 'InterBold', weight: 'normal' });
   console.log('✓ Inter Bold font registered');
+}
+if (interMedium) {
+  registerFont(interMedium, { family: 'InterMedium', weight: 'normal' });
+  console.log('✓ Inter Medium font registered');
+} else {
+  console.warn('⚠ Inter Medium not found. Tried:', fontNames.medium.join(', '));
 }
 if (interExtraBold) {
   // Register under a unique family name — Cairo ignores numeric weights (800) in font lookup,
@@ -200,10 +215,12 @@ try {
   if (existsSync(poppinsBold))    { _otPoppinsBold = opentypeLoad(poppinsBold);   console.log('✓ Poppins Bold loaded via opentype.js'); }
 } catch(e) { console.warn('opentype.js load failed:', e.message); }
 
-let _otInterReg = null, _otInterBold = null;
+let _otInterReg = null, _otInterBold = null, _otInterMedium = null, _otInterBlack = null;
 try {
   if (existsSync(interRegular)) { _otInterReg = opentypeLoad(interRegular); console.log('✓ Inter Regular loaded via opentype.js'); }
   if (existsSync(interBold))    { _otInterBold = opentypeLoad(interBold);   console.log('✓ Inter Bold loaded via opentype.js'); }
+  if (interMedium && existsSync(interMedium)) { _otInterMedium = opentypeLoad(interMedium); console.log('✓ Inter Medium loaded via opentype.js'); }
+  if (interBlack && existsSync(interBlack)) { _otInterBlack = opentypeLoad(interBlack); console.log('✓ Inter Black loaded via opentype.js'); }
 } catch (e) { console.warn('Inter opentype load failed:', e.message); }
 
 // ITC Avant Garde Gothic Bold for the 4 news-ticker presets. Same Windows canvas-font
@@ -546,18 +563,32 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   // Resolve preset type early so measurement uses the same font as drawing.
   const _presetNameLower = (preset.name || '').toLowerCase();
   const _isIBC = _presetNameLower === 'indiabusinesscom';
-  const _isIFCore = _presetNameLower === 'indianfoundercore';
   const _isIFC = _presetNameLower === 'indian-founders-co';
 
   // Tokenize + wrap, preserving explicit newlines (<br> / Line Layout editor) as hard line breaks.
   const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
   const measureHookWordPlain = (text, bold) => {
-    if (is101xFoundersAroll(preset)) {
-      const f = (bold && _otInterBold) ? _otInterBold : (_otInterReg || _otInterBold);
+    if (isPoppinsHandleAroll(preset)) {
+      const f = (bold && _otPoppinsBold) ? _otPoppinsBold : (_otPoppinsReg || _otPoppinsBold);
       if (f) return measureOtWidth(f, text, fontSize);
     }
+    if (isIfcAroll(preset)) {
+      const f = (bold && _otInterBold)
+        ? _otInterBold
+        : (_otInterMedium || _otInterReg || _otInterBold);
+      if (f) return measureOtWidth(f, text, fontSize);
+    }
+    if (isInterBlackHighlightAroll(preset)) {
+      const f = (bold && _otInterBlack)
+        ? _otInterBlack
+        : (_otInterBold || _otInterBlack);
+      if (f) return measureOtWidth(f, text, fontSize);
+    }
+    if (isIbcAroll(preset) && _otInterBold) {
+      return measureOtWidth(_otInterBold, text, fontSize);
+    }
     let mFamily, mWeight;
-    if (_isIFC || _isIFCore || _isIBC) {
+    if (_isIBC) {
       mFamily = interBold ? 'InterBold' : 'Inter';
       mWeight = interBold ? 'normal' : 'bold';
     } else {
@@ -632,9 +663,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   }
 
   // Per-preset font-weight and dual-color group logic (mirrors hello.jsx preview)
-  const presetNameLower = _presetNameLower;
   const isIBC = _isIBC;
-  const isIFCore = _isIFCore;
   const isIFC = _isIFC;
 
   // Build groupMap for indiabusinesscom dual-color (1st bold run = orange, 2nd = green)
@@ -659,30 +688,44 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     for (const t of line.tokens) {
       const grp = groupMap[tokenIdx++];
       const lineMidY = drawY + fontSize / 2;
-      const foundersOt = is101xFoundersAroll(preset)
-        ? ((t.bold && _otInterBold) ? _otInterBold : _otInterReg)
-        : null;
+      const foundersOt = isPoppinsHandleAroll(preset)
+        ? ((t.bold && _otPoppinsBold) ? _otPoppinsBold : (_otPoppinsReg || _otPoppinsBold))
+        : isIfcAroll(preset)
+          ? ((t.bold && _otInterBold) ? _otInterBold : (_otInterMedium || _otInterReg || _otInterBold))
+          : isInterBlackHighlightAroll(preset)
+            ? ((t.bold && _otInterBlack) ? _otInterBlack : (_otInterBold || _otInterBlack))
+            : isIbcAroll(preset)
+              ? _otInterBold
+              : null;
       const hookBaselineLine = foundersOt ? middleToBaseline(foundersOt, fontSize, lineMidY) : drawY;
       // Use family-name-based font selection — Cairo doesn't reliably resolve numeric weights.
-      // IBC / IFCore / IFC = Inter Bold (700); 101xfounders A-roll is drawn via opentype Inter.
+      // IBC / IFCore = Inter Bold (700); IFC A-roll = Inter Bold/Medium.
       let fontFamily, fontWeight;
-      if (isIBC || isIFC || isIFCore) {
+      if (isPoppinsHandleAroll(preset)) {
+        fontFamily = t.bold && existsSync(poppinsBold) ? 'PoppinsBoldM' : 'Poppins Regular';
+        fontWeight = 'normal';
+      } else if (isIfcAroll(preset)) {
+        fontFamily = t.bold && interBold ? 'InterBold' : (interMedium ? 'InterMedium' : 'InterRegular');
+        fontWeight = 'normal';
+      } else if (isInterBlackHighlightAroll(preset)) {
+        fontFamily = t.bold && interBlack ? 'InterBlack' : 'InterBold';
+        fontWeight = 'normal';
+      } else if (isIbcAroll(preset) || isIBC || isIFC) {
         fontFamily = interBold ? 'InterBold' : 'Inter';
         fontWeight = interBold ? 'normal' : 'bold';
-      } else if (is101xFoundersAroll(preset)) {
-        fontFamily = t.bold && interBold ? 'InterBold' : 'InterRegular';
-        fontWeight = 'normal';
       } else {
         fontFamily = 'Inter';
         fontWeight = t.bold ? 'bold' : 'normal';
       }
-      // Color: IBC uses orange→green dual groups; 101xfounders A-roll uses off-white body;
-      // others use hookColor for bold, white for normal
+      // Color: IBC uses orange→green dual groups; handle A-rolls use off-white body.
       let fillColor;
       if (isIBC) {
-        fillColor = grp === 1 ? '#FF7838' : grp >= 2 ? '#46DB27' : '#FFFFFF';
-      } else if (is101xFoundersAroll(preset)) {
-        fillColor = t.bold ? (hookColor || FOUNDERS_AROLL_HIGHLIGHT) : FOUNDERS_AROLL_REGULAR;
+        fillColor = getIbcArollTokenColor(grp);
+      } else if (isInterBlackHighlightAroll(preset)) {
+        const blackHighlightColors = getInterBlackArollColors(preset);
+        fillColor = t.bold ? (hookColor || blackHighlightColors.highlight) : blackHighlightColors.regular;
+      } else if (isHandleWatermarkAroll(preset)) {
+        fillColor = t.bold ? (hookColor || getPoppinsArollHighlight(preset)) : FOUNDERS_AROLL_REGULAR;
       } else {
         fillColor = t.bold ? hookColor : '#FFFFFF';
       }
@@ -718,7 +761,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
 
   // Resolve logo path for FFmpeg overlay
   let logoPath = null;
-  if (preset.logo && preset.showLogo !== false) {
+  if (preset.logo && preset.showLogo !== false && !isHandleWatermarkAroll(preset)) {
     const logoFile = join(__dirname, 'assets', 'logos', preset.logo);
     if (existsSync(logoFile)) logoPath = logoFile;
   }
@@ -729,8 +772,8 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     videoX: 0,
     videoW: 720,
     videoH: videoH,
-    watermark: is101xFoundersAroll(preset)
-      ? { text: preset.handle || '@101xfounders', x: 0.5, y: preset.watermarkPosition?.y || 16 }
+    watermark: isHandleWatermarkAroll(preset)
+      ? { text: preset.handle || '', x: 0.5, y: 12 }
       : null,
     logoOverlay: logoPath ? {
       path: logoPath,
@@ -1198,7 +1241,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
       const color = isIhn
         ? (t.bold ? IHN_NEWS_HIGHLIGHT : IHN_NEWS_REGULAR)
         : isFoundersNews
-          ? (t.bold ? FOUNDERS_AROLL_HIGHLIGHT : FOUNDERS_AROLL_REGULAR)
+          ? (t.bold ? FOUNDERS_NEWS_HIGHLIGHT : FOUNDERS_AROLL_REGULAR)
           : isPlainText
             ? (t.bold ? (preset.color || '#FFFFFF') : '#FFFFFF')
             : (isIBCNews || isIFCNews)
@@ -2374,7 +2417,7 @@ async function generateLayoutOverlay(preset, headline, fontScale, wordSpacingMul
     videoH: targetH,
     isBC: name === 'Business Cracked',
     // aicracked, theevolvinggpt, foundrsonig, indianfoundr, indiastartupstory, neworderai, indiasbestfounders, elitefoundrs, intelligence by ai, the ai phaze, That AI page, Revolution in tech, startupsoncrack, bestindianpodcast, realindianbusiness, risewithcontent must NEVER have watermark in video (force null by name)
-    watermark: (isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isIndianStartupStory || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isBestIndianPodcast || isRealIndiaBusiness || isRiseWithContent)
+    watermark: (isAICracked || isTheEvolvingGPT || isFoundrsonig || isIndianFoundr || isNewOrderAI || isIndiasBestFounders || isElitefoundrs || isIntelligenceByAi || isTheAiPhaze || isThatAiPage || isRevolutionInTech || isStartupsoncrack || isBestIndianPodcast || isRealIndiaBusiness || isRiseWithContent)
       ? null
       : (preset.layout === 'watermark' && !isPeakOfAI && !isThePrimeFounder)
         ? { text: preset.handle, x: preset.watermarkPosition?.x / 100 || 0.5, y: preset.watermarkPosition?.y || 16 }
@@ -2578,7 +2621,6 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       'theevolvinggpt',
       'foundrsonig',
       'indianfoundr',
-      'indiastartupstory',
       'neworderai',
       'indiasbestfounders',
       'elitefoundrs',
@@ -2613,7 +2655,8 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
     if (layout.watermark && !skipWatermark) {
       // Calculate watermark position relative to video area
       // y position: from bottom of video, positioned higher (increase offset to move up)
-      const watermarkY = sy + sh - (layout.watermark.y * 3); // Multiply by 3 to position higher
+      const fromBottom = isHandleWatermarkAroll(preset) ? 36 : (layout.watermark.y * 3);
+      const watermarkY = sy + sh - fromBottom;
       const textY = Math.round(watermarkY);
 
       // For center alignment within the video area
@@ -2623,7 +2666,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       let xPercentage = 0.40; // Default for bizzindia
       if (presetName === '101xfounders') {
         xPercentage = 0.35; // More to the left for 101xfounders
-      } else if (is101xFoundersAroll(preset)) {
+      } else if (isHandleWatermarkAroll(preset)) {
         xPercentage = 0.50; // Centered handle on the video frame
       }
 
@@ -2638,18 +2681,22 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       // it should be bold like the preview.
       const escapedText = layout.watermark.text.replace(/\\/g, "\\\\").replace(/'/g, '\u2019');
       let fontFileParam = '';
-      const isBoldWatermarkPreset = presetName === 'bizzindia' || presetName === '101xfounders' || presetName === 'indian-founders-co' || is101xFoundersAroll(preset);
-      if (isBoldWatermarkPreset && interBold && existsSync(interBold)) {
+      const isBoldWatermarkPreset = presetName === 'bizzindia' || presetName === '101xfounders';
+      if (isPoppinsHandleAroll(preset) && existsSync(poppinsBold)) {
+        fontFileParam = `:fontfile=assets/fonts/${basename(poppinsBold)}`;
+      } else if (isHandleWatermarkAroll(preset) && interBold && existsSync(interBold)) {
+        fontFileParam = `:fontfile=assets/fonts/${basename(interBold)}`;
+      } else if (isBoldWatermarkPreset && interBold && existsSync(interBold)) {
         fontFileParam = `:fontfile=assets/fonts/${basename(interBold)}`;
       } else if (interThin && existsSync(interThin)) {
         fontFileParam = `:fontfile=assets/fonts/${basename(interThin)}`;
       }
-      // 101xfounders A-roll: center with (w-text_w)/2 — text_align=center is ignored on
+      // Handle A-rolls: center with (w-text_w)/2 — text_align=center is ignored on
       // some FFmpeg builds, which left-anchors at x=50% and shoves the handle right.
-      // white@0.5 is the same opacity syntax the other watermarks already use.
+      // 0xf5f3f5@0.4 — hex #rrggbb@a is not parsed by all FFmpeg builds and drew opaque.
       let drawtextFilter;
-      if (is101xFoundersAroll(preset)) {
-        drawtextFilter = `[ovl]drawtext=text='${escapedText}':expansion=none:fontcolor=white@0.5:fontsize=24:x=${sx}+(${sw}-text_w)/2:y=${textY}${fontFileParam}[watermarked]`;
+      if (isHandleWatermarkAroll(preset)) {
+        drawtextFilter = `[ovl]drawtext=text='${escapedText}':expansion=none:fontcolor=0xf5f3f5@0.4:fontsize=20:x=${sx}+(${sw}-text_w)/2:y=${textY}${fontFileParam}[watermarked]`;
       } else {
         drawtextFilter = `[ovl]drawtext=text='${escapedText}':expansion=none:fontcolor=white@0.4:fontsize=24:x=${textX}:y=${textY}:text_align=center${fontFileParam}[watermarked]`;
       }

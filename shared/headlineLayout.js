@@ -181,12 +181,87 @@ export function getHookBaseFontSize(preset) {
   return HOOK_BASE_FONT_OVERRIDES[(preset?.name || '').toLowerCase()] ?? 38;
 }
 
-/** 101xfounders A-roll: Inter Bold highlight / Inter Regular body, handle watermark. */
-export const FOUNDERS_AROLL_HIGHLIGHT = '#fda207';
+/** Poppins handle A-roll (101xf / ISS / FII): Bold highlight + Regular body, handle watermark. */
+export const FOUNDERS_AROLL_HIGHLIGHT = '#ff7c15';
 export const FOUNDERS_AROLL_REGULAR = '#f5f3f5';
+export const ISS_AROLL_HIGHLIGHT = '#ef5350';
+export const FII_AROLL_HIGHLIGHT = '#439eff';
+export const IFC_AROLL_HIGHLIGHT = '#32c26c';
+/** 101xfounders news ticker highlight — Inter, not the A-roll Poppins orange. */
+export const FOUNDERS_NEWS_HIGHLIGHT = '#fda207';
 
 export function is101xFoundersAroll(preset) {
   return (preset?.name || '').toLowerCase() === '101xfounders-aroll';
+}
+
+export function isIssAroll(preset) {
+  return (preset?.name || '').toLowerCase() === 'indiastartupstory';
+}
+
+export function isFiiAroll(preset) {
+  return (preset?.name || '').toLowerCase() === 'founders-in-india';
+}
+
+export function isIfcAroll(preset) {
+  return (preset?.name || '').toLowerCase() === 'indian-founders-co';
+}
+
+export function isIbcAroll(preset) {
+  return (preset?.name || '').toLowerCase() === 'indiabusinesscom';
+}
+
+export const IBC_AROLL_ORANGE = '#ff7838';
+export const IBC_AROLL_GREEN = '#3af349';
+export const IBC_AROLL_REGULAR = '#ffffff';
+
+/** IBC dual-color: 1st highlight run orange, later runs green, body white. */
+export function getIbcArollTokenColor(groupIndex) {
+  if (groupIndex === 1) return IBC_AROLL_ORANGE;
+  if (groupIndex >= 2) return IBC_AROLL_GREEN;
+  return IBC_AROLL_REGULAR;
+}
+
+export function isBizzindiaAroll(preset) {
+  return (preset?.name || '').toLowerCase() === 'bizzindia';
+}
+
+/** IFC2 A-roll (`indianfoundercore`). */
+export function isIfc2Aroll(preset) {
+  return (preset?.name || '').toLowerCase() === 'indianfoundercore';
+}
+
+export const BIZZINDIA_AROLL_HIGHLIGHT = '#f52a46';
+export const BIZZINDIA_AROLL_REGULAR = '#ffffff';
+export const IFC2_AROLL_HIGHLIGHT = '#ffd412';
+export const IFC2_AROLL_REGULAR = '#ffffff';
+
+/** Bizzindia + IFC2: Inter Black highlight / Inter Bold body. */
+export function isInterBlackHighlightAroll(preset) {
+  return isBizzindiaAroll(preset) || isIfc2Aroll(preset);
+}
+
+export function getInterBlackArollColors(preset) {
+  if (isIfc2Aroll(preset)) {
+    return { highlight: IFC2_AROLL_HIGHLIGHT, regular: IFC2_AROLL_REGULAR };
+  }
+  return { highlight: BIZZINDIA_AROLL_HIGHLIGHT, regular: BIZZINDIA_AROLL_REGULAR };
+}
+
+/** 101xfounders / ISS / FII A-roll: Poppins hook + 40% handle watermark. */
+export function isPoppinsHandleAroll(preset) {
+  return is101xFoundersAroll(preset) || isIssAroll(preset) || isFiiAroll(preset);
+}
+
+/** Handle watermark A-rolls — same placement/opacity/size; IFC uses Inter instead of Poppins. */
+export function isHandleWatermarkAroll(preset) {
+  return isPoppinsHandleAroll(preset) || isIfcAroll(preset);
+}
+
+export function getPoppinsArollHighlight(preset) {
+  if (isIssAroll(preset)) return ISS_AROLL_HIGHLIGHT;
+  if (isFiiAroll(preset)) return FII_AROLL_HIGHLIGHT;
+  if (isIfcAroll(preset)) return IFC_AROLL_HIGHLIGHT;
+  return FOUNDERS_AROLL_HIGHLIGHT;
 }
 
 export function is101xFoundersNews(preset) {
@@ -452,12 +527,13 @@ export function isPlainTextNewsTicker(preset) {
 }
 
 /**
- * A-roll pages whose hooks are always ALL CAPS (IBC + indianfoundercore only).
- * News formats and other a-roll brands keep typed casing.
+ * A-roll pages whose hooks are always ALL CAPS.
  */
 export const UPPERCASE_AROLL_HOOK_NAMES = [
   'indiabusinesscom',
   'indianfoundercore',
+  'indian-founders-co',
+  'bizzindia',
 ];
 
 export function isUppercaseArollHook(preset) {
@@ -497,6 +573,7 @@ export const BLACK_BAR_ANCHORED_NEWS_NAMES = [
   'foundersinindia-news',
   'indiabusinesscom-news',
   'indiastartupstory-news',
+  '101xfounders-news',
 ];
 
 export function isBlackBarAnchoredNewsTicker(preset) {
@@ -550,10 +627,7 @@ export function getNewsTickerStackHeight(preset, fontSize, lineCount) {
 /** Fraction of frame height left empty below the ticker stack (Reels UI clearance). */
 export function getNewsTickerBottomMarginRatio(preset) {
   const pct = Number(preset?.rules?.bottomMarginPct);
-  if (Number.isFinite(pct) && !is101xFoundersNews(preset)) {
-    return Math.max(0, Math.min(60, pct)) / 100;
-  }
-  if (is101xFoundersNews(preset)) return 0.045;
+  if (Number.isFinite(pct)) return Math.max(0, Math.min(60, pct)) / 100;
   if ((preset?.name || '').toLowerCase() === 'ifc-news') return 0.055;
   if (isInterNewsTicker(preset)) return 0.08;
   return 0.10;
@@ -562,8 +636,8 @@ export function getNewsTickerBottomMarginRatio(preset) {
 /** Height of the fade that sits on top of the solid black cover. */
 export function getNewsTickerGradientHeight(preset, canvasH) {
   if (is101xFoundersNews(preset)) {
-    // Compact band immediately under the hook — not IHN's tall fade.
-    return Math.min(160, Math.round(canvasH * 0.12));
+    // Same sit-on-the-bar fade as IBC (~18% of frame above the solid).
+    return Math.round(canvasH * 0.18);
   }
   if (isIhnNews(preset)) {
     return Math.min(380, Math.round(canvasH * 0.30));
@@ -594,13 +668,6 @@ export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBar
     return Math.max(0, Math.round(canvasH * (1 - ratio)) - (shiftY || 0));
   }
   const stackH = totalBarsH + (lockupBlockH || 0);
-  if (is101xFoundersNews(preset)) {
-    // Fade starts just below the hook so text sits a little above the gradient.
-    const gap = Math.round(fontSize * 0.18);
-    const fadeStart = barY + totalBarsH + gap;
-    const gradientH = getNewsTickerGradientHeight(preset, canvasH);
-    return Math.min(canvasH, fadeStart + gradientH);
-  }
   if (isIhnNews(preset)) {
     // Solid begins at the last line of hook + subtext — stack sits on the fade,
     // almost at the end of the gradient.
@@ -633,7 +700,11 @@ export function getNewsTickerHookBarY(preset, {
     // 2-line hook sits on the bar edge; longer hooks grow downward from that top.
     const twoLineH = getNewsTickerStackHeight(preset, fontSize, 2);
     const kissIntoSolid = Math.round(fontSize * 0.2);
-    const riseAboveBar = twoLineH - kissIntoSolid;
+    // IBC: last line kisses the bar. 101xf type is smaller, so that kiss buries
+    // the whole stack in the fade — sit the block just above the solid instead.
+    const riseAboveBar = is101xFoundersNews(preset)
+      ? twoLineH + Math.round(fontSize * 1.15)
+      : twoLineH - kissIntoSolid;
     let barY = blackTop - riseAboveBar;
     // Keep a tiny floor so lockup / last line never clips the frame bottom.
     const minBottom = Math.round(canvasH * 0.04);
@@ -644,9 +715,7 @@ export function getNewsTickerHookBarY(preset, {
     return Math.max(0, barY);
   }
   const bottomMargin = Math.round(canvasH * getNewsTickerBottomMarginRatio(preset));
-  // 101xf: supporting line hangs into the fade, so it must not push the hook up.
-  const lockup = is101xFoundersNews(preset) ? 0 : lockupBlockH;
-  return canvasH - bottomMargin - lockup - totalBarsH - shiftY;
+  return canvasH - bottomMargin - lockupBlockH - totalBarsH - shiftY;
 }
 
 /**
