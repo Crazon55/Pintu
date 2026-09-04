@@ -35,7 +35,7 @@ const founders = {
   ...shared,
   id: 103,
   name: '101xfounders-news',
-  color: '#fda207',
+  color: '#ff7c15',
   logo: '101xfounders-news-logo.png',
   rules: {
     logoSize: 42,

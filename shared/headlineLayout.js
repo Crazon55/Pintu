@@ -95,8 +95,8 @@ export function layoutNewsTickerTokenLines(cleanedHtml, measureWord, maxWidth) {
     let cur = [];
     let curW = 0;
     for (const t of tokens) {
-      const w = measureWord(t.text);
-      const add = cur.length ? measureWord(' ') + w : w;
+      const w = measureWord(t.text, t.bold);
+      const add = cur.length ? measureWord(' ', false) + w : w;
       if (curW + add > maxWidth && cur.length) {
         allLines.push(cur);
         cur = [t];
@@ -187,8 +187,8 @@ export const FOUNDERS_AROLL_REGULAR = '#f5f3f5';
 export const ISS_AROLL_HIGHLIGHT = '#ef5350';
 export const FII_AROLL_HIGHLIGHT = '#439eff';
 export const IFC_AROLL_HIGHLIGHT = '#32c26c';
-/** 101xfounders news ticker highlight — Inter, not the A-roll Poppins orange. */
-export const FOUNDERS_NEWS_HIGHLIGHT = '#fda207';
+/** 101xfounders news ticker highlight — Inter Bold on this colour, Inter Regular on white. */
+export const FOUNDERS_NEWS_HIGHLIGHT = '#ff7c15';
 
 export function is101xFoundersAroll(preset) {
   return (preset?.name || '').toLowerCase() === '101xfounders-aroll';
@@ -272,9 +272,27 @@ export function isIhnNews(preset) {
   return (preset?.name || '').toLowerCase() === 'indianhappeningnow-news';
 }
 
+export function isBizzindiaNews(preset) {
+  return (preset?.name || '').toLowerCase() === 'bizzindia-news';
+}
+
+export const BIZZINDIA_NEWS_HIGHLIGHT = '#e31d38';
+export const BIZZINDIA_NEWS_REGULAR = '#ffffff';
+/** Unique families — Windows cannot be trusted to pick Thin vs SemiBold by numeric weight. */
+export const IVYPRESTO_HEADLINE_THIN_FAMILY = "'IvyPresto Headline Thin', serif";
+export const IVYPRESTO_HEADLINE_SEMIBOLD_FAMILY = "'IvyPresto Headline SemiBold', serif";
+export const BIZZINDIA_NEWS_LOGO_FILE = 'bizzindia-news-logo.png';
+export const BIZZINDIA_NEWS_LOGO_H = 62;
+export const BIZZINDIA_NEWS_LINE_GAP = 0.18;
+
 /** 9:16 Inter news tickers with PNG header + supporting line (101xf + IHN). */
 export function isInterNewsTicker(preset) {
   return is101xFoundersNews(preset) || isIhnNews(preset);
+}
+
+/** PNG wordmark + 2026/India kicker (101xf, IHN, Bizz India news). */
+export function isPngHeaderNewsTicker(preset) {
+  return isInterNewsTicker(preset) || isBizzindiaNews(preset);
 }
 
 export const IHN_NEWS_HIGHLIGHT = '#ffa928';
@@ -343,20 +361,25 @@ export const IHN_NEWS_KICKER_H = FOUNDERS_NEWS_KICKER_H;
 // with 101xf. / INDIA (not the star, not the "India" subtitle).
 const FOUNDERS_LOGO_CAP_TOP = 4 / 79;
 const IHN_INDIA_CAP_TOP = 29 / 143;
+const BIZZ_LOGO_CAP_TOP = 24 / 139;
 const KICKER_YEAR_CAP_TOP = 4 / 89;
 
-/** Operator PNGs for 101xfounders-news / indianhappeningnow-news headers. */
+/** Operator PNGs for 101xfounders-news / indianhappeningnow-news / bizzindia-news headers. */
 export function getPngNewsHeaderAssets(preset) {
-  if (!isInterNewsTicker(preset)) return null;
+  if (!isPngHeaderNewsTicker(preset)) return null;
   const ihn = isIhnNews(preset);
-  const logoH = Math.round(Number(preset.rules?.logoSize) || (ihn ? IHN_NEWS_LOGO_H : FOUNDERS_NEWS_LOGO_H));
+  const bizz = isBizzindiaNews(preset);
+  const logoH = Math.round(Number(preset.rules?.logoSize) || (
+    ihn ? IHN_NEWS_LOGO_H : (bizz ? BIZZINDIA_NEWS_LOGO_H : FOUNDERS_NEWS_LOGO_H)
+  ));
   const kickerH = Math.round(Number(preset.rules?.kickerSize) || FOUNDERS_NEWS_KICKER_H);
   const { padX, padY } = get101xFoundersNewsHeaderPad();
   const logoY = padY;
-  const typeTop = logoY + logoH * (ihn ? IHN_INDIA_CAP_TOP : FOUNDERS_LOGO_CAP_TOP);
+  const capTop = ihn ? IHN_INDIA_CAP_TOP : (bizz ? BIZZ_LOGO_CAP_TOP : FOUNDERS_LOGO_CAP_TOP);
+  const typeTop = logoY + logoH * capTop;
   const kickerY = Math.round(typeTop - kickerH * KICKER_YEAR_CAP_TOP);
   return {
-    logoFile: preset.logo || (ihn ? IHN_NEWS_LOGO_FILE : FOUNDERS_NEWS_LOGO_FILE),
+    logoFile: preset.logo || (ihn ? IHN_NEWS_LOGO_FILE : (bizz ? BIZZINDIA_NEWS_LOGO_FILE : FOUNDERS_NEWS_LOGO_FILE)),
     kickerFile: preset.rules?.kickerLogo || FOUNDERS_NEWS_KICKER_FILE,
     logoH,
     kickerH,
@@ -474,6 +497,7 @@ export function getExportNewsMaxLineWidth(preset) {
   const name = (preset?.name || '').toLowerCase();
   // Leave room for left/right inset + bold bar padding (±4px) so lines never clip the frame.
   if (name === 'indiastartupstory-news') return 560; // startX 56 + right pad + bar padding
+  if (isBizzindiaNews({ name })) return 580; // centered IvyPresto, ~70px side pads
   if (isInterNewsTicker({ name })) return 620; // left-aligned, ~40px side pads
   if (isPlainTextNewsTicker({ name })) return 500; // hook block spans ~68% of frame width in the reference
   return 600; // centered brands ~60px side margins + bar padding
@@ -485,6 +509,7 @@ export function getNewsTickerLineStartX(preset, totalLineW, canvasW = CANVAS_REF
   if (
     name === 'indiabusinesscom-news' ||
     name === 'ifc-news' ||
+    name === 'bizzindia-news' ||
     isPlainTextNewsTicker(preset)
   ) {
     return Math.round((canvasW - totalLineW) / 2);
@@ -525,6 +550,19 @@ export const PLAIN_TEXT_NEWS_TICKER_NAMES = ['indiafounderscore-news', 'founders
 export function isPlainTextNewsTicker(preset) {
   return PLAIN_TEXT_NEWS_TICKER_NAMES.includes((preset?.name || '').toLowerCase());
 }
+
+/** ifc-news: Inter Bold hook + green highlight pills. */
+export function isIfcNews(preset) {
+  return (preset?.name || '').toLowerCase() === 'ifc-news';
+}
+
+/** indiafounderscore-news (ifc2): Helvetica World Bold, yellow highlight, no pills. */
+export function isIfc2News(preset) {
+  return (preset?.name || '').toLowerCase() === 'indiafounderscore-news';
+}
+
+export const IFC2_NEWS_HIGHLIGHT = '#e0e140';
+export const HELVETICA_WORLD_BOLD_FAMILY = "'Helvetica World', 'ITC Avant Garde Gothic', Inter, sans-serif";
 
 /**
  * A-roll pages whose hooks are always ALL CAPS.
@@ -574,6 +612,7 @@ export const BLACK_BAR_ANCHORED_NEWS_NAMES = [
   'indiabusinesscom-news',
   'indiastartupstory-news',
   '101xfounders-news',
+  'bizzindia-news',
 ];
 
 export function isBlackBarAnchoredNewsTicker(preset) {
@@ -583,37 +622,44 @@ export function isBlackBarAnchoredNewsTicker(preset) {
 /** Full-bleed 9:16 tickers: taller fade and more solid pad, since there is no letterboxing. */
 export function isFullBleedNewsTicker(preset) {
   const name = (preset?.name || '').toLowerCase();
-  return name === 'ifc-news' || isPlainTextNewsTicker(preset) || isInterNewsTicker(preset);
+  return name === 'ifc-news' || isPlainTextNewsTicker(preset) || isInterNewsTicker(preset) || isBizzindiaNews(preset);
 }
 
 /** Per-line vertical metrics for a news ticker at a given font size. */
 export function getNewsTickerLineMetrics(preset, fontSize) {
   const interNews = isInterNewsTicker(preset);
-  const plain = isPlainTextNewsTicker(preset) || interNews;
+  const bizzNews = isBizzindiaNews(preset);
+  const plain = isPlainTextNewsTicker(preset) || interNews || bizzNews;
   const highlightH = Math.round(
     fontSize * (plain ? NEWS_TICKER_PLAIN_LINE_HEIGHT : NEWS_TICKER_HIGHLIGHT_HEIGHT),
   );
-  const lineGap = interNews
-    ? Math.round(fontSize * FOUNDERS_NEWS_LINE_GAP)
-    : (plain ? 0 : Math.round(fontSize * NEWS_TICKER_LINE_GAP));
+  const lineGap = bizzNews
+    ? Math.round(fontSize * BIZZINDIA_NEWS_LINE_GAP)
+    : interNews
+      ? Math.round(fontSize * FOUNDERS_NEWS_LINE_GAP)
+      : (plain ? 0 : Math.round(fontSize * NEWS_TICKER_LINE_GAP));
   return { plain, highlightH, lineGap, lineAdvance: highlightH + lineGap };
 }
 
 /** Line-height ratios to hand to fitNewsTickerFontSize so its budget matches the render. */
 export function getNewsTickerFitRatios(preset) {
   const interNews = isInterNewsTicker(preset);
-  const plain = isPlainTextNewsTicker(preset) || interNews;
+  const bizzNews = isBizzindiaNews(preset);
+  const plain = isPlainTextNewsTicker(preset) || interNews || bizzNews;
   return {
     highlightHeightRatio: plain ? NEWS_TICKER_PLAIN_LINE_HEIGHT : NEWS_TICKER_HIGHLIGHT_HEIGHT,
-    lineGapRatio: interNews ? FOUNDERS_NEWS_LINE_GAP : (plain ? 0 : NEWS_TICKER_LINE_GAP),
+    lineGapRatio: bizzNews
+      ? BIZZINDIA_NEWS_LINE_GAP
+      : (interNews ? FOUNDERS_NEWS_LINE_GAP : (plain ? 0 : NEWS_TICKER_LINE_GAP)),
   };
 }
 
 export function getNewsTickerMaxLines(preset) {
-  return isInterNewsTicker(preset) ? 5 : 3;
+  return (isInterNewsTicker(preset) || isBizzindiaNews(preset)) ? 5 : 3;
 }
 
 export function getNewsTickerBaseFontSize(preset) {
+  if (isBizzindiaNews(preset)) return 46;
   return isInterNewsTicker(preset) ? 42 : 54;
 }
 
@@ -635,6 +681,9 @@ export function getNewsTickerBottomMarginRatio(preset) {
 
 /** Height of the fade that sits on top of the solid black cover. */
 export function getNewsTickerGradientHeight(preset, canvasH) {
+  if (isBizzindiaNews(preset)) {
+    return Math.round(canvasH * 0.22);
+  }
   if (is101xFoundersNews(preset)) {
     // Same sit-on-the-bar fade as IBC (~18% of frame above the solid).
     return Math.round(canvasH * 0.18);
@@ -702,8 +751,8 @@ export function getNewsTickerHookBarY(preset, {
     const kissIntoSolid = Math.round(fontSize * 0.2);
     // IBC: last line kisses the bar. 101xf type is smaller, so that kiss buries
     // the whole stack in the fade — sit the block just above the solid instead.
-    const riseAboveBar = is101xFoundersNews(preset)
-      ? twoLineH + Math.round(fontSize * 1.15)
+    const riseAboveBar = (is101xFoundersNews(preset) || isBizzindiaNews(preset))
+      ? twoLineH + Math.round(fontSize * (isBizzindiaNews(preset) ? 0.55 : 1.15))
       : twoLineH - kissIntoSolid;
     let barY = blackTop - riseAboveBar;
     // Keep a tiny floor so lockup / last line never clips the frame bottom.
@@ -740,13 +789,24 @@ export function getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH) {
 export function getNewsTickerFontFamily(preset) {
   // Inter last so browsers can fall back for ₹ / rare currency glyphs missing from
   // Helvetica World and ITC Avant Garde (export uses the same Inter fallback).
-  if (isInterNewsTicker(preset)) {
+  if (isBizzindiaNews(preset)) {
+    return IVYPRESTO_HEADLINE_THIN_FAMILY;
+  }
+  if (isInterNewsTicker(preset) || isIfcNews(preset)) {
     return "'Inter', sans-serif";
   }
   if (isPlainTextNewsTicker(preset)) {
-    return "'Helvetica World', 'ITC Avant Garde Gothic', Inter, sans-serif";
+    return HELVETICA_WORLD_BOLD_FAMILY;
   }
   return "'ITC Avant Garde Gothic', Inter, sans-serif";
+}
+
+/** Red rule under the Bizz India news hook (same colour as the highlight). */
+export function getBizzindiaNewsRuleMetrics(fontSize, longestLineW = 280) {
+  const gap = Math.round(fontSize * 0.45);
+  const height = Math.max(3, Math.round(fontSize * 0.055));
+  const width = Math.round(Math.max(140, Math.min(360, longestLineW * 0.52)));
+  return { gap, height, width, reserve: gap + height };
 }
 
 /**
@@ -825,7 +885,8 @@ export function clampNewsTickerShiftPx(preset, {
 /**
  * Largest font that keeps the news ticker compact like Canva:
  * soft-wrap within maxLineW, prefer ≤ maxLines, and keep total bar stack ≤ maxTotalBarsH.
- * measureWordAtSize(text, fontSize) must use the same face as render.
+ * measureWordAtSize(text, fontSize, bold) must use the same face as render.
+ * `bold` is true for highlight tokens (e.g. IvyPresto SemiBold vs Thin).
  */
 export function fitNewsTickerFontSize({
   cleanedHtml,
@@ -844,7 +905,7 @@ export function fitNewsTickerFontSize({
   const maxFs = Math.max(minFs, Math.round(baseFontSize));
 
   const layoutAt = (fontSize) => {
-    const measure = (text) => measureWordAtSize(text, fontSize);
+    const measure = (text, bold) => measureWordAtSize(text, fontSize, bold);
     const lines = layoutNewsTickerTokenLines(cleanedHtml, measure, maxLineW);
     const highlightH = Math.round(fontSize * highlightHeightRatio);
     const lineGap = Math.round(fontSize * lineGapRatio);
@@ -856,7 +917,7 @@ export function fitNewsTickerFontSize({
     for (const line of lines) {
       let w = 0;
       for (let i = 0; i < line.length; i++) {
-        w += measure(line[i].text) + (i ? measure(' ') : 0);
+        w += measure(line[i].text, line[i].bold) + (i ? measure(' ', false) : 0);
       }
       if (w > maxMeasured) maxMeasured = w;
     }

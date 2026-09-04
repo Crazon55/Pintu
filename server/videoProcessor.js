@@ -24,6 +24,8 @@ import {
   getNewsTickerHandleLockup,
   getNewsTickerBottomLogoY,
   isPlainTextNewsTicker,
+  isIfc2News,
+  isIfcNews,
   applyHookCasing,
   clampNewsTickerShiftPx,
   getHookBaseFontSize,
@@ -37,6 +39,7 @@ import {
   getPoppinsArollHighlight,
   is101xFoundersNews,
   isIhnNews,
+  isBizzindiaNews,
   isInterNewsTicker,
   getNewsSupportingText,
   getNewsSupportingFontSize,
@@ -45,10 +48,14 @@ import {
   wrapPlainWords,
   getNewsTickerMaxLines,
   getNewsTickerBaseFontSize,
+  getBizzindiaNewsRuleMetrics,
   FOUNDERS_AROLL_REGULAR,
   FOUNDERS_NEWS_HIGHLIGHT,
   IHN_NEWS_HIGHLIGHT,
   IHN_NEWS_REGULAR,
+  BIZZINDIA_NEWS_HIGHLIGHT,
+  BIZZINDIA_NEWS_REGULAR,
+  IFC2_NEWS_HIGHLIGHT,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -251,8 +258,60 @@ try {
   }
 } catch (e) { console.warn('Helvetica World Bold opentype load failed:', e.message); }
 
+function firstExistingFont(paths) {
+  return paths.find((p) => existsSync(p)) || null;
+}
+const ivyPrestoThinFile = firstExistingFont([
+  resolve(fontsDir, 'ivy-presto-headline-light.otf'),
+  resolve(fontsDir, 'IvyPrestoHeadline-Light.otf'),
+  resolve(fontsDir, 'IvyPresto Headline Light.otf'),
+  resolve(fontsDir, 'ivy-presto-headline-thin.otf'),
+  resolve(fontsDir, 'IvyPrestoHeadline-Thin.otf'),
+  resolve(fontsDir, 'IvyPresto Headline Thin.otf'),
+  resolve(fontsDir, 'IvyPrestoHeadline-Thin.ttf'),
+]);
+const ivyPrestoSemiBoldFile = firstExistingFont([
+  resolve(fontsDir, 'ivy-presto-headline-semibold.otf'),
+  resolve(fontsDir, 'IvyPrestoHeadline-SemiBold.otf'),
+  resolve(fontsDir, 'IvyPresto Headline SemiBold.otf'),
+  resolve(fontsDir, 'IvyPrestoHeadline-SemiBold.ttf'),
+]);
+if (ivyPrestoThinFile) {
+  registerFont(ivyPrestoThinFile, { family: 'IvyPrestoHeadlineThin', weight: 'normal' });
+  console.log('✓ IvyPresto Headline Thin registered:', ivyPrestoThinFile);
+} else {
+  console.warn('⚠ IvyPresto Headline Thin not found — drop ivy-presto-headline-thin.otf into server/assets/fonts');
+}
+if (ivyPrestoSemiBoldFile) {
+  registerFont(ivyPrestoSemiBoldFile, { family: 'IvyPrestoHeadlineSemiBold', weight: 'normal' });
+  console.log('✓ IvyPresto Headline SemiBold registered:', ivyPrestoSemiBoldFile);
+} else {
+  console.warn('⚠ IvyPresto Headline SemiBold not found — Bizz India news will fall back');
+}
+let _otIvyPrestoThin = null;
+let _otIvyPrestoSemiBold = null;
+try {
+  if (ivyPrestoThinFile) {
+    _otIvyPrestoThin = opentypeLoad(ivyPrestoThinFile);
+    console.log('✓ IvyPresto Headline Thin loaded via opentype.js');
+  }
+} catch (e) { console.warn('IvyPresto Headline Thin opentype load failed:', e.message); }
+try {
+  if (ivyPrestoSemiBoldFile) {
+    _otIvyPrestoSemiBold = opentypeLoad(ivyPrestoSemiBoldFile);
+    console.log('✓ IvyPresto Headline SemiBold loaded via opentype.js');
+  }
+} catch (e) { console.warn('IvyPresto Headline SemiBold opentype load failed:', e.message); }
+
+function ivyPrestoNewsFace(bold) {
+  return bold
+    ? (_otIvyPrestoSemiBold || _otIvyPrestoThin)
+    : (_otIvyPrestoThin || _otIvyPrestoSemiBold);
+}
+
 function newsTickerOpentypeFont(preset) {
-  if (isInterNewsTicker(preset)) return _otInterBold || _otInterReg;
+  if (isBizzindiaNews(preset)) return ivyPrestoNewsFace(false) || _otInterBold || _otInterReg;
+  if (isInterNewsTicker(preset) || isIfcNews(preset)) return _otInterBold || _otInterReg;
   if (isPlainTextNewsTicker(preset) && _otHelveticaWorldBold) return _otHelveticaWorldBold;
   return _otAvantGardeBold;
 }
@@ -283,10 +342,14 @@ try {
 
 // Draw text via opentype.js paths — bypasses Windows canvas/Pango font lookup issues.
 // opentype Path.draw() reads path.fill, NOT ctx.fillStyle.
-function drawOpentypeText(ctx, font, text, x, baselineY, fontSize, fillStyle) {
+function drawOpentypeText(ctx, font, text, x, baselineY, fontSize, fillStyle, strokeWidth = 0, strokeStyle = null) {
   if (!font || !text) return false;
   const path = font.getPath(text, x, baselineY, fontSize);
   path.fill = fillStyle;
+  if (strokeWidth > 0) {
+    path.stroke = strokeStyle || fillStyle;
+    path.strokeWidth = strokeWidth;
+  }
   ctx.save();
   path.draw(ctx);
   ctx.restore();
@@ -337,17 +400,17 @@ function measureOtWidthWithFallback(primary, fallback, text, fontSize) {
   return w;
 }
 
-function drawOpentypeTextWithFallback(ctx, primary, fallback, text, x, baselineY, fontSize, fillStyle) {
+function drawOpentypeTextWithFallback(ctx, primary, fallback, text, x, baselineY, fontSize, fillStyle, strokeWidth = 0, strokeStyle = null) {
   if (!primary || !text) return false;
   if (!fallback || fallback === primary) {
-    return drawOpentypeText(ctx, primary, text, x, baselineY, fontSize, fillStyle);
+    return drawOpentypeText(ctx, primary, text, x, baselineY, fontSize, fillStyle, strokeWidth, strokeStyle);
   }
   let cx = x;
   let run = '';
   let runFont = null;
   const flush = () => {
     if (!run || !runFont) return;
-    drawOpentypeText(ctx, runFont, run, cx, baselineY, fontSize, fillStyle);
+    drawOpentypeText(ctx, runFont, run, cx, baselineY, fontSize, fillStyle, strokeWidth, strokeStyle);
     cx += runFont.getAdvanceWidth(run, fontSize);
     run = '';
   };
@@ -1051,10 +1114,11 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const isIFCNews = (preset.name || '').toLowerCase() === 'ifc-news';
   const isFoundersNews = is101xFoundersNews(preset);
   const isIhn = isIhnNews(preset);
+  const isBizzNews = isBizzindiaNews(preset);
   const isInterNews = isInterNewsTicker(preset);
   // Highlights are coloured text with no pill behind them (indiafounderscore style)
   const isPlainText = isPlainTextNewsTicker(preset);
-  const skipPills = isPlainText || isInterNews;
+  const skipPills = isPlainText || isInterNews || isBizzNews;
   // Derive canvas height from preset ratio (e.g. 4:5 → 900, 9:16 → 1280)
   const [wR, hR] = (preset.ratio || '9:16').split(':').map(Number);
   let canvasH = Math.round(720 * hR / wR);
@@ -1072,7 +1136,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const supportReserve = supportText ? Math.round(canvasH * 0.08) : 0;
   const lockupBlockH = (handleLockup ? handleLockup.gap + handleLockup.height : 0) + supportReserve;
   // keep video dominant like Canva (~bottom 28%); Inter-news hooks run longer
-  const maxTickerH = Math.round(canvasH * (isInterNews ? 0.36 : 0.28)) - lockupBlockH;
+  const maxTickerH = Math.round(canvasH * ((isInterNews || isBizzNews) ? 0.36 : 0.28)) - lockupBlockH;
   let cleanedHtml = cleanHTML(headline || '');
   const otFace = newsTickerOpentypeFont(preset);
   // Helvetica World / Avant Garde lack ₹ (and some other currency marks). Inter has them.
@@ -1080,15 +1144,23 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   if (!otFace) {
     console.warn('[news_ticker] opentype face missing — wrap metrics may be wrong');
   }
-  const measurePlainWordAtSize = (text, fs) =>
-    otFace ? measureOtWidthWithFallback(otFace, otGlyphFallback, text, fs) : (() => {
+  const newsTickerFaceFor = (bold) => {
+    if (isBizzNews) return ivyPrestoNewsFace(bold) || otFace;
+    if (isFoundersNews) return (bold && _otInterBold) ? _otInterBold : (_otInterReg || _otInterBold || otFace);
+    if (isIFCNews) return _otInterBold || _otInterReg || otFace;
+    return otFace;
+  };
+  const measurePlainWordAtSize = (text, fs, bold = false) => {
+    const face = newsTickerFaceFor(bold);
+    return face ? measureOtWidthWithFallback(face, otGlyphFallback, text, fs) : (() => {
       ctx.font = `bold ${fs}px Inter`;
       // Inter is narrower than Avant Garde — pad measurements so wrap stays conservative.
       return ctx.measureText(text).width * 1.22;
     })();
+  };
   // Emoji-aware: Inter/Avant Garde have no emoji glyphs — measure Twemoji slots instead.
-  const measureWordAtSize = (text, fs) =>
-    measureMixedWidth(text, fs, (plain) => measurePlainWordAtSize(plain, fs));
+  const measureWordAtSize = (text, fs, bold = false) =>
+    measureMixedWidth(text, fs, (plain) => measurePlainWordAtSize(plain, fs, bold));
   // Keep min size low so long hooks can always fit — don't let UI fontScale block shrink.
   const { fontSize, lines } = fitNewsTickerFontSize({
     cleanedHtml,
@@ -1123,7 +1195,8 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     : [];
   const supportH = supportLines.length * supportLineH;
   const layoutLockupH = (handleLockup ? handleLockup.gap + handleLockup.height : 0)
-    + (supportText ? supportGap + supportH : 0);
+    + (supportText ? supportGap + supportH : 0)
+    + (isBizzNews ? getBizzindiaNewsRuleMetrics(fontSize).reserve : 0);
   // headlinePosition.y = % of frame to raise (+) or lower (−) the hook + gradient
   const rawShiftY = Math.round(
     canvasH * Math.max(-22, Math.min(48, Number(preset.headlinePosition?.y) || 0)) / 100,
@@ -1138,7 +1211,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   });
   const blackTop = getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBarsH, shiftY, layoutLockupH);
 
-  const spaceW = measureWordAtSize(' ', fontSize);
+  const spaceW = measureWordAtSize(' ', fontSize, false);
 
   console.log(`[news_ticker] ${preset.name} fs=${fontSize} lines=${lines.length} maxW=${maxLineW} gap=${lineGap} barY=${barY} shiftY=${shiftY} plain=${isPlainText} lockupH=${layoutLockupH} support=${supportLines.length}`,
     lines.map(l => l.map(t => t.text).join(' ')));
@@ -1164,10 +1237,12 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   // Pass 2: word-level bars — draw highlight pills with gaps between lines (match preview/Canva)
   let y = barY;
+  let longestLineW = 0;
   for (const lineTokens of lines) {
-    const wordWidths = lineTokens.map(t => measureWordAtSize(t.text, fontSize));
+    const wordWidths = lineTokens.map(t => measureWordAtSize(t.text, fontSize, t.bold));
 
     const totalLineW = wordWidths.reduce((a, w, i) => a + w + (i > 0 ? spaceW : 0), 0);
+    if (totalLineW > longestLineW) longestLineW = totalLineW;
     let lineStartX = getNewsTickerLineStartX(preset, totalLineW, 720);
     // Never let a line paint past the right edge
     if (lineStartX + totalLineW > 720 - 16) {
@@ -1238,28 +1313,38 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     const emojiTopY = baselineY - fontSize * EMOJI_SIZE_RATIO;
     for (let i = 0; i < lineTokens.length; i++) {
       const t = lineTokens[i];
-      const color = isIhn
+      const color = isBizzNews
+        ? (t.bold ? BIZZINDIA_NEWS_HIGHLIGHT : BIZZINDIA_NEWS_REGULAR)
+        : isIhn
         ? (t.bold ? IHN_NEWS_HIGHLIGHT : IHN_NEWS_REGULAR)
         : isFoundersNews
           ? (t.bold ? FOUNDERS_NEWS_HIGHLIGHT : FOUNDERS_AROLL_REGULAR)
+          : isIfc2News(preset)
+            ? (t.bold ? IFC2_NEWS_HIGHLIGHT : '#FFFFFF')
           : isPlainText
             ? (t.bold ? (preset.color || '#FFFFFF') : '#FFFFFF')
             : (isIBCNews || isIFCNews)
               ? (t.bold ? '#000000' : '#FFFFFF')
               : '#FFFFFF';
-      const tokenFace = isIhn
+      const tokenFace = isBizzNews
+        ? (ivyPrestoNewsFace(t.bold) || otFace)
+        : isIhn
         ? (_otInterBold || _otInterReg || otFace)
         : isFoundersNews
           ? ((t.bold && _otInterBold) ? _otInterBold : (_otInterReg || _otInterBold || otFace))
-          : otFace;
+          : isIFCNews
+            ? (_otInterBold || _otInterReg || otFace)
+            : otFace;
       drawMixedText(ctx, t.text, x, fontSize, {
         emojiTopY,
         drawPlain: (plain, px) => {
           if (tokenFace) {
-            drawOpentypeTextWithFallback(ctx, tokenFace, otGlyphFallback, plain, px, baselineY, fontSize, color);
-            return isInterNews
+            drawOpentypeTextWithFallback(
+              ctx, tokenFace, otGlyphFallback, plain, px, baselineY, fontSize, color,
+            );
+            return isInterNews || isBizzNews
               ? measureOtWidthWithFallback(tokenFace, otGlyphFallback, plain, fontSize)
-              : measurePlainWordAtSize(plain, fontSize);
+              : measurePlainWordAtSize(plain, fontSize, t.bold);
           }
           ctx.font = `${(isFoundersNews && !t.bold) ? 'normal' : 'bold'} ${fontSize}px Inter`;
           ctx.fillStyle = color;
@@ -1271,6 +1356,13 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
       x += wordWidths[i] + spaceW;
     }
     y += highlightH + lineGap;
+  }
+
+  if (isBizzNews) {
+    const rule = getBizzindiaNewsRuleMetrics(fontSize, longestLineW || 280);
+    const ruleY = barY + totalBarsH + rule.gap;
+    ctx.fillStyle = BIZZINDIA_NEWS_HIGHLIGHT;
+    ctx.fillRect(Math.round((720 - rule.width) / 2), ruleY, rule.width, rule.height);
   }
 
   // Inter-news: supporting paragraph under the hook.
@@ -1336,7 +1428,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     const textLogoSize = Math.round((preset.rules?.logoSize || 42) * 0.9);
     const tlX = preset.rules?.logoPadX ?? (isIFCNews ? 30 : 20);
     const tlY = preset.rules?.logoPadY ?? (isIFCNews ? 56 : 45);
-    ctx.font = `900 ${textLogoSize}px Inter`;
+    ctx.font = `${isIFCNews ? 700 : 900} ${textLogoSize}px Inter`;
     ctx.fillStyle = '#FFFFFF';
     ctx.textBaseline = 'top';
     textLogoLines.forEach((line, idx) => {
@@ -1392,7 +1484,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   // For ISS-news / Inter-news the logo is already on canvas — skip FFmpeg overlay
   let logoPath = null;
-  if (!isISSNews && !isInterNews && preset.logo && preset.showLogo !== false) {
+  if (!isISSNews && !isInterNews && !isBizzNews && preset.logo && preset.showLogo !== false) {
     const logoFile = join(__dirname, 'assets', 'logos', preset.logo);
     if (existsSync(logoFile)) logoPath = logoFile;
   }
@@ -2647,6 +2739,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       'foundersinindia-news',
       '101xfounders-news',
       'indianhappeningnow-news',
+      'bizzindia-news',
       '101xtechnology-top',
       '101xtechnology-mid',
       '101xtechnology-low'

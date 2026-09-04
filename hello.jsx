@@ -26,6 +26,7 @@ import {
     clampNewsTickerShiftPx,
     getNewsTickerFontFamily,
     isPlainTextNewsTicker,
+    isIfc2News,
     isUppercaseArollHook,
     uppercaseHeadlineHtml,
     applyHookCasing,
@@ -39,6 +40,7 @@ import {
     getPoppinsArollHighlight,
     is101xFoundersNews,
     isIhnNews,
+    isBizzindiaNews,
     isInterNewsTicker,
     isFullBleedNewsTicker,
     getNewsSupportingText,
@@ -48,10 +50,16 @@ import {
     wrapPlainWords,
     getNewsTickerMaxLines,
     getNewsTickerBaseFontSize,
+    getBizzindiaNewsRuleMetrics,
     FOUNDERS_AROLL_REGULAR,
     FOUNDERS_NEWS_HIGHLIGHT,
     IHN_NEWS_HIGHLIGHT,
     IHN_NEWS_REGULAR,
+    BIZZINDIA_NEWS_HIGHLIGHT,
+    IFC2_NEWS_HIGHLIGHT,
+    HELVETICA_WORLD_BOLD_FAMILY,
+    IVYPRESTO_HEADLINE_THIN_FAMILY,
+    IVYPRESTO_HEADLINE_SEMIBOLD_FAMILY,
 } from './shared/headlineLayout.js';
 import CaptionsSection, { CaptionLineOverlay, CaptionWordOverlay } from './captionTool.jsx';
 import { PLAY_RES_X as CAPTION_SRC_W, buildPreviewBlocks, usesWordAnimation, findActiveCaptionBlock } from './shared/captionEngine.js';
@@ -178,15 +186,16 @@ const INITIAL_PRESETS_RAW = [
     { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '4:5', color: '#FF8932', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 46, logoPadY: 41, solidBandPct: 30 } },
     { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55, solidBandPct: 30 } },
     { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 38, textLogo: 'IFC.', logoPadX: 30, logoPadY: 56 } },
-    { id: 97, name: 'indiafounderscore-news', handle: '@indiafounderscore', ratio: '9:16', color: '#E0E140', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'indiafounderscore-handle.png', width: 188, height: 25, gap: 36 } } },
+    { id: 97, name: 'indiafounderscore-news', handle: '@indiafounderscore', ratio: '9:16', color: '#e0e140', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'indiafounderscore-handle.png', width: 188, height: 25, gap: 36 } } },
     { id: 101, name: 'indiafounderscore', handle: '@indiafounderscore', ratio: '16:9', color: '#E0E140', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: 'IFC.', highlightColors: ['#E0E140', '#90d46c'], topGlow: true } },
     { id: 100, name: 'foundersinindia-news', handle: '@foundersinindia', ratio: '9:16', color: '#439eff', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'foundersinindia.png', width: 170, height: 25, gap: 5 } } },
     { id: 98, name: '101xtechnology-aroll', handle: '@101xtechnology', ratio: '16:9', color: '#4898ab', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: '101xt.', highlightColors: ['#4898ab', '#90d46c'], topGlow: true } },
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '3:4', color: '#ffd412', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
     { id: 102, name: '101xfounders-aroll', handle: '@101xfounders', ratio: '4:3', color: '#ff7c15', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
-    { id: 103, name: '101xfounders-news', handle: '@101xfounders', ratio: '9:16', color: '#fda207', active: true, layout: 'news_ticker', logo: '101xfounders-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 42, logoPadX: 20, logoPadY: 84, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, solidBandPct: 30 } },
+    { id: 103, name: '101xfounders-news', handle: '@101xfounders', ratio: '9:16', color: '#ff7c15', active: true, layout: 'news_ticker', logo: '101xfounders-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 42, logoPadX: 20, logoPadY: 84, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, solidBandPct: 30 } },
     { id: 104, name: 'indianhappeningnow-news', handle: '@indianhappeningnow', ratio: '9:16', color: '#ffa928', active: true, layout: 'news_ticker', logo: 'indianhappeningnow-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 72, logoPadX: 20, logoPadY: 84, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, bottomMarginPct: 8 } },
+    { id: 105, name: 'bizzindia-news', handle: '@bizzindia', ratio: '9:16', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'bizzindia-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 62, logoPadX: 20, logoPadY: 84, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, solidBandPct: 34, bottomMarginPct: 12 } },
 ];
 
 // All presets are shown in a single unified list (no active/inactive division).
@@ -210,7 +219,7 @@ const BIZZINDIA_PLAYBOOK_PRESET_NAMES = EXPERIMENT_X_PRESET_NAMES.filter(n => !A
 // Bizz India Playbook format switch (inside the playbook header): "A-roll" is the
 // hook+video pages (IBC, IFCore, IFC, ISS, 101xfounders); "News formats" is the archived news-ticker group.
 // The archived tech/aroll-layout pages stay unused.
-const BIZZINDIA_NEWS_PRESET_NAMES = ['indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xfounders-news', 'indianhappeningnow-news'];
+const BIZZINDIA_NEWS_PRESET_NAMES = ['bizzindia-news', 'indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xfounders-news', 'indianhappeningnow-news'];
 
 // Pan needs travel and travel needs zoom: a 16:9 clip covers these frames' height exactly,
 // so vertical pan has none at 100%. A starved axis gets enough zoom to travel this fraction
@@ -239,7 +248,9 @@ const getLogoUrl = (logo) => {
             ? `?v=png-overlay-1`
             : (logo === 'indianhappeningnow-news-logo.png')
                 ? `?v=ihn-operator-1`
-                : '';
+                : (logo === 'indiafounderscore-handle.png')
+                    ? `?v=ifc2-handle-1`
+                    : '';
     return `${base}/assets/logos/${logo}${bust}`;
 };
 
@@ -375,15 +386,16 @@ function buildNewsTickerPreviewLines(headline, { fontSize, maxWidth, fontFamily,
 }
 
 /** Auto-fit news ticker like Canva/export: same min size + wrap budget as server. */
-function fitNewsTickerPreview(headline, { baseFontSize, userScale = 1, maxWidth, fontFamily, boldWeight = 700, regularWeight = null, maxTotalBarsH, fitRatios, maxLines = 3 }) {
+function fitNewsTickerPreview(headline, { baseFontSize, userScale = 1, maxWidth, fontFamily, boldFontFamily, regularFontFamily, boldWeight = 700, regularWeight = null, maxTotalBarsH, fitRatios, maxLines = 3 }) {
     const ctx = getMeasureCtx();
     if (!ctx || !headline) return { fontSize: baseFontSize, lines: [] };
     const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
-    const measureWeight = regularWeight ?? boldWeight;
+    const bodyWeight = regularWeight ?? boldWeight;
     return fitNewsTickerFontSize({
         cleanedHtml: cleaned,
-        measureWordAtSize: (text, fs) => {
-            ctx.font = `${measureWeight} ${fs}px ${fontFamily}`;
+        measureWordAtSize: (text, fs, bold) => {
+            const family = bold ? (boldFontFamily || fontFamily) : (regularFontFamily || fontFamily);
+            ctx.font = `${bold ? boldWeight : bodyWeight} ${fs}px ${family}`;
             return ctx.measureText(text).width;
         },
         maxLineW: maxWidth,
@@ -1959,7 +1971,7 @@ const PreviewCard = memo(({
                                         className="absolute z-50 text-white leading-tight font-black"
                                         style={{
                                             fontFamily: "'Inter', sans-serif",
-                                            fontWeight: 900,
+                                            fontWeight: preset.name === 'ifc-news' ? 700 : 900,
                                             whiteSpace: 'pre-line',
                                             fontSize: `${Math.round((preset.rules?.logoSize || 42) * 0.9 * previewScale)}px`,
                                             lineHeight: 1.1,
@@ -2023,15 +2035,16 @@ const PreviewCard = memo(({
                                     const isIBC = preset.name === 'indiabusinesscom-news';
                                     const isISS = preset.name === 'indiastartupstory-news';
                                     const isIFC = preset.name === 'ifc-news';
-                                    const isIFC2 = isPlainTextNewsTicker(preset);
+                                    const isIFC2 = isIfc2News(preset);
                                     const isPlainText = isPlainTextNewsTicker(preset);
                                     const isFoundersNews = is101xFoundersNews(preset);
                                     const isIhn = isIhnNews(preset);
+                                    const isBizzNews = isBizzindiaNews(preset);
                                     const isInterNews = isInterNewsTicker(preset);
-                                    const skipPills = isPlainText || isInterNews;
-                                    const centerTicker = isIBC || isIFC || isIFC2;
+                                    const skipPills = isPlainText || isInterNews || isBizzNews;
+                                    const centerTicker = isIBC || isIFC || isPlainText || isBizzNews;
                                     // Bold (700) — Avant Garde / Helvetica World Bold files, not Black/ExtraBold
-                                    const ntFontWeight = isFoundersNews ? 400 : 700;
+                                    const ntFontWeight = isBizzNews ? 300 : isFoundersNews ? 400 : 700;
                                     const ntFontFamily = getNewsTickerFontFamily(preset);
                                     const [rw, rh] = (preset.ratio || '9:16').split(':').map(Number);
                                     const exportCanvasH = Math.round(720 * (rh / rw));
@@ -2039,17 +2052,20 @@ const PreviewCard = memo(({
                                     const handleLockup = getNewsTickerHandleLockup(preset);
                                     const supportText = getNewsSupportingText(preset);
                                     const supportReserve = supportText ? Math.round(exportCanvasH * 0.08) : 0;
-                                    const lockupBlockH = (handleLockup ? handleLockup.gap + handleLockup.height : 0) + supportReserve;
+                                    const lockupBlockH = (handleLockup ? handleLockup.gap + handleLockup.height : 0) + supportReserve
+                                        + (isBizzNews ? getBizzindiaNewsRuleMetrics(42).reserve : 0);
                                     // Same wrap budget as export (getExportNewsMaxLineWidth already leaves pad room)
                                     const { fontSize: fittedExportFs, lines } = fitNewsTickerPreview(preset.headline, {
                                         baseFontSize: getNewsTickerBaseFontSize(preset),
                                         userScale: effectiveFontScale,
                                         maxWidth: getExportNewsMaxLineWidth(preset),
                                         fontFamily: ntFontFamily,
-                                        boldWeight: 700,
-                                        regularWeight: isFoundersNews ? 400 : 700,
+                                        boldFontFamily: isBizzNews ? IVYPRESTO_HEADLINE_SEMIBOLD_FAMILY : undefined,
+                                        regularFontFamily: isBizzNews ? IVYPRESTO_HEADLINE_THIN_FAMILY : undefined,
+                                        boldWeight: isBizzNews ? 700 : 700,
+                                        regularWeight: isBizzNews ? 300 : isFoundersNews ? 400 : 700,
                                         maxLines: getNewsTickerMaxLines(preset),
-                                        maxTotalBarsH: Math.round(exportCanvasH * (isInterNews ? 0.36 : 0.28)) - lockupBlockH,
+                                        maxTotalBarsH: Math.round(exportCanvasH * ((isInterNews || isBizzNews) ? 0.36 : 0.28)) - lockupBlockH,
                                         fitRatios: getNewsTickerFitRatios(preset),
                                     });
                                     const ntFontSize = Math.max(8, fittedExportFs * previewScale);
@@ -2067,7 +2083,8 @@ const PreviewCard = memo(({
                                         }, getExportNewsMaxLineWidth(preset)).slice(0, 3)
                                         : [];
                                     const layoutLockupH = (handleLockup ? handleLockup.gap + handleLockup.height : 0)
-                                        + (supportText ? supportGap + supportLines.length * supportLineH : 0);
+                                        + (supportText ? supportGap + supportLines.length * supportLineH : 0)
+                                        + (isBizzNews ? getBizzindiaNewsRuleMetrics(fittedExportFs).reserve : 0);
                                     // headlinePosition.y = % to raise (+) or lower (−) hook stack
                                     const shiftUpPct = Math.max(-22, Math.min(48, localHeadlinePos?.y || 0));
                                     const shiftYPx = clampNewsTickerShiftPx(preset, {
@@ -2166,14 +2183,30 @@ const PreviewCard = memo(({
                                                             {runs.map((run, j) => (
                                                                 <span key={j} style={{
                                                                     background: (run.bold && !skipPills) ? (isIBC ? 'linear-gradient(90deg, #FF8932 0%, #F2EFE1 50%, #3AB26B 100%)' : preset.color) : 'transparent',
-                                                                    color: isIhn
+                                                                    color: isBizzNews
+                                                                        ? (run.bold ? BIZZINDIA_NEWS_HIGHLIGHT : '#ffffff')
+                                                                        : isIhn
                                                                         ? (run.bold ? IHN_NEWS_HIGHLIGHT : IHN_NEWS_REGULAR)
                                                                         : isFoundersNews
                                                                         ? (run.bold ? FOUNDERS_NEWS_HIGHLIGHT : FOUNDERS_AROLL_REGULAR)
+                                                                        : isIFC2
+                                                                            ? (run.bold ? IFC2_NEWS_HIGHLIGHT : '#ffffff')
                                                                         : isPlainText
                                                                             ? (run.bold ? preset.color : '#ffffff')
-                                                                            : (isIBC || isIFC || isIFC2) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff',
-                                                                    fontWeight: isIhn ? 700 : isFoundersNews ? (run.bold ? 700 : 400) : ntFontWeight,
+                                                                            : (isIBC || isIFC) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff',
+                                                                    fontFamily: isBizzNews
+                                                                        ? (run.bold ? IVYPRESTO_HEADLINE_SEMIBOLD_FAMILY : IVYPRESTO_HEADLINE_THIN_FAMILY)
+                                                                        : isIFC2
+                                                                            ? HELVETICA_WORLD_BOLD_FAMILY
+                                                                            : isIFC
+                                                                              ? "'Inter', sans-serif"
+                                                                              : undefined,
+                                                                    fontStyle: 'normal',
+                                                                    fontWeight: isBizzNews
+                                                                        ? (run.bold ? 700 : 300)
+                                                                        : (isIFC2 || isIFC) ? 700
+                                                                        : isIhn ? 700 : isFoundersNews ? (run.bold ? 700 : 400) : ntFontWeight,
+                                                                    fontSynthesis: 'none',
                                                                     padding: (run.bold && !skipPills) ? '0 4px' : '0 2px',
                                                                     borderRadius: (isISS && run.bold) ? '6px' : undefined,
                                                                     flexShrink: 1,
@@ -2186,6 +2219,25 @@ const PreviewCard = memo(({
                                                     );
                                                 })}
                                             </div>
+                                            {isBizzNews && (() => {
+                                                const rule = getBizzindiaNewsRuleMetrics(fittedExportFs);
+                                                return (
+                                                    <div
+                                                        className="absolute left-0 right-0 z-20 flex justify-center pointer-events-none"
+                                                        style={{
+                                                            top: `${((barYPx + totalBarsH + rule.gap) / exportCanvasH) * 100}%`,
+                                                        }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                width: canvasPxToPercent(rule.width),
+                                                                height: `${Math.max(1, rule.height * previewScale)}px`,
+                                                                background: BIZZINDIA_NEWS_HIGHLIGHT,
+                                                            }}
+                                                        />
+                                                    </div>
+                                                );
+                                            })()}
                                             {isInterNews && supportLines.length > 0 && (
                                                 <div
                                                     className="absolute left-0 right-0 z-20 pointer-events-none"
@@ -2866,7 +2918,7 @@ export default function App() {
         } = textState;
         // Always rehydrate from INITIAL_PRESETS so news ratios stay correct
         // (ifc 9:16, others 4:5) even after HMR / stale state.
-        return INITIAL_PRESETS.filter(p => names.includes(p.name)).map(p => ({
+        return names.map(n => INITIAL_PRESETS.find(p => p.name === n)).filter(Boolean).map(p => ({
             ...p,
             headline: applyHookCasing(p, headline),
             // News / hook_video / aroll never use credits; 101xfounders news keeps the supporting line.
@@ -3056,6 +3108,8 @@ export default function App() {
             document.fonts.load("700 42px 'Inter'"),
             document.fonts.load("900 42px 'Inter Black'"),
             document.fonts.load("700 42px 'Inter Bold'"),
+            document.fonts.load("300 46px 'IvyPresto Headline Thin'"),
+            document.fonts.load("700 46px 'IvyPresto Headline SemiBold'"),
         ])
             .catch(() => { })
             .then(() => document.fonts.ready)
@@ -3452,7 +3506,7 @@ export default function App() {
     // For direct EC2 access, we talk to port 3002 directly (CORS enabled).
     const SERVER_URL = typeof window !== 'undefined'
         ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? window.location.origin  // localhost: use Vite proxy
+            ? `http://${window.location.hostname}:3002`  // skip Vite proxy — large uploads 500 there
             : window.location.origin.includes('ngrok')
                 ? window.location.origin  // ngrok: use Vite proxy
                 : `http://${window.location.hostname}:3002`)  // EC2/remote: talk to backend directly
@@ -3733,11 +3787,12 @@ export default function App() {
                 return;
             }
 
+            const raw = await uploadResponse.text();
             let responseData;
             try {
-                responseData = await uploadResponse.json();
+                responseData = raw ? JSON.parse(raw) : {};
             } catch {
-                throw new Error('Invalid server response');
+                throw new Error(`Invalid server response (${uploadResponse.status}): ${raw.slice(0, 280) || 'empty body'}`);
             }
 
             if (!uploadResponse.ok) {

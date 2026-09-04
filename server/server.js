@@ -40,7 +40,10 @@ app.use(express.json({ limit: '500mb' }));
 app.use('/outputs', express.static(join(__dirname, 'outputs')));
 app.use('/assets', express.static(join(__dirname, 'assets')));
 
-const upload = multer({ dest: join(__dirname, 'uploads') });
+const upload = multer({
+  dest: join(__dirname, 'uploads'),
+  limits: { fieldSize: 32 * 1024 * 1024, fileSize: 512 * 1024 * 1024 },
+});
 const videoProcessor = createVideoProcessor();
 const jobQueue = createJobQueue();
 
@@ -611,6 +614,13 @@ app.post('/api/upload-base-edit-file', upload.single('video'), async (req, res) 
     console.error('[drive] Base edit upload error:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+app.use((err, req, res, next) => {
+  console.error('[express]', err);
+  if (res.headersSent) return next(err);
+  const status = err.status || err.statusCode || (err.name === 'MulterError' ? 400 : 500);
+  res.status(status).json({ error: err.message || 'Server error' });
 });
 
 const PORT = Number(process.env.PORT) || 3002;
