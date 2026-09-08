@@ -187,8 +187,13 @@ export const FOUNDERS_AROLL_REGULAR = '#f5f3f5';
 export const ISS_AROLL_HIGHLIGHT = '#ef5350';
 export const FII_AROLL_HIGHLIGHT = '#439eff';
 export const IFC_AROLL_HIGHLIGHT = '#32c26c';
-/** 101xfounders news ticker highlight — Inter Bold on this colour, Inter Regular on white. */
-export const FOUNDERS_NEWS_HIGHLIGHT = '#ff7c15';
+/** 101xfounders news ticker highlight.
+ *  Brand target is #ff7c15. yuv420p on orange-on-black text reads ~#ff8610 / #ff7b00,
+ *  so we paint a redder orange that lands on #ff7c15 in exported frames. */
+export const FOUNDERS_NEWS_HIGHLIGHT = '#ff6418';
+/** Unique families — Windows will not pick Inter Bold from `'Inter'` + font-weight:700. */
+export const INTER_REGULAR_FAMILY = "'Inter', sans-serif";
+export const INTER_BOLD_FAMILY = "'Inter Bold', sans-serif";
 
 export function is101xFoundersAroll(preset) {
   return (preset?.name || '').toLowerCase() === '101xfounders-aroll';
@@ -276,13 +281,16 @@ export function isBizzindiaNews(preset) {
   return (preset?.name || '').toLowerCase() === 'bizzindia-news';
 }
 
-export const BIZZINDIA_NEWS_HIGHLIGHT = '#e31d38';
+export const BIZZINDIA_NEWS_HIGHLIGHT = '#f52a46';
 export const BIZZINDIA_NEWS_REGULAR = '#ffffff';
 /** Unique families — Windows cannot be trusted to pick Thin vs SemiBold by numeric weight. */
 export const IVYPRESTO_HEADLINE_THIN_FAMILY = "'IvyPresto Headline Thin', serif";
 export const IVYPRESTO_HEADLINE_SEMIBOLD_FAMILY = "'IvyPresto Headline SemiBold', serif";
 export const BIZZINDIA_NEWS_LOGO_FILE = 'bizzindia-news-logo.png';
-export const BIZZINDIA_NEWS_LOGO_H = 62;
+export const BIZZINDIA_NEWS_LOGO_H = 88;
+/** Operator 2026/India lockup (FS News Formats.png). Taller source pad than 101xf. */
+export const BIZZINDIA_NEWS_KICKER_FILE = 'bizzindia-news-kicker.png';
+export const BIZZINDIA_NEWS_KICKER_H = 93;
 export const BIZZINDIA_NEWS_LINE_GAP = 0.18;
 
 /** 9:16 Inter news tickers with PNG header + supporting line (101xf + IHN). */
@@ -314,8 +322,21 @@ export function getFoundersNewsSupportingText(preset) {
 }
 
 export function getNewsSupportingFontSize(preset, hookFs) {
+  const canva = getNewsTickerCanvaType(preset);
+  if (canva?.subSize) return canva.subSize;
   const scale = isIhnNews(preset) ? 0.40 : 0.42;
   return Math.max(13, Math.round(hookFs * scale));
+}
+
+export function getNewsSupportingLineHeight(preset, supportFs) {
+  const canva = getNewsTickerCanvaType(preset);
+  const ratio = canva?.subLineHeight ?? 1.28;
+  return Math.round(supportFs * ratio);
+}
+
+export function getNewsSupportingTracking(preset) {
+  const canva = getNewsTickerCanvaType(preset);
+  return canva && Number.isFinite(canva.subTracking) ? canva.subTracking : 0;
 }
 
 export function getNewsSupportingColor(preset) {
@@ -336,14 +357,22 @@ export function get101xFoundersNewsKicker(preset) {
 }
 
 /**
- * Header insets at the 720px canvas. Generous top (Reels chrome), small matching
- * left/right so 101xf. and 2026/India sit off the corners as a pair.
+ * Header insets at the 720px canvas so wordmarks + 2026/India clear
+ * Instagram's status bar and rounded corners (Bizz, 101xf, IHN, IFC).
  */
-export const FOUNDERS_NEWS_PAD_X = 20;
-export const FOUNDERS_NEWS_PAD_Y = 84;
+export const NEWS_SAFE_PAD_X = 56;
+export const NEWS_SAFE_PAD_Y = 120;
+export const FOUNDERS_NEWS_PAD_X = NEWS_SAFE_PAD_X;
+export const FOUNDERS_NEWS_PAD_Y = NEWS_SAFE_PAD_Y;
+export const BIZZINDIA_NEWS_PAD_X = NEWS_SAFE_PAD_X;
+export const BIZZINDIA_NEWS_PAD_Y = NEWS_SAFE_PAD_Y;
+export const IFC_NEWS_PAD_X = NEWS_SAFE_PAD_X;
+export const IFC_NEWS_PAD_Y = NEWS_SAFE_PAD_Y;
+/** IFC. wordmark height at the 720 canvas (Inter Bold). */
+export const IFC_NEWS_LOGO_SIZE = 58;
 
 export function get101xFoundersNewsHeaderPad() {
-  return { padX: FOUNDERS_NEWS_PAD_X, padY: FOUNDERS_NEWS_PAD_Y };
+  return { padX: NEWS_SAFE_PAD_X, padY: NEWS_SAFE_PAD_Y };
 }
 
 /** Operator-supplied wordmark / year-place PNGs (white on transparent). Heights at 720 canvas. */
@@ -363,24 +392,29 @@ const FOUNDERS_LOGO_CAP_TOP = 4 / 79;
 const IHN_INDIA_CAP_TOP = 29 / 143;
 const BIZZ_LOGO_CAP_TOP = 24 / 139;
 const KICKER_YEAR_CAP_TOP = 4 / 89;
+const BIZZ_KICKER_YEAR_CAP_TOP = 32 / 143;
 
 /** Operator PNGs for 101xfounders-news / indianhappeningnow-news / bizzindia-news headers. */
 export function getPngNewsHeaderAssets(preset) {
   if (!isPngHeaderNewsTicker(preset)) return null;
   const ihn = isIhnNews(preset);
   const bizz = isBizzindiaNews(preset);
-  const logoH = Math.round(Number(preset.rules?.logoSize) || (
+  let logoH = Math.round(Number(preset.rules?.logoSize) || (
     ihn ? IHN_NEWS_LOGO_H : (bizz ? BIZZINDIA_NEWS_LOGO_H : FOUNDERS_NEWS_LOGO_H)
   ));
-  const kickerH = Math.round(Number(preset.rules?.kickerSize) || FOUNDERS_NEWS_KICKER_H);
+  if (bizz) logoH = Math.max(logoH, BIZZINDIA_NEWS_LOGO_H);
+  const kickerH = bizz
+    ? BIZZINDIA_NEWS_KICKER_H
+    : Math.round(Number(preset.rules?.kickerSize) || FOUNDERS_NEWS_KICKER_H);
   const { padX, padY } = get101xFoundersNewsHeaderPad();
   const logoY = padY;
   const capTop = ihn ? IHN_INDIA_CAP_TOP : (bizz ? BIZZ_LOGO_CAP_TOP : FOUNDERS_LOGO_CAP_TOP);
   const typeTop = logoY + logoH * capTop;
-  const kickerY = Math.round(typeTop - kickerH * KICKER_YEAR_CAP_TOP);
+  const kickerCap = bizz ? BIZZ_KICKER_YEAR_CAP_TOP : KICKER_YEAR_CAP_TOP;
+  const kickerY = Math.round(typeTop - kickerH * kickerCap);
   return {
     logoFile: preset.logo || (ihn ? IHN_NEWS_LOGO_FILE : (bizz ? BIZZINDIA_NEWS_LOGO_FILE : FOUNDERS_NEWS_LOGO_FILE)),
-    kickerFile: preset.rules?.kickerLogo || FOUNDERS_NEWS_KICKER_FILE,
+    kickerFile: bizz ? BIZZINDIA_NEWS_KICKER_FILE : (preset.rules?.kickerLogo || FOUNDERS_NEWS_KICKER_FILE),
     logoH,
     kickerH,
     padX,
@@ -496,26 +530,27 @@ export function getExportMaxTextWidth(preset, canvasW = CANVAS_REF_W) {
 export function getExportNewsMaxLineWidth(preset) {
   const name = (preset?.name || '').toLowerCase();
   // Leave room for left/right inset + bold bar padding (±4px) so lines never clip the frame.
-  if (name === 'indiastartupstory-news') return 560; // startX 56 + right pad + bar padding
   if (isBizzindiaNews({ name })) return 580; // centered IvyPresto, ~70px side pads
   if (isInterNewsTicker({ name })) return 620; // left-aligned, ~40px side pads
   if (isPlainTextNewsTicker({ name })) return 500; // hook block spans ~68% of frame width in the reference
   return 600; // centered brands ~60px side margins + bar padding
 }
 
-/** Left inset (px at 720) for left-aligned news tickers. */
-export function getNewsTickerLineStartX(preset, totalLineW, canvasW = CANVAS_REF_W) {
+export function isCenteredNewsTicker(preset) {
   const name = (preset?.name || '').toLowerCase();
-  if (
-    name === 'indiabusinesscom-news' ||
-    name === 'ifc-news' ||
-    name === 'bizzindia-news' ||
-    isPlainTextNewsTicker(preset)
-  ) {
+  return name === 'indiabusinesscom-news'
+    || name === 'ifc-news'
+    || name === 'indiastartupstory-news'
+    || name === 'bizzindia-news'
+    || isPlainTextNewsTicker(preset);
+}
+
+/** Left inset (px at 720) for left-aligned news tickers. Centered formats sit on the midline. */
+export function getNewsTickerLineStartX(preset, totalLineW, canvasW = CANVAS_REF_W) {
+  if (isCenteredNewsTicker(preset)) {
     return Math.round((canvasW - totalLineW) / 2);
   }
   if (isInterNewsTicker(preset)) return 40;
-  if (name === 'indiastartupstory-news') return 56;
   return 28;
 }
 
@@ -625,17 +660,74 @@ export function isFullBleedNewsTicker(preset) {
   return name === 'ifc-news' || isPlainTextNewsTicker(preset) || isInterNewsTicker(preset) || isBizzindiaNews(preset);
 }
 
+/**
+ * Canva type-panel values, applied 1:1 on the 720-wide overlay.
+ * `tracking` is Canva letter spacing (thousandths of an em: -50 → -0.05em).
+ * `lineHeight` is Canva line spacing (baseline multiplier).
+ */
+export const NEWS_TICKER_CANVA_TYPE = {
+  'indiafounderscore-news': { fontSize: 42.9, tracking: -50, lineHeight: 0.91 },
+  'foundersinindia-news': { fontSize: 46, tracking: -50, lineHeight: 0.91 },
+  '101xfounders-news': {
+    fontSize: 44.1, tracking: -11, lineHeight: 0.99,
+    subSize: 23, subTracking: 0, subLineHeight: 1.5,
+  },
+  'ifc-news': { fontSize: 35.9, tracking: 12, lineHeight: 1.4 },
+  'bizzindia-news': { fontSize: 50.2, tracking: 0, lineHeight: 1.11 },
+};
+
+export function getNewsTickerCanvaType(preset) {
+  return NEWS_TICKER_CANVA_TYPE[(preset?.name || '').toLowerCase()] || null;
+}
+
+export function getNewsTickerTracking(preset) {
+  return getNewsTickerCanvaType(preset)?.tracking ?? 0;
+}
+
+/** CSS `letter-spacing` in em, or null when the format has no Canva tracking. */
+export function getNewsTickerLetterSpacingEm(preset) {
+  const canva = getNewsTickerCanvaType(preset);
+  if (!canva) return null;
+  return canva.tracking / 1000;
+}
+
+/**
+ * Extra width from Canva tracking. A lone space also carries the gaps on both
+ * sides so wrap width matches CSS letter-spacing on the full line.
+ */
+export function applyCanvaTracking(baseWidth, text, fontSize, tracking) {
+  const t = Number(tracking) || 0;
+  if (!t) return baseWidth;
+  const n = [...String(text || '')].length;
+  if (n === 0) return baseWidth;
+  const unit = fontSize * t / 1000;
+  if (text === ' ') return baseWidth + 2 * unit;
+  return baseWidth + Math.max(0, n - 1) * unit;
+}
+
+function newsTickerIsPlainStack(preset) {
+  return isPlainTextNewsTicker(preset) || isInterNewsTicker(preset) || isBizzindiaNews(preset);
+}
+
 /** Per-line vertical metrics for a news ticker at a given font size. */
 export function getNewsTickerLineMetrics(preset, fontSize) {
-  const interNews = isInterNewsTicker(preset);
-  const bizzNews = isBizzindiaNews(preset);
-  const plain = isPlainTextNewsTicker(preset) || interNews || bizzNews;
+  const plain = newsTickerIsPlainStack(preset);
+  const canva = getNewsTickerCanvaType(preset);
+  if (canva) {
+    if (plain) {
+      const highlightH = Math.round(fontSize * canva.lineHeight);
+      return { plain, highlightH, lineGap: 0, lineAdvance: highlightH };
+    }
+    const highlightH = Math.round(fontSize * NEWS_TICKER_HIGHLIGHT_HEIGHT);
+    const lineGap = Math.max(0, Math.round(fontSize * canva.lineHeight) - highlightH);
+    return { plain, highlightH, lineGap, lineAdvance: highlightH + lineGap };
+  }
   const highlightH = Math.round(
     fontSize * (plain ? NEWS_TICKER_PLAIN_LINE_HEIGHT : NEWS_TICKER_HIGHLIGHT_HEIGHT),
   );
-  const lineGap = bizzNews
+  const lineGap = isBizzindiaNews(preset)
     ? Math.round(fontSize * BIZZINDIA_NEWS_LINE_GAP)
-    : interNews
+    : isInterNewsTicker(preset)
       ? Math.round(fontSize * FOUNDERS_NEWS_LINE_GAP)
       : (plain ? 0 : Math.round(fontSize * NEWS_TICKER_LINE_GAP));
   return { plain, highlightH, lineGap, lineAdvance: highlightH + lineGap };
@@ -643,14 +735,22 @@ export function getNewsTickerLineMetrics(preset, fontSize) {
 
 /** Line-height ratios to hand to fitNewsTickerFontSize so its budget matches the render. */
 export function getNewsTickerFitRatios(preset) {
-  const interNews = isInterNewsTicker(preset);
-  const bizzNews = isBizzindiaNews(preset);
-  const plain = isPlainTextNewsTicker(preset) || interNews || bizzNews;
+  const plain = newsTickerIsPlainStack(preset);
+  const canva = getNewsTickerCanvaType(preset);
+  if (canva) {
+    if (plain) {
+      return { highlightHeightRatio: canva.lineHeight, lineGapRatio: 0 };
+    }
+    return {
+      highlightHeightRatio: NEWS_TICKER_HIGHLIGHT_HEIGHT,
+      lineGapRatio: Math.max(0, canva.lineHeight - NEWS_TICKER_HIGHLIGHT_HEIGHT),
+    };
+  }
   return {
     highlightHeightRatio: plain ? NEWS_TICKER_PLAIN_LINE_HEIGHT : NEWS_TICKER_HIGHLIGHT_HEIGHT,
-    lineGapRatio: bizzNews
+    lineGapRatio: isBizzindiaNews(preset)
       ? BIZZINDIA_NEWS_LINE_GAP
-      : (interNews ? FOUNDERS_NEWS_LINE_GAP : (plain ? 0 : NEWS_TICKER_LINE_GAP)),
+      : (isInterNewsTicker(preset) ? FOUNDERS_NEWS_LINE_GAP : (plain ? 0 : NEWS_TICKER_LINE_GAP)),
   };
 }
 
@@ -659,6 +759,8 @@ export function getNewsTickerMaxLines(preset) {
 }
 
 export function getNewsTickerBaseFontSize(preset) {
+  const canva = getNewsTickerCanvaType(preset);
+  if (canva) return canva.fontSize;
   if (isBizzindiaNews(preset)) return 46;
   return isInterNewsTicker(preset) ? 42 : 54;
 }
@@ -752,7 +854,7 @@ export function getNewsTickerHookBarY(preset, {
     // IBC: last line kisses the bar. 101xf type is smaller, so that kiss buries
     // the whole stack in the fade — sit the block just above the solid instead.
     const riseAboveBar = (is101xFoundersNews(preset) || isBizzindiaNews(preset))
-      ? twoLineH + Math.round(fontSize * (isBizzindiaNews(preset) ? 0.55 : 1.15))
+      ? twoLineH + Math.round(fontSize * 0.55)
       : twoLineH - kissIntoSolid;
     let barY = blackTop - riseAboveBar;
     // Keep a tiny floor so lockup / last line never clips the frame bottom.
@@ -809,6 +911,8 @@ export function getBizzindiaNewsRuleMetrics(fontSize, longestLineW = 280) {
   return { gap, height, width, reserve: gap + height };
 }
 
+export const PLAIN_TEXT_NEWS_LOCKUP_GAP = 36;
+
 /**
  * Handle lockup (Instagram + Facebook + handle wordmark PNG) centred under the hook.
  * `width`/`height` describe a fixed layout box at the 720px canvas: the artwork is
@@ -822,7 +926,8 @@ export function getNewsTickerHandleLockup(preset) {
     file: rule.file,
     width: Math.round(rule.width ?? 188),
     height: Math.round(rule.height ?? 25),
-    gap: Math.round(rule.gap ?? 5),
+    // IFC2's 36px gap is the reference. FII shares the same lockup; ignore stale rules.gap (was 5).
+    gap: Math.round(isPlainTextNewsTicker(preset) ? PLAIN_TEXT_NEWS_LOCKUP_GAP : (rule.gap ?? 5)),
   };
 }
 
@@ -902,7 +1007,8 @@ export function fitNewsTickerFontSize({
   highlightHeightRatio = NEWS_TICKER_HIGHLIGHT_HEIGHT,
 }) {
   const minFs = Math.max(12, Math.round(minFontSize));
-  const maxFs = Math.max(minFs, Math.round(baseFontSize));
+  const targetFs = Math.max(minFs, Number(baseFontSize) || minFs);
+  const maxFs = Math.max(minFs, Math.floor(targetFs));
 
   const layoutAt = (fontSize) => {
     const measure = (text, bold) => measureWordAtSize(text, fontSize, bold);
@@ -933,6 +1039,7 @@ export function fitNewsTickerFontSize({
   };
 
   const search = (enforceMaxLines) => {
+    if (fits(targetFs, enforceMaxLines)) return targetFs;
     let lo = minFs;
     let hi = maxFs;
     let best = minFs;
@@ -966,7 +1073,7 @@ export function fitNewsTickerFontSize({
   // result — the slider felt dead in both directions. Scaling the fitted size instead
   // gives it authority at every size. Above 1 the hook may exceed the auto-fit budget,
   // which is the operator explicitly asking for bigger text.
-  const scaled = Math.max(12, Math.round(fontSize * (userScale || 1)));
+  const scaled = Math.max(12, fontSize * (userScale || 1));
   const { lines } = layoutAt(scaled);
   return { fontSize: scaled, lines };
 }

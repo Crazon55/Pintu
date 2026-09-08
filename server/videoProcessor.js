@@ -43,7 +43,10 @@ import {
   isInterNewsTicker,
   getNewsSupportingText,
   getNewsSupportingFontSize,
+  getNewsSupportingLineHeight,
   getNewsSupportingColor,
+  getNewsTickerTracking,
+  applyCanvaTracking,
   getPngNewsHeaderAssets,
   wrapPlainWords,
   getNewsTickerMaxLines,
@@ -56,6 +59,9 @@ import {
   BIZZINDIA_NEWS_HIGHLIGHT,
   BIZZINDIA_NEWS_REGULAR,
   IFC2_NEWS_HIGHLIGHT,
+  IFC_NEWS_PAD_X,
+  IFC_NEWS_PAD_Y,
+  IFC_NEWS_LOGO_SIZE,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -377,10 +383,9 @@ function otFontForChar(primary, fallback, ch) {
   return primary;
 }
 
-function measureOtWidthWithFallback(primary, fallback, text, fontSize) {
-  if (!primary) return 0;
+function measureOtRawWidth(primary, fallback, text, fontSize) {
   const str = String(text || '');
-  if (!str) return 0;
+  if (!str || !primary) return 0;
   if (!fallback || fallback === primary) return primary.getAdvanceWidth(str, fontSize);
   let w = 0;
   let run = '';
@@ -400,8 +405,39 @@ function measureOtWidthWithFallback(primary, fallback, text, fontSize) {
   return w;
 }
 
-function drawOpentypeTextWithFallback(ctx, primary, fallback, text, x, baselineY, fontSize, fillStyle, strokeWidth = 0, strokeStyle = null) {
+function measureOtWidthWithFallback(primary, fallback, text, fontSize, tracking = 0) {
+  if (!primary) return 0;
+  const str = String(text || '');
+  if (!str) return 0;
+  const t = Number(tracking) || 0;
+  if (t && str !== ' ') {
+    const extra = fontSize * t / 1000;
+    let w = 0;
+    const chars = [...str];
+    chars.forEach((ch, i) => {
+      const font = otFontForChar(primary, fallback, ch);
+      w += font.getAdvanceWidth(ch, fontSize);
+      if (i < chars.length - 1) w += extra;
+    });
+    return w;
+  }
+  return applyCanvaTracking(measureOtRawWidth(primary, fallback, str, fontSize), str, fontSize, t);
+}
+
+function drawOpentypeTextWithFallback(ctx, primary, fallback, text, x, baselineY, fontSize, fillStyle, strokeWidth = 0, strokeStyle = null, tracking = 0) {
   if (!primary || !text) return false;
+  const t = Number(tracking) || 0;
+  if (t) {
+    const extra = fontSize * t / 1000;
+    let cx = x;
+    const chars = [...String(text)];
+    chars.forEach((ch, i) => {
+      const font = otFontForChar(primary, fallback, ch);
+      drawOpentypeText(ctx, font, ch, cx, baselineY, fontSize, fillStyle, strokeWidth, strokeStyle);
+      cx += font.getAdvanceWidth(ch, fontSize) + (i < chars.length - 1 ? extra : 0);
+    });
+    return true;
+  }
   if (!fallback || fallback === primary) {
     return drawOpentypeText(ctx, primary, text, x, baselineY, fontSize, fillStyle, strokeWidth, strokeStyle);
   }
@@ -1150,12 +1186,13 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     if (isIFCNews) return _otInterBold || _otInterReg || otFace;
     return otFace;
   };
+  const newsTickerTracking = getNewsTickerTracking(preset);
   const measurePlainWordAtSize = (text, fs, bold = false) => {
     const face = newsTickerFaceFor(bold);
-    return face ? measureOtWidthWithFallback(face, otGlyphFallback, text, fs) : (() => {
+    return face ? measureOtWidthWithFallback(face, otGlyphFallback, text, fs, newsTickerTracking) : (() => {
       ctx.font = `bold ${fs}px Inter`;
       // Inter is narrower than Avant Garde — pad measurements so wrap stays conservative.
-      return ctx.measureText(text).width * 1.22;
+      return applyCanvaTracking(ctx.measureText(text).width * 1.22, text, fs, newsTickerTracking);
     })();
   };
   // Emoji-aware: Inter/Avant Garde have no emoji glyphs — measure Twemoji slots instead.
@@ -1179,7 +1216,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const totalBarsH = getNewsTickerStackHeight(preset, fontSize, lines.length);
   const supportFs = supportText ? getNewsSupportingFontSize(preset, fontSize) : 0;
   const supportGap = supportText ? Math.round(fontSize * 0.38) : 0;
-  const supportLineH = supportText ? Math.round(supportFs * 1.28) : 0;
+  const supportLineH = supportText ? getNewsSupportingLineHeight(preset, supportFs) : 0;
   const supportOtFace = isIhn
     ? (_otInterBold || _otInterReg || otFace)
     : (_otInterReg || _otInterBold || otFace);
@@ -1341,10 +1378,11 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
           if (tokenFace) {
             drawOpentypeTextWithFallback(
               ctx, tokenFace, otGlyphFallback, plain, px, baselineY, fontSize, color,
+              (isFoundersNews && t.bold) ? 2 : 0,
+              (isFoundersNews && t.bold) ? color : null,
+              newsTickerTracking,
             );
-            return isInterNews || isBizzNews
-              ? measureOtWidthWithFallback(tokenFace, otGlyphFallback, plain, fontSize)
-              : measurePlainWordAtSize(plain, fontSize, t.bold);
+            return measurePlainWordAtSize(plain, fontSize, t.bold);
           }
           ctx.font = `${(isFoundersNews && !t.bold) ? 'normal' : 'bold'} ${fontSize}px Inter`;
           ctx.fillStyle = color;
@@ -1425,9 +1463,9 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   // Text logo drawn directly on canvas (for presets without a PNG logo file)
   if (preset.rules?.textLogo && !isInterNews) {
     const textLogoLines = String(preset.rules.textLogo).split('\n');
-    const textLogoSize = Math.round((preset.rules?.logoSize || 42) * 0.9);
-    const tlX = preset.rules?.logoPadX ?? (isIFCNews ? 30 : 20);
-    const tlY = preset.rules?.logoPadY ?? (isIFCNews ? 56 : 45);
+    const textLogoSize = Math.round((isIFCNews ? IFC_NEWS_LOGO_SIZE : (preset.rules?.logoSize || 42)) * 0.9);
+    const tlX = isIFCNews ? IFC_NEWS_PAD_X : (preset.rules?.logoPadX ?? 20);
+    const tlY = isIFCNews ? IFC_NEWS_PAD_Y : (preset.rules?.logoPadY ?? 45);
     ctx.font = `${isIFCNews ? 700 : 900} ${textLogoSize}px Inter`;
     ctx.fillStyle = '#FFFFFF';
     ctx.textBaseline = 'top';
@@ -2683,7 +2721,9 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       `[0:v]${vFilter},setsar=1[v]`,
       `[v]pad=720:${totalOutputH}:${sx}:${sy}:black[base]`,
       `[1:v]scale=720:${totalOutputH},format=rgba[graphics]`,
-      `[base][graphics]overlay=0:0[ovl]`,
+      // Default overlay is yuv420, which smears orange-on-black chroma (#ff7c15 → #ff7b00).
+      // Composite in 4:4:4 so glyph interiors keep the source hex; keep rgba so video shows through.
+      `[base][graphics]overlay=0:0:format=yuv444[ovl]`,
       `[ovl]format=yuv420p[ovl]`
     ];
 
@@ -2700,7 +2740,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       filterChain.push(`[vrounded]format=yuv420p[v2]`);
       filterChain.push(`[v2]pad=720:${totalOutputH}:${sx}:${sy}:black[base]`);
       filterChain.push(`[1:v]scale=720:${totalOutputH},format=rgba[graphics]`);
-      filterChain.push(`[base][graphics]overlay=0:0[ovl]`);
+      filterChain.push(`[base][graphics]overlay=0:0:format=yuv444[ovl]`);
       filterChain.push(`[ovl]format=yuv420p[ovl]`);
     }
 
@@ -3011,8 +3051,16 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       return settle(reject)(makeCancelledError());
     }
 
+    const isNewsTicker = preset.layout === 'news_ticker';
     ffmpegCmd.complexFilter(filterChain)
-      .outputOptions(['-map [out]', '-map 0:a?', '-c:v libx264', '-preset ultrafast', '-crf 23', '-pix_fmt yuv420p'])
+      .outputOptions([
+        '-map [out]',
+        '-map 0:a?',
+        '-c:v libx264',
+        '-preset', isNewsTicker ? 'veryfast' : 'ultrafast',
+        '-crf', isNewsTicker ? '18' : '23',
+        '-pix_fmt yuv420p',
+      ])
       .on('progress', (progress) => {
         try {
           onEncodeProgress?.(progress);

@@ -165,15 +165,14 @@
   font-style: normal;
   font-weight: 100 400;
   font-display: block;
-  src: url('/fonts/ivy-presto-headline-light.otf') format('opentype'),
-       url('/fonts/ivy-presto-headline-thin.otf') format('opentype');
+  src: url('/fonts/ivy-presto-headline-light.otf?v=light-1') format('opentype');
 }
 @font-face {
   font-family: 'IvyPresto Headline SemiBold';
   font-style: normal;
   font-weight: 600 700;
   font-display: block;
-  src: url('/fonts/ivy-presto-headline-semibold.otf') format('opentype');
+  src: url('/fonts/ivy-presto-headline-semibold.otf?v=semibold-1') format('opentype');
 }
 @font-face {
   font-family: 'Playfair Display';

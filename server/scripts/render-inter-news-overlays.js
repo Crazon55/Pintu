@@ -23,8 +23,8 @@ const ihn = {
   logo: 'indianhappeningnow-news-logo.png',
   rules: {
     logoSize: 72,
-    logoPadX: 20,
-    logoPadY: 84,
+    logoPadX: 56,
+    logoPadY: 120,
     kickerLogo: '101xfounders-news-kicker.png',
     kickerSize: 58,
     bottomMarginPct: 8,
@@ -39,8 +39,8 @@ const founders = {
   logo: '101xfounders-news-logo.png',
   rules: {
     logoSize: 42,
-    logoPadX: 20,
-    logoPadY: 84,
+    logoPadX: 56,
+    logoPadY: 120,
     kickerLogo: '101xfounders-news-kicker.png',
     kickerSize: 58,
     bottomMarginPct: 8,
