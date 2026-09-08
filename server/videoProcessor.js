@@ -12,6 +12,7 @@ import {
   getHookVideoGap,
   getEffectiveLineSpacing,
   getExportNewsMaxLineWidth,
+  getExportMaxTextWidth,
   getNewsTickerLineStartX,
   fitNewsTickerFontSize,
   getNewsTickerLineMetrics,
@@ -26,6 +27,8 @@ import {
   isPlainTextNewsTicker,
   isIfc2News,
   isIfcNews,
+  isChangingOrderNews,
+  isInterBoldPillNews,
   applyHookCasing,
   clampNewsTickerShiftPx,
   getHookBaseFontSize,
@@ -33,6 +36,8 @@ import {
   isHandleWatermarkAroll,
   isIfcAroll,
   isIbcAroll,
+  isChangingOrderAroll,
+  isInterBoldAroll,
   getIbcArollTokenColor,
   isInterBlackHighlightAroll,
   getInterBlackArollColors,
@@ -45,7 +50,10 @@ import {
   getNewsSupportingFontSize,
   getNewsSupportingLineHeight,
   getNewsSupportingColor,
+  getNewsSupportingGap,
   getNewsTickerTracking,
+  getNewsTickerWordSpacingScale,
+  getArollTracking,
   applyCanvaTracking,
   getPngNewsHeaderAssets,
   wrapPlainWords,
@@ -61,9 +69,20 @@ import {
   IBC_AROLL_ORANGE,
   IBC_AROLL_GREEN,
   IFC2_NEWS_HIGHLIGHT,
+  TCO_NEWS_HIGHLIGHT,
+  TCO_AROLL_HIGHLIGHT,
+  TCO_AROLL_REGULAR,
+  TCO_NEWS_PAD_X,
+  TCO_NEWS_PAD_Y,
+  TCO_NEWS_LOGO_H,
+  TCO_BADGE_SCALE,
   IFC_NEWS_PAD_X,
   IFC_NEWS_PAD_Y,
   IFC_NEWS_LOGO_SIZE,
+  IBC_NEWS_STRIP_W,
+  IBC_NEWS_STRIP_PAD_X,
+  IBC_NEWS_STRIP_PAD_Y,
+  getNewsTickerSocialStrip,
 } from '../shared/headlineLayout.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -232,9 +251,18 @@ try {
 
 let _otInterReg = null, _otInterBold = null, _otInterMedium = null, _otInterBlack = null;
 try {
-  if (existsSync(interRegular)) { _otInterReg = opentypeLoad(interRegular); console.log('✓ Inter Regular loaded via opentype.js'); }
-  if (existsSync(interBold))    { _otInterBold = opentypeLoad(interBold);   console.log('✓ Inter Bold loaded via opentype.js'); }
-  if (interMedium && existsSync(interMedium)) { _otInterMedium = opentypeLoad(interMedium); console.log('✓ Inter Medium loaded via opentype.js'); }
+  if (existsSync(interRegular)) {
+    _otInterReg = opentypeLoad(interRegular);
+    console.log('✓ Inter Regular loaded via opentype.js:', interRegular, _otInterReg.names?.fullName?.en || '');
+  }
+  if (existsSync(interBold)) {
+    _otInterBold = opentypeLoad(interBold);
+    console.log('✓ Inter Bold loaded via opentype.js:', interBold, _otInterBold.names?.fullName?.en || '');
+  }
+  if (interMedium && existsSync(interMedium)) {
+    _otInterMedium = opentypeLoad(interMedium);
+    console.log('✓ Inter Medium loaded via opentype.js:', interMedium, _otInterMedium.names?.fullName?.en || '');
+  }
   if (interBlack && existsSync(interBlack)) { _otInterBlack = opentypeLoad(interBlack); console.log('✓ Inter Black loaded via opentype.js'); }
 } catch (e) { console.warn('Inter opentype load failed:', e.message); }
 
@@ -265,6 +293,18 @@ try {
     console.warn('Helvetica World Bold not found — plain-text news tickers will fall back to ITC Avant Garde');
   }
 } catch (e) { console.warn('Helvetica World Bold opentype load failed:', e.message); }
+
+// Bebas Neue Cyrillic for the "BREAKING" badge on thechangingorder-news.
+const bebasNeueCyrillic = resolve(fontsDir, 'bebasneuecyrillic.ttf');
+let _otBebasNeueCyrillic = null;
+try {
+  if (existsSync(bebasNeueCyrillic)) {
+    _otBebasNeueCyrillic = opentypeLoad(bebasNeueCyrillic);
+    console.log('✓ Bebas Neue Cyrillic loaded via opentype.js:', bebasNeueCyrillic);
+  } else {
+    console.warn('⚠ Bebas Neue Cyrillic not found — BREAKING badge will fall back to Inter Bold');
+  }
+} catch (e) { console.warn('Bebas Neue Cyrillic opentype load failed:', e.message); }
 
 function firstExistingFont(paths) {
   return paths.find((p) => existsSync(p)) || null;
@@ -319,7 +359,7 @@ function ivyPrestoNewsFace(bold) {
 
 function newsTickerOpentypeFont(preset) {
   if (isBizzindiaNews(preset)) return ivyPrestoNewsFace(false) || _otInterBold || _otInterReg;
-  if (isInterNewsTicker(preset) || isIfcNews(preset)) return _otInterBold || _otInterReg;
+  if (isInterBoldPillNews(preset) || isInterNewsTicker(preset)) return _otInterBold || _otInterReg;
   if (isPlainTextNewsTicker(preset) && _otHelveticaWorldBold) return _otHelveticaWorldBold;
   return _otAvantGardeBold;
 }
@@ -407,6 +447,22 @@ function measureOtRawWidth(primary, fallback, text, fontSize) {
   return w;
 }
 
+/**
+ * Kerning delta (px) between two consecutive glyphs from the SAME font, via the
+ * font's own legacy 'kern' table. Not every font ships one — GPOS-only kerning
+ * (Inter's release) isn't readable through this opentype.js call and returns 0,
+ * but Helvetica World / ITC Avant Garde do carry real kern pairs.
+ */
+function otKernPx(font, leftGlyph, rightGlyph, fontSize) {
+  if (!font || !leftGlyph || !rightGlyph) return 0;
+  try {
+    const units = font.getKerningValue(leftGlyph, rightGlyph);
+    return units ? units * (fontSize / font.unitsPerEm) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 function measureOtWidthWithFallback(primary, fallback, text, fontSize, tracking = 0) {
   if (!primary) return 0;
   const str = String(text || '');
@@ -416,10 +472,15 @@ function measureOtWidthWithFallback(primary, fallback, text, fontSize, tracking 
     const extra = fontSize * t / 1000;
     let w = 0;
     const chars = [...str];
+    let prevFont = null, prevGlyph = null;
     chars.forEach((ch, i) => {
       const font = otFontForChar(primary, fallback, ch);
+      const glyph = font.charToGlyph(ch);
+      if (prevFont === font) w += otKernPx(font, prevGlyph, glyph, fontSize);
       w += font.getAdvanceWidth(ch, fontSize);
       if (i < chars.length - 1) w += extra;
+      prevFont = font;
+      prevGlyph = glyph;
     });
     return w;
   }
@@ -433,10 +494,15 @@ function drawOpentypeTextWithFallback(ctx, primary, fallback, text, x, baselineY
     const extra = fontSize * t / 1000;
     let cx = x;
     const chars = [...String(text)];
+    let prevFont = null, prevGlyph = null;
     chars.forEach((ch, i) => {
       const font = otFontForChar(primary, fallback, ch);
+      const glyph = font.charToGlyph(ch);
+      if (prevFont === font) cx += otKernPx(font, prevGlyph, glyph, fontSize);
       drawOpentypeText(ctx, font, ch, cx, baselineY, fontSize, fillStyle, strokeWidth, strokeStyle);
       cx += font.getAdvanceWidth(ch, fontSize) + (i < chars.length - 1 ? extra : 0);
+      prevFont = font;
+      prevGlyph = glyph;
     });
     return true;
   }
@@ -459,6 +525,45 @@ function drawOpentypeTextWithFallback(ctx, primary, fallback, text, x, baselineY
     run += ch;
   }
   flush();
+  return true;
+}
+
+/** Single-font tracked measure (A-roll words draw from one resolved face, no fallback pair). */
+function measureOtWidthTracked(font, text, fontSize, tracking = 0) {
+  if (!font) return 0;
+  const str = String(text || '');
+  if (!str) return 0;
+  const t = Number(tracking) || 0;
+  if (!t) return measureOtWidth(font, str, fontSize);
+  const extra = fontSize * t / 1000;
+  let w = 0;
+  let prevGlyph = null;
+  const chars = [...str];
+  chars.forEach((ch, i) => {
+    const glyph = font.charToGlyph(ch);
+    w += otKernPx(font, prevGlyph, glyph, fontSize) + font.getAdvanceWidth(ch, fontSize);
+    if (i < chars.length - 1) w += extra;
+    prevGlyph = glyph;
+  });
+  return w;
+}
+
+/** Single-font tracked draw, with the font's own kerning restored between characters. */
+function drawOpentypeTextTracked(ctx, font, text, x, baselineY, fontSize, fillStyle, tracking = 0, strokeWidth = 0, strokeStyle = null) {
+  if (!font || !text) return false;
+  const t = Number(tracking) || 0;
+  if (!t) return drawOpentypeText(ctx, font, text, x, baselineY, fontSize, fillStyle, strokeWidth, strokeStyle);
+  const extra = fontSize * t / 1000;
+  let cx = x;
+  let prevGlyph = null;
+  const chars = [...String(text)];
+  chars.forEach((ch, i) => {
+    const glyph = font.charToGlyph(ch);
+    cx += otKernPx(font, prevGlyph, glyph, fontSize);
+    drawOpentypeText(ctx, font, ch, cx, baselineY, fontSize, fillStyle, strokeWidth, strokeStyle);
+    cx += font.getAdvanceWidth(ch, fontSize) + (i < chars.length - 1 ? extra : 0);
+    prevGlyph = glyph;
+  });
   return true;
 }
 
@@ -658,8 +763,9 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   const hookColor = preset.color || '#7F53FF';
   const fontSize = Math.round(getHookBaseFontSize(preset) * (fontScale || 1));
   const lineHeight = fontSize * getEffectiveLineSpacing(preset);
-  const maxTextW = 620;
   const textToVideoGap = getHookVideoGap(preset);
+  const arollTracking = getArollTracking(preset);
+  const maxTextW = getExportMaxTextWidth(preset);
 
   // Resolve preset type early so measurement uses the same font as drawing.
   const _presetNameLower = (preset.name || '').toLowerCase();
@@ -667,26 +773,27 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
   const _isIFC = _presetNameLower === 'indian-founders-co';
 
   // Tokenize + wrap, preserving explicit newlines (<br> / Line Layout editor) as hard line breaks.
-  const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
+  const spacingMul = Number.isFinite(Number(wordSpacingMultiplier)) ? Number(wordSpacingMultiplier) : 0.25;
+  const spacing = spacingMul * fontSize;
   const measureHookWordPlain = (text, bold) => {
     if (isPoppinsHandleAroll(preset)) {
       const f = (bold && _otPoppinsBold) ? _otPoppinsBold : (_otPoppinsReg || _otPoppinsBold);
-      if (f) return measureOtWidth(f, text, fontSize);
+      if (f) return measureOtWidthTracked(f, text, fontSize, arollTracking);
     }
     if (isIfcAroll(preset)) {
       const f = (bold && _otInterBold)
         ? _otInterBold
         : (_otInterMedium || _otInterReg || _otInterBold);
-      if (f) return measureOtWidth(f, text, fontSize);
+      if (f) return measureOtWidthTracked(f, text, fontSize, arollTracking);
     }
     if (isInterBlackHighlightAroll(preset)) {
       const f = (bold && _otInterBlack)
         ? _otInterBlack
         : (_otInterBold || _otInterBlack);
-      if (f) return measureOtWidth(f, text, fontSize);
+      if (f) return measureOtWidthTracked(f, text, fontSize, arollTracking);
     }
-    if (isIbcAroll(preset) && _otInterBold) {
-      return measureOtWidth(_otInterBold, text, fontSize);
+    if (isInterBoldAroll(preset) && _otInterBold) {
+      return measureOtWidthTracked(_otInterBold, text, fontSize, arollTracking);
     }
     let mFamily, mWeight;
     if (_isIBC) {
@@ -703,6 +810,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
     measureMixedWidth(text, fontSize, (plain) => measureHookWordPlain(plain, bold));
   const lines = layoutHeadlineLines(cleanedHtml, measureHookWord, maxTextW, spacing);
   await preloadEmojisFromTexts(lines.flatMap(line => line.tokens.map(t => t.text)));
+  console.log(`[hook_video] ${preset.name} fs=${fontSize} wordSpacing=${spacingMul} gap=${spacing.toFixed(1)} tracking=${arollTracking} lines=${lines.length}`);
 
   const showHookEyebrow = preset.showHookEyebrow === true;
   const hookEyebrowPlain = (preset.hookEyebrow && String(preset.hookEyebrow).trim()) || '';
@@ -795,7 +903,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
           ? ((t.bold && _otInterBold) ? _otInterBold : (_otInterMedium || _otInterReg || _otInterBold))
           : isInterBlackHighlightAroll(preset)
             ? ((t.bold && _otInterBlack) ? _otInterBlack : (_otInterBold || _otInterBlack))
-            : isIbcAroll(preset)
+            : isInterBoldAroll(preset)
               ? _otInterBold
               : null;
       const hookBaselineLine = foundersOt ? middleToBaseline(foundersOt, fontSize, lineMidY) : drawY;
@@ -811,7 +919,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
       } else if (isInterBlackHighlightAroll(preset)) {
         fontFamily = t.bold && interBlack ? 'InterBlack' : 'InterBold';
         fontWeight = 'normal';
-      } else if (isIbcAroll(preset) || isIBC || isIFC) {
+      } else if (isInterBoldAroll(preset) || isIBC || isIFC) {
         fontFamily = interBold ? 'InterBold' : 'Inter';
         fontWeight = interBold ? 'normal' : 'bold';
       } else {
@@ -822,11 +930,13 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
       let fillColor;
       if (isIBC) {
         fillColor = getIbcArollTokenColor(grp);
+      } else if (isChangingOrderAroll(preset)) {
+        fillColor = t.bold ? TCO_AROLL_HIGHLIGHT : TCO_AROLL_REGULAR;
       } else if (isInterBlackHighlightAroll(preset)) {
         const blackHighlightColors = getInterBlackArollColors(preset);
         fillColor = t.bold ? blackHighlightColors.highlight : blackHighlightColors.regular;
       } else if (isHandleWatermarkAroll(preset)) {
-        fillColor = t.bold ? (hookColor || getPoppinsArollHighlight(preset)) : FOUNDERS_AROLL_REGULAR;
+        fillColor = t.bold ? getPoppinsArollHighlight(preset) : FOUNDERS_AROLL_REGULAR;
       } else {
         fillColor = t.bold ? hookColor : '#FFFFFF';
       }
@@ -837,8 +947,16 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
           : (drawY + fontSize * 0.15),
         drawPlain: (plain, px) => {
           if (foundersOt) {
-            drawOpentypeText(ctx, foundersOt, plain, px, hookBaselineLine, fontSize, fillColor);
-            return measureOtWidth(foundersOt, plain, fontSize);
+            // Poppins Regular's strokes are thin enough at hook size that Cairo's
+            // unhinted small-size AA reads it as near-Thin — a hairline stroke in the
+            // same fill color restores the weight without going Bold.
+            const poppinsRegularBoost = isPoppinsHandleAroll(preset) && !t.bold;
+            drawOpentypeTextTracked(
+              ctx, foundersOt, plain, px, hookBaselineLine, fontSize, fillColor, arollTracking,
+              poppinsRegularBoost ? 0.5 : 0,
+              poppinsRegularBoost ? fillColor : null,
+            );
+            return measureOtWidthTracked(foundersOt, plain, fontSize, arollTracking);
           }
           ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
           ctx.fillStyle = fillColor;
@@ -931,7 +1049,8 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
   let cleanedHtml = cleanHTML(headline || '');
   cleanedHtml = cleanedHtml.replace(/<\/?strong>/gi, (m) => m.toLowerCase().replace('strong', 'b'));
   cleanedHtml = cleanedHtml.replace(/<\/?b>/gi, (m) => m.toLowerCase());
-  const spacing = (wordSpacingMultiplier || 0.2) * fontSize;
+  const spacingMul = Number.isFinite(Number(wordSpacingMultiplier)) ? Number(wordSpacingMultiplier) : 0.25;
+  const spacing = spacingMul * fontSize;
 
   const hookOtFont = isLogoSocial ? (_otInterReg || null) : (_otPoppinsBold || null);
   const hookOtBold = isLogoSocial ? (_otInterBold || _otInterReg || null) : (_otPoppinsBold || null);
@@ -1149,7 +1268,9 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
 async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacingMultiplier, savePath) {
   const isIBCNews = (preset.name || '').toLowerCase() === 'indiabusinesscom-news';
   const isISSNews = (preset.name || '').toLowerCase() === 'indiastartupstory-news';
-  const isIFCNews = (preset.name || '').toLowerCase() === 'ifc-news';
+  const isIFCNews = isIfcNews(preset);
+  const isTcoNews = isChangingOrderNews(preset);
+  const isIfcStyleNews = isInterBoldPillNews(preset);
   const isFoundersNews = is101xFoundersNews(preset);
   const isIhn = isIhnNews(preset);
   const isBizzNews = isBizzindiaNews(preset);
@@ -1184,18 +1305,25 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   }
   const newsTickerFaceFor = (bold) => {
     if (isBizzNews) return ivyPrestoNewsFace(bold) || otFace;
-    if (isFoundersNews) return (bold && _otInterBold) ? _otInterBold : (_otInterReg || _otInterBold || otFace);
-    if (isIFCNews) return _otInterBold || _otInterReg || otFace;
+    if (isFoundersNews) {
+      if (bold) return _otInterBold || _otInterMedium || otFace;
+      // Inter-Regular.ttf is Inter 18pt Regular — at headline size it reads as Thin.
+      return _otInterMedium || _otInterReg || _otInterBold || otFace;
+    }
+    if (isIFCNews || isTcoNews) return _otInterBold || _otInterMedium || _otInterReg;
+    if (isPlainText) return _otHelveticaWorldBold || _otAvantGardeBold || otFace;
     return otFace;
   };
   const newsTickerTracking = getNewsTickerTracking(preset);
+  const newsWordSpacingScale = getNewsTickerWordSpacingScale(preset);
   const measurePlainWordAtSize = (text, fs, bold = false) => {
     const face = newsTickerFaceFor(bold);
-    return face ? measureOtWidthWithFallback(face, otGlyphFallback, text, fs, newsTickerTracking) : (() => {
+    const w = face ? measureOtWidthWithFallback(face, otGlyphFallback, text, fs, newsTickerTracking) : (() => {
       ctx.font = `bold ${fs}px Inter`;
       // Inter is narrower than Avant Garde — pad measurements so wrap stays conservative.
       return applyCanvaTracking(ctx.measureText(text).width * 1.22, text, fs, newsTickerTracking);
     })();
+    return text === ' ' ? w * newsWordSpacingScale : w;
   };
   // Emoji-aware: Inter/Avant Garde have no emoji glyphs — measure Twemoji slots instead.
   const measureWordAtSize = (text, fs, bold = false) =>
@@ -1217,11 +1345,11 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fontSize);
   const totalBarsH = getNewsTickerStackHeight(preset, fontSize, lines.length);
   const supportFs = supportText ? getNewsSupportingFontSize(preset, fontSize) : 0;
-  const supportGap = supportText ? Math.round(fontSize * 0.38) : 0;
+  const supportGap = supportText ? getNewsSupportingGap(preset, fontSize) : 0;
   const supportLineH = supportText ? getNewsSupportingLineHeight(preset, supportFs) : 0;
   const supportOtFace = isIhn
     ? (_otInterBold || _otInterReg || otFace)
-    : (_otInterReg || _otInterBold || otFace);
+    : (_otInterMedium || _otInterReg || _otInterBold || otFace);
   const supportMeasure = (word) => {
     if (!supportOtFace) {
       ctx.font = `${isIhn ? 'bold' : 'normal'} ${supportFs}px Inter`;
@@ -1252,7 +1380,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   const spaceW = measureWordAtSize(' ', fontSize, false);
 
-  console.log(`[news_ticker] ${preset.name} fs=${fontSize} lines=${lines.length} maxW=${maxLineW} gap=${lineGap} barY=${barY} shiftY=${shiftY} plain=${isPlainText} lockupH=${layoutLockupH} support=${supportLines.length}`,
+  console.log(`[news_ticker] ${preset.name} fs=${fontSize} lines=${lines.length} maxW=${maxLineW} gap=${lineGap} barY=${barY} shiftY=${shiftY} plain=${isPlainText} lockupH=${layoutLockupH} support=${supportLines.length} face=${otFace?.names?.fullName?.en || 'none'} interBold=${_otInterBold?.names?.fullName?.en || 'none'} interMed=${_otInterMedium?.names?.fullName?.en || 'none'} helvetica=${_otHelveticaWorldBold?.names?.fullName?.en || 'none'}`,
     lines.map(l => l.map(t => t.text).join(' ')));
 
   // Gradient sits above the solid cover. Reach full black early so video text
@@ -1270,6 +1398,21 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   // so competitor lower-third captions stay covered under the stack.
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, blackTop, 720, canvasH - blackTop);
+
+  // BREAKING badge — sits just above the hook stack, TCO only.
+  if (isTcoNews) {
+    const badgeFace = _otBebasNeueCyrillic || _otInterBold || otFace;
+    if (badgeFace) {
+      const badgeFs = Math.max(18, Math.round(fontSize * TCO_BADGE_SCALE));
+      const badgeGap = Math.round(badgeFs * 0.35);
+      const badgeTracking = 20; // matches preview's 0.02em
+      const badgeText = 'BREAKING';
+      const badgeW = measureOtWidthWithFallback(badgeFace, otGlyphFallback, badgeText, badgeFs, badgeTracking);
+      const badgeX = getNewsTickerLineStartX(preset, badgeW, 720);
+      const badgeBaselineY = barY - badgeGap;
+      drawOpentypeTextWithFallback(ctx, badgeFace, otGlyphFallback, badgeText, badgeX, badgeBaselineY, badgeFs, '#FFFFFF', 0, null, badgeTracking);
+    }
+  }
 
   // Text is drawn on-canvas via opentype (same metrics as wrap). No FFmpeg drawtext / no credits.
   const newsTickerTextSegments = [];
@@ -1322,7 +1465,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
             ctx.fillStyle = grad;
             fillBar(runStartX, runW);
           } else {
-            ctx.fillStyle = preset.color || '#e31d38';
+            ctx.fillStyle = isTcoNews ? TCO_NEWS_HIGHLIGHT : (preset.color || '#e31d38');
             fillBar(runStartX, runW);
           }
           runStartX = null;
@@ -1340,7 +1483,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
           ctx.fillStyle = grad;
           fillBar(runStartX, runW);
         } else {
-          ctx.fillStyle = preset.color || '#e31d38';
+            ctx.fillStyle = isTcoNews ? TCO_NEWS_HIGHLIGHT : (preset.color || '#e31d38');
           fillBar(runStartX, runW);
         }
       }
@@ -1357,12 +1500,12 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
         : isIhn
         ? (t.bold ? IHN_NEWS_HIGHLIGHT : IHN_NEWS_REGULAR)
         : isFoundersNews
-          ? (t.bold ? FOUNDERS_NEWS_HIGHLIGHT : FOUNDERS_AROLL_REGULAR)
+          ? (t.bold ? FOUNDERS_NEWS_HIGHLIGHT : '#FFFFFF')
           : isIfc2News(preset)
             ? (t.bold ? IFC2_NEWS_HIGHLIGHT : '#FFFFFF')
           : isPlainText
             ? (t.bold ? (preset.color || '#FFFFFF') : '#FFFFFF')
-            : (isIBCNews || isIFCNews)
+            : (isIBCNews || isIfcStyleNews)
               ? (t.bold ? '#000000' : '#FFFFFF')
               : '#FFFFFF';
       const tokenFace = isBizzNews
@@ -1370,18 +1513,20 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
         : isIhn
         ? (_otInterBold || _otInterReg || otFace)
         : isFoundersNews
-          ? ((t.bold && _otInterBold) ? _otInterBold : (_otInterReg || _otInterBold || otFace))
-          : isIFCNews
-            ? (_otInterBold || _otInterReg || otFace)
-            : otFace;
+          ? (t.bold ? (_otInterBold || _otInterMedium || otFace) : (_otInterMedium || _otInterReg || _otInterBold || otFace))
+          : isIfcStyleNews
+            ? (_otInterBold || _otInterMedium || _otInterReg)
+            : isPlainText
+              ? (_otHelveticaWorldBold || _otAvantGardeBold || otFace)
+              : otFace;
       drawMixedText(ctx, t.text, x, fontSize, {
         emojiTopY,
         drawPlain: (plain, px) => {
           if (tokenFace) {
             drawOpentypeTextWithFallback(
               ctx, tokenFace, otGlyphFallback, plain, px, baselineY, fontSize, color,
-              ((isFoundersNews || isBizzNews) && t.bold) ? 2 : 0,
-              ((isFoundersNews || isBizzNews) && t.bold) ? color : null,
+              0,
+              null,
               newsTickerTracking,
             );
             return measurePlainWordAtSize(plain, fontSize, t.bold);
@@ -1452,14 +1597,17 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     }
   }
 
-  // Social strip (right-side vertical icons bar) for indiabusinesscom-news only
-  if (isIBCNews) {
-    const socialStripPath = join(__dirname, 'assets', 'logos', 'IndianBusinessCom NewsStatic Format (1).png');
+  // Social strip (right-side vertical icons bar) for IBC / ISS news
+  const socialStripFile = getNewsTickerSocialStrip(preset);
+  if (socialStripFile) {
+    const socialStripPath = join(__dirname, 'assets', 'logos', socialStripFile);
     if (existsSync(socialStripPath)) {
       const stripImg = await loadImage(socialStripPath);
-      const stripW = 32;
+      const stripW = IBC_NEWS_STRIP_W;
       const stripH = Math.round(stripImg.height * (stripW / stripImg.width));
-      ctx.drawImage(stripImg, 720 - stripW - 5, 15, stripW, stripH);
+      ctx.drawImage(stripImg, 720 - stripW - IBC_NEWS_STRIP_PAD_X, IBC_NEWS_STRIP_PAD_Y, stripW, stripH);
+    } else {
+      console.warn(`[news_ticker] social strip missing: ${socialStripPath}`);
     }
   }
 
@@ -1475,6 +1623,19 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     textLogoLines.forEach((line, idx) => {
       ctx.fillText(line, tlX, tlY + idx * Math.round(textLogoSize * 1.1));
     });
+  }
+
+  // The Changing Order: chrome atom mark, same Instagram-safe pad as IFC.
+  if (isTcoNews && preset.logo && preset.showLogo !== false) {
+    const tcoLogoPath = join(__dirname, 'assets', 'logos', preset.logo);
+    if (existsSync(tcoLogoPath)) {
+      const tcoLogo = await loadImage(tcoLogoPath);
+      const logoH = Math.round(preset.rules?.logoSize || TCO_NEWS_LOGO_H);
+      const logoW = Math.round(tcoLogo.width * (logoH / tcoLogo.height));
+      ctx.drawImage(tcoLogo, TCO_NEWS_PAD_X, TCO_NEWS_PAD_Y, logoW, logoH);
+    } else {
+      console.warn(`[news_ticker] ${preset.name} logo missing: ${tcoLogoPath}`);
+    }
   }
 
   // Inter-news: operator PNGs for wordmark (left) and 2026/India (right).
@@ -1525,7 +1686,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   // For ISS-news / Inter-news the logo is already on canvas — skip FFmpeg overlay
   let logoPath = null;
-  if (!isISSNews && !isInterNews && !isBizzNews && preset.logo && preset.showLogo !== false) {
+  if (!isISSNews && !isInterNews && !isBizzNews && !isTcoNews && preset.logo && preset.showLogo !== false) {
     const logoFile = join(__dirname, 'assets', 'logos', preset.logo);
     if (existsSync(logoFile)) logoPath = logoFile;
   }
@@ -2783,6 +2944,8 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       '101xfounders-news',
       'indianhappeningnow-news',
       'bizzindia-news',
+      'thechangingorder-news',
+      'thechangingorder',
       '101xtechnology-top',
       '101xtechnology-mid',
       '101xtechnology-low'
@@ -2886,7 +3049,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
                             : seg.color === '#FDB05E' ? '0xFDB05E'
                               : seg.color === '#5887FF' ? '0x5887FF'
                                 : seg.color === '#487AF9' ? '0x487AF9'
-                                  : 'white';
+                                  : '0xFFFFFF';
           // Escape headline text for FFmpeg drawtext:
           // - '\'  -> '\\'
           // - ':'  -> '\:'
@@ -2970,7 +3133,7 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
                             : seg.color === '#FDB05E' ? '0xFDB05E'
                               : seg.color === '#5887FF' ? '0x5887FF'
                                 : seg.color === '#487AF9' ? '0x487AF9'
-                                  : 'white';
+                                  : '0xFFFFFF';
           // Escape headline text for FFmpeg drawtext:
           // - '\'  -> '\\'
           // - ':'  -> '\:'
@@ -3096,4 +3259,4 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
   });
 }
 
-export { generateArollOverlay, generateNewsTickerOverlay };
+export { generateArollOverlay, generateNewsTickerOverlay, generateHookVideoOverlay };

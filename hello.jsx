@@ -28,6 +28,8 @@ import {
     getNewsTickerFontFamily,
     isPlainTextNewsTicker,
     isIfc2News,
+    isChangingOrderNews,
+    isInterBoldPillNews,
     isUppercaseArollHook,
     uppercaseHeadlineHtml,
     applyHookCasing,
@@ -35,6 +37,8 @@ import {
     isHandleWatermarkAroll,
     isIfcAroll,
     isIbcAroll,
+    isChangingOrderAroll,
+    isInterBoldAroll,
     getIbcArollTokenColor,
     isInterBlackHighlightAroll,
     getInterBlackArollColors,
@@ -52,8 +56,14 @@ import {
     getNewsSupportingFontSize,
     getNewsSupportingLineHeight,
     getNewsSupportingColor,
+    getNewsSupportingGap,
     getNewsTickerTracking,
+    getNewsTickerWordSpacingScale,
+    getNewsTickerCanvaType,
     getNewsTickerLetterSpacingEm,
+    getArollTracking,
+    getArollLetterSpacingEm,
+    hasArollCanvaTracking,
     applyCanvaTracking,
     getPngNewsHeaderAssets,
     wrapPlainWords,
@@ -61,16 +71,26 @@ import {
     getNewsTickerBaseFontSize,
     getBizzindiaNewsRuleMetrics,
     FOUNDERS_AROLL_REGULAR,
+    FOUNDERS_AROLL_HIGHLIGHT,
     FOUNDERS_NEWS_HIGHLIGHT,
     IHN_NEWS_HIGHLIGHT,
-    IHN_NEWS_REGULAR,
     BIZZINDIA_NEWS_HIGHLIGHT,
     IFC2_NEWS_HIGHLIGHT,
+    TCO_NEWS_HIGHLIGHT,
+    TCO_AROLL_HIGHLIGHT,
+    TCO_NEWS_PAD_X,
+    TCO_NEWS_PAD_Y,
+    BEBAS_NEUE_CYRILLIC_FAMILY,
+    TCO_BADGE_SCALE,
     IFC_NEWS_PAD_X,
     IFC_NEWS_PAD_Y,
     IFC_NEWS_LOGO_SIZE,
+    IBC_NEWS_STRIP_W,
+    IBC_NEWS_STRIP_PAD_X,
+    IBC_NEWS_STRIP_PAD_Y,
+    getNewsTickerSocialStrip,
     HELVETICA_WORLD_BOLD_FAMILY,
-    INTER_REGULAR_FAMILY,
+    INTER_MEDIUM_FAMILY,
     INTER_BOLD_FAMILY,
     IVYPRESTO_HEADLINE_THIN_FAMILY,
     IVYPRESTO_HEADLINE_SEMIBOLD_FAMILY,
@@ -113,7 +133,7 @@ const DEFAULT_FOOTER = "Credit: The Founders Show";
 // --- CONFIGURATION: PRESETS ---
 const INITIAL_PRESETS_RAW = [
     { id: 1, name: '101xfounders', handle: '@101xfounders', ratio: '4:3', color: '#ffa302', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
-    { id: 2, name: 'bizzindia', handle: '@bizzindia', ratio: '1:1', color: '#f52a46', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 2, name: 'bizzindia', handle: '@bizzindia', ratio: '1:1', color: '#f52a46', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.15, letterSpacingOffset: -5 },
     { id: 3, name: 'Best Founder Clips', handle: '@BestFOunderClips', ratio: '16:9', color: '#ffc002', active: true, layout: 'logo_centered', logo: LOGO_BEST_FOUNDER_CLIPS, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25 },
     { id: 4, name: 'Business Cracked', handle: '@businesscracked', ratio: '4:3', color: '#fdeb01', active: true, layout: 'social', logo: LOGO_BUSINESS_CRACKED, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 5, name: 'The Founders Show', handle: '@thefoundersshow', ratio: '4:3', color: '#E31D38', active: true, layout: 'social', logo: LOGO_THE_FOUNDERS_SHOW, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
@@ -142,8 +162,8 @@ const INITIAL_PRESETS_RAW = [
     { id: 28, name: 'indian business com', handle: '@indianbusinesscom', ratio: '1:1', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 29, name: 'indian-founders-co-old', handle: '@indianfoundersco', ratio: '4:3', color: '#f7EA6A', active: false, hidden: true, layout: 'social', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 30, name: 'founders-in-india-old', handle: '@foundersinindia', ratio: '4:3', color: '#ffffff', active: false, hidden: true, layout: 'social', logo: 'founders-in-india.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
-    { id: 90, name: 'founders-in-india', handle: '@foundersinindia', ratio: '4:3', color: '#439eff', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
-    { id: 91, name: 'indian-founders-co', handle: '@indianfoundersco', ratio: '4:3', color: '#32c26c', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 90, name: 'founders-in-india', handle: '@foundersinindia', ratio: '4:3', color: '#439eff', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.11, letterSpacingOffset: -5 },
+    { id: 91, name: 'indian-founders-co', handle: '@indianfoundersco', ratio: '4:3', color: '#32c26c', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.1, letterSpacingOffset: 0 },
     { id: 31, name: 'Ads by marketer', handle: '@adsbymarketer', ratio: '4:3', color: '#ffc002', active: true, layout: 'logo_centered', logo: 'ads-by-marketer.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25 },
     { id: 32, name: 'best business clips', handle: '@bestbusinessclips', ratio: '4:3', color: '#ffc002', active: true, layout: 'logo_centered', logo: 'best-business-clips.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25 },
     { id: 33, name: 'Founders wtf', handle: '@founderswtf', ratio: '16:9', color: '#ffffff', active: true, layout: 'social', logo: LOGO_FOUNDERS_WTF, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
@@ -159,7 +179,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 43, name: 'theevolvinggpt', handle: '@theevolvinggpt', ratio: '16:9', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 44, name: 'foundrsonig', handle: '@foundrsonig', ratio: '4:3', color: '#ECECDC', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 45, name: 'indianfoundr', handle: '@indianfoundr', ratio: '1:1', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
-    { id: 46, name: 'indiastartupstory', handle: '@indiastartupstory', ratio: '4:3', color: '#ef5350', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
+    { id: 46, name: 'indiastartupstory', handle: '@indiastartupstory', ratio: '4:3', color: '#ef5350', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.11, letterSpacingOffset: -14 },
     { id: 47, name: 'neworderai', handle: '@neworderai', ratio: '4:3', color: '#ffffff', active: true, layout: 'watermark', logo: null, headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25 },
     { id: 48, name: 'startupsinthelast24hrs', handle: '@startupsinthelast24hrs', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'startupsinthelast24hrs.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 68, name: 'indian ai future', handle: '@indianaifuture', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'indian-ai-future.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
@@ -196,20 +216,22 @@ const INITIAL_PRESETS_RAW = [
     { id: 80, name: 'indian-founders-co-tweet', handle: '@indianfoundersco', ratio: '4:3', color: '#2cb162', active: false, hidden: true, layout: 'social', logo: 'indian-founders-co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 81, name: 'startupbydog', handle: '@startupbydog', ratio: '4:3', color: '#ffffff', active: true, layout: 'social', logo: 'startupbydog.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
     { id: 82, name: 'Entrepreneursindia.co', handle: '@entrepreneursindia.co', ratio: '4:3', color: '#6500D1', active: true, layout: 'social', logo: 'Entrepreneursindia.co.png', headline: DEFAULT_HEADLINE, footer: DEFAULT_FOOTER, position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25 },
-    { id: 92, name: 'indiabusinesscom', handle: '@indiabusinesscom', ratio: '3:4', color: '#ff7838', active: true, layout: 'hook_video', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 22, logoPadY: 12 } },
+    { id: 92, name: 'indiabusinesscom', handle: '@indiabusinesscom', ratio: '3:4', color: '#ff7838', active: true, layout: 'hook_video', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.22, letterSpacingOffset: -10, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 22, logoPadY: 12 } },
     { id: 94, name: 'indiabusinesscom-news', handle: '@indiabusinesscom', ratio: '4:5', color: '#ff7838', active: true, layout: 'news_ticker', logo: 'indiabusinesscom.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 48, logoPadX: 46, logoPadY: 41, solidBandPct: 30 } },
     { id: 95, name: 'indiastartupstory-news', handle: '@indiastartupstory', ratio: '4:5', color: '#e31d38', active: true, layout: 'news_ticker', logo: 'indiastartupstory.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'bottom-left', logoCircular: false, logoSize: 55, solidBandPct: 30 } },
     { id: 96, name: 'ifc-news', handle: '@ifc', ratio: '9:16', color: '#32c26c', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 58, textLogo: 'IFC.', logoPadX: 56, logoPadY: 120 } },
-    { id: 97, name: 'indiafounderscore-news', handle: '@indiafounderscore', ratio: '9:16', color: '#ffd412', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'indiafounderscore-handle.png', width: 188, height: 25, gap: 36 } } },
+    { id: 97, name: 'indiafounderscore-news', handle: '@indiafounderscore', ratio: '9:16', color: '#e0e140', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'indiafounderscore-handle.png', width: 188, height: 25, gap: 36 } } },
     { id: 101, name: 'indiafounderscore', handle: '@indiafounderscore', ratio: '16:9', color: '#E0E140', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: 'IFC.', highlightColors: ['#E0E140', '#90d46c'], topGlow: true } },
     { id: 100, name: 'foundersinindia-news', handle: '@foundersinindia', ratio: '9:16', color: '#439eff', active: true, layout: 'news_ticker', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25, rules: { bottomMarginPct: 17, solidBandPct: 30, handleLockup: { file: 'foundersinindia.png', width: 170, height: 25, gap: 36 } } },
     { id: 98, name: '101xtechnology-aroll', handle: '@101xtechnology', ratio: '16:9', color: '#4898ab', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', lineSpacing: 1.25, rules: { hookPosition: 'mid', textLogo: '101xt.', highlightColors: ['#4898ab', '#90d46c'], topGlow: true } },
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
-    { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '3:4', color: '#ffd412', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
-    { id: 102, name: '101xfounders-aroll', handle: '@101xfounders', ratio: '4:3', color: '#ff7c15', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', lineSpacing: 1.25 },
-    { id: 103, name: '101xfounders-news', handle: '@101xfounders', ratio: '9:16', color: '#ff6418', active: true, layout: 'news_ticker', logo: '101xfounders-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 42, logoPadX: 56, logoPadY: 120, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, solidBandPct: 30 } },
-    { id: 104, name: 'indianhappeningnow-news', handle: '@indianhappeningnow', ratio: '9:16', color: '#ffa928', active: true, layout: 'news_ticker', logo: 'indianhappeningnow-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 72, logoPadX: 56, logoPadY: 120, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, bottomMarginPct: 8 } },
+    { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '3:4', color: '#ffd412', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.22, letterSpacingOffset: -5 },
+    { id: 102, name: '101xfounders-aroll', handle: '@101xfounders', ratio: '4:3', color: '#ff7c15', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.16, letterSpacingOffset: -16 },
+    { id: 103, name: '101xfounders-news', handle: '@101xfounders', ratio: '9:16', color: '#ff8610', active: true, layout: 'news_ticker', logo: '101xfounders-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 42, logoPadX: 56, logoPadY: 120, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, solidBandPct: 30 } },
+    { id: 104, name: 'indianhappeningnow-news', handle: '@indianhappeningnow', ratio: '9:16', color: '#ffa928', active: true, layout: 'news_ticker', logo: 'indianhappeningnow-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 104, logoPadX: 56, logoPadY: 120, kickerLogo: 'FS News Formats.png', kickerSize: 93, bottomMarginPct: 8 } },
     { id: 105, name: 'bizzindia-news', handle: '@bizzindia', ratio: '9:16', color: '#f52a46', active: true, layout: 'news_ticker', logo: 'bizzindia-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 88, logoPadX: 56, logoPadY: 120, kickerLogo: 'bizzindia-news-kicker.png', kickerSize: 93, solidBandPct: 34, bottomMarginPct: 12 } },
+    { id: 106, name: 'thechangingorder-news', handle: '@thechangingorder', ratio: '9:16', color: '#c7ff3e', active: true, layout: 'news_ticker', logo: 'to India.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 150, logoPadX: 56, logoPadY: 100 } },
+    { id: 107, name: 'thechangingorder', handle: '@thechangingorder', ratio: '1:1', color: '#c7ff3e', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.09, letterSpacingOffset: -11 },
 ];
 
 // All presets are shown in a single unified list (no active/inactive division).
@@ -226,14 +248,14 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
 }));
 
 // Presets configured during the "Experiment X" pass — surfaced in their own quick-pick section
-const EXPERIMENT_X_PRESET_NAMES = ['bizzindia', 'indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'founders-in-india', '101xfounders-aroll', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
+const EXPERIMENT_X_PRESET_NAMES = ['bizzindia', 'indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'founders-in-india', '101xfounders-aroll', 'thechangingorder', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
 // Archived out of Bizz India Playbook for now — tech pages + news-ticker formats. Kept here so they're easy to bring back.
 const ARCHIVED_PRESET_NAMES = ['101xtechnology-aroll', 'indiantechdaily-aroll', 'indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news'];
 const BIZZINDIA_PLAYBOOK_PRESET_NAMES = EXPERIMENT_X_PRESET_NAMES.filter(n => !ARCHIVED_PRESET_NAMES.includes(n));
 // Bizz India Playbook format switch (inside the playbook header): "A-roll" is the
 // hook+video pages (IBC, IFCore, IFC, ISS, 101xfounders); "News formats" is the archived news-ticker group.
 // The archived tech/aroll-layout pages stay unused.
-const BIZZINDIA_NEWS_PRESET_NAMES = ['bizzindia-news', 'indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xfounders-news', 'indianhappeningnow-news'];
+const BIZZINDIA_NEWS_PRESET_NAMES = ['bizzindia-news', 'indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xfounders-news', 'indianhappeningnow-news', 'thechangingorder-news'];
 
 // Pan needs travel and travel needs zoom: a 16:9 clip covers these frames' height exactly,
 // so vertical pan has none at 100%. A starved axis gets enough zoom to travel this fraction
@@ -262,12 +284,14 @@ const getLogoUrl = (logo) => {
             ? `?v=png-overlay-1`
             : (logo === 'indianhappeningnow-news-logo.png')
                 ? `?v=ihn-operator-1`
-                : (logo === 'bizzindia-news-kicker.png')
+                : (logo === 'bizzindia-news-kicker.png' || logo === 'FS News Formats.png')
                     ? `?v=bizz-kicker-1`
+                : (logo === 'to India.png')
+                    ? `?v=tco-logo-1`
                 : (logo === 'indiafounderscore-handle.png')
                     ? `?v=ifc2-handle-1`
                     : '';
-    return `${base}/assets/logos/${logo}${bust}`;
+    return `${base}/assets/logos/${encodeURIComponent(logo)}${bust}`;
 };
 
 // Helper to strip HTML tags for length calculations
@@ -379,7 +403,7 @@ function resetMeasureCtx() {
 }
 
 /** Match export line-wrap at preview scale (720px reference canvas). */
-function buildPreviewLines(headline, { fontSize, maxWidth, wordSpacing, fontFamily, boldFontFamily, regularFontFamily, boldWeight = 700, regularWeight = 400 }) {
+function buildPreviewLines(headline, { fontSize, maxWidth, wordSpacing, fontFamily, boldFontFamily, regularFontFamily, boldWeight = 700, regularWeight = 400, tracking = 0 }) {
     const ctx = getMeasureCtx();
     if (!ctx || !headline) return [];
     const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
@@ -387,7 +411,7 @@ function buildPreviewLines(headline, { fontSize, maxWidth, wordSpacing, fontFami
     return layoutHeadlineLines(cleaned, (text, bold) => {
         const family = bold ? (boldFontFamily || fontFamily) : (regularFontFamily || fontFamily);
         ctx.font = `${bold ? boldWeight : regularWeight} ${fontSize}px ${family}`;
-        return ctx.measureText(text).width;
+        return applyCanvaTracking(ctx.measureText(text).width, text, fontSize, tracking);
     }, maxWidth, spacing);
 }
 
@@ -402,7 +426,7 @@ function buildNewsTickerPreviewLines(headline, { fontSize, maxWidth, fontFamily,
 }
 
 /** Auto-fit news ticker like Canva/export: same min size + wrap budget as server. */
-function fitNewsTickerPreview(headline, { baseFontSize, userScale = 1, maxWidth, fontFamily, boldFontFamily, regularFontFamily, boldWeight = 700, regularWeight = null, maxTotalBarsH, fitRatios, maxLines = 3, tracking = 0 }) {
+function fitNewsTickerPreview(headline, { baseFontSize, userScale = 1, maxWidth, fontFamily, boldFontFamily, regularFontFamily, boldWeight = 700, regularWeight = null, maxTotalBarsH, fitRatios, maxLines = 3, tracking = 0, wordSpacingScale = 1 }) {
     const ctx = getMeasureCtx();
     if (!ctx || !headline) return { fontSize: baseFontSize, lines: [] };
     const cleaned = cleanHeadlineHtml(normalizeBoldHTML(headline));
@@ -412,7 +436,8 @@ function fitNewsTickerPreview(headline, { baseFontSize, userScale = 1, maxWidth,
         measureWordAtSize: (text, fs, bold) => {
             const family = bold ? (boldFontFamily || fontFamily) : (regularFontFamily || fontFamily);
             ctx.font = `${bold ? boldWeight : bodyWeight} ${fs}px ${family}`;
-            return applyCanvaTracking(ctx.measureText(text).width, text, fs, tracking);
+            const w = applyCanvaTracking(ctx.measureText(text).width, text, fs, tracking);
+            return text === ' ' ? w * wordSpacingScale : w;
         },
         maxLineW: maxWidth,
         baseFontSize,
@@ -674,25 +699,131 @@ const PerBrandPresetCard = ({ p, fontScale, wordSpacing, setPresets, updateIndiv
                                 className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
                             />
                         </div>
-                        <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                                <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Letter Spacing</label>
-                                <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round((p.wordSpacing ?? wordSpacing) * 100)}%</span>
+                        {p.layout === 'news_ticker' ? (
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Word Spacing</label>
+                                    <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round((p.newsWordSpacingScale ?? 1) * 100)}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0.3"
+                                    max="2.5"
+                                    step="0.05"
+                                    value={p.newsWordSpacingScale ?? 1}
+                                    onChange={(e) => {
+                                        setPresets(prev => prev.map(item =>
+                                            item.id === p.id ? { ...item, newsWordSpacingScale: parseFloat(e.target.value) } : item
+                                        ));
+                                    }}
+                                    className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                />
                             </div>
-                            <input
-                                type="range"
-                                min="0.1"
-                                max="1.5"
-                                step="0.05"
-                                value={p.wordSpacing ?? wordSpacing}
-                                onChange={(e) => {
-                                    setPresets(prev => prev.map(item =>
-                                        item.id === p.id ? { ...item, wordSpacing: parseFloat(e.target.value) } : item
-                                    ));
-                                }}
-                                className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
-                            />
-                        </div>
+                        ) : (
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Word Spacing</label>
+                                    <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round((p.wordSpacing ?? wordSpacing) * 100)}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0.1"
+                                    max="1.5"
+                                    step="0.05"
+                                    value={p.wordSpacing ?? wordSpacing}
+                                    onChange={(e) => {
+                                        setPresets(prev => prev.map(item =>
+                                            item.id === p.id ? { ...item, wordSpacing: parseFloat(e.target.value) } : item
+                                        ));
+                                    }}
+                                    className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                />
+                            </div>
+                        )}
+                        {getNewsTickerCanvaType(p) && (
+                            <>
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Line Spacing</label>
+                                        <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{Math.round((p.lineSpacingScale ?? 1) * 100)}%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0.5"
+                                        max="1.5"
+                                        step="0.01"
+                                        value={p.lineSpacingScale ?? 1}
+                                        onChange={(e) => {
+                                            setPresets(prev => prev.map(item =>
+                                                item.id === p.id ? { ...item, lineSpacingScale: parseFloat(e.target.value) } : item
+                                            ));
+                                        }}
+                                        className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Letter Spacing</label>
+                                        <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{(p.letterSpacingOffset ?? 0) > 0 ? '+' : ''}{p.letterSpacingOffset ?? 0}</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="-100"
+                                        max="100"
+                                        step="1"
+                                        value={p.letterSpacingOffset ?? 0}
+                                        onChange={(e) => {
+                                            setPresets(prev => prev.map(item =>
+                                                item.id === p.id ? { ...item, letterSpacingOffset: parseFloat(e.target.value) } : item
+                                            ));
+                                        }}
+                                        className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                    />
+                                </div>
+                            </>
+                        )}
+                        {hasArollCanvaTracking(p) && (
+                            <>
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Line Spacing</label>
+                                        <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{(p.lineSpacing ?? 1.25).toFixed(2)}</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0.8"
+                                        max="1.6"
+                                        step="0.01"
+                                        value={p.lineSpacing ?? 1.25}
+                                        onChange={(e) => {
+                                            setPresets(prev => prev.map(item =>
+                                                item.id === p.id ? { ...item, lineSpacing: parseFloat(e.target.value) } : item
+                                            ));
+                                        }}
+                                        className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-medium text-[var(--pintu-text-secondary)]">Letter Spacing</label>
+                                        <span className="text-xs font-mono text-[var(--pintu-accent)] bg-violet-500/10 px-2 py-0.5 rounded-full min-w-[2.5rem] text-center">{(p.letterSpacingOffset ?? 0) > 0 ? '+' : ''}{p.letterSpacingOffset ?? 0}</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="-100"
+                                        max="100"
+                                        step="1"
+                                        value={p.letterSpacingOffset ?? 0}
+                                        onChange={(e) => {
+                                            setPresets(prev => prev.map(item =>
+                                                item.id === p.id ? { ...item, letterSpacingOffset: parseFloat(e.target.value) } : item
+                                            ));
+                                        }}
+                                        className="w-full h-2 bg-[var(--pintu-track-bg)] rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                    />
+                                </div>
+                            </>
+                        )}
                     </CollapsibleSection>
                 </>
             )}
@@ -1336,8 +1467,9 @@ const PreviewCard = memo(({
             wordSpacing: adjustedWordSpacing,
             fontFamily,
             boldWeight: 700,
+            tracking: getArollTracking(preset),
         });
-    }, [preset.headline, previewFontSize, exportMaxTextW, adjustedWordSpacing, isPoppinsFont]);
+    }, [preset.headline, previewFontSize, exportMaxTextW, adjustedWordSpacing, isPoppinsFont, preset]);
 
     return (
         <div
@@ -1361,8 +1493,13 @@ const PreviewCard = memo(({
                 {/* 1a. HOOK_VIDEO HEADER: optional line above hook, then hook text centered on black */}
                 {preset.layout === 'hook_video' && (
                     <div
-                        className="w-full px-4 z-10 shrink-0"
-                        style={{ marginBottom: `${hookVideoGapCssPx}px` }}
+                        className="w-full z-10 shrink-0"
+                        style={{
+                            marginBottom: `${hookVideoGapCssPx}px`,
+                            paddingLeft: canvasPxToPercent(50),
+                            paddingRight: canvasPxToPercent(50),
+                            boxSizing: 'border-box',
+                        }}
                     >
                         {showEyebrowInPreview && (
                             <div
@@ -1386,25 +1523,27 @@ const PreviewCard = memo(({
                                 lineHeight: effectiveLineSpacing,
                                 fontFamily: isPoppinsHandleAroll(preset)
                                     ? "'Poppins', sans-serif"
-                                    : isIbcAroll(preset)
-                                        ? "'Inter Bold', sans-serif"
+                                    : isInterBoldAroll(preset)
+                                        ? INTER_BOLD_FAMILY
                                         : "'Inter', sans-serif",
-                                letterSpacing: preset.name === 'indiabusinesscom'
-                                    ? '-0.05em'
-                                    : preset.name === 'indianfoundercore'
-                                        ? '-0.053em'
-                                        : undefined,
+                                letterSpacing: (() => {
+                                    const em = getArollLetterSpacingEm(preset);
+                                    return em == null ? undefined : `${em}em`;
+                                })(),
                             }}
                         >
                             {(() => {
                                 const isIbcHook = isIbcAroll(preset);
+                                const isTcoHook = isChangingOrderAroll(preset);
+                                const isInterBoldHook = isInterBoldAroll(preset);
                                 const hookFontFamily = isPoppinsHandleAroll(preset)
                                     ? "'Poppins', sans-serif"
-                                    : isIbcHook
-                                        ? "'Inter Bold', sans-serif"
+                                    : isInterBoldHook
+                                        ? INTER_BOLD_FAMILY
                                         : "'Inter', sans-serif";
                                 const isBlackHighlightHook = isInterBlackHighlightAroll(preset);
                                 const blackHighlightColors = isBlackHighlightHook ? getInterBlackArollColors(preset) : null;
+                                const wordGapPx = adjustedWordSpacing * previewFontSize;
                                 const lines = buildPreviewLines(applyHookCasing(preset, preset.headline), {
                                     fontSize: previewFontSize,
                                     maxWidth: exportMaxTextW,
@@ -1412,14 +1551,15 @@ const PreviewCard = memo(({
                                     fontFamily: hookFontFamily,
                                     boldFontFamily: isBlackHighlightHook
                                         ? "'Inter Black', sans-serif"
-                                        : isIbcHook
-                                            ? "'Inter Bold', sans-serif"
+                                        : isInterBoldHook
+                                            ? INTER_BOLD_FAMILY
                                             : undefined,
-                                    regularFontFamily: isBlackHighlightHook || isIbcHook
-                                        ? "'Inter Bold', sans-serif"
+                                    regularFontFamily: isBlackHighlightHook || isInterBoldHook
+                                        ? INTER_BOLD_FAMILY
                                         : undefined,
                                     boldWeight: isBlackHighlightHook ? 900 : 700,
-                                    regularWeight: isIbcHook ? 700 : (isBlackHighlightHook ? 700 : (isIfcAroll(preset) ? 500 : 400)),
+                                    regularWeight: isInterBoldHook ? 700 : (isBlackHighlightHook ? 700 : (isIfcAroll(preset) ? 500 : 400)),
+                                    tracking: getArollTracking(preset),
                                 });
                                 let highlightGroupIndex = 0;
                                 let prevWasHighlight = false;
@@ -1438,6 +1578,7 @@ const PreviewCard = memo(({
                                         style={{
                                             textAlign: isCenterAligned ? 'center' : 'left',
                                             width: '100%',
+                                            whiteSpace: 'nowrap',
                                         }}
                                     >
                                         {line.tokens.map((t, ti) => {
@@ -1449,24 +1590,27 @@ const PreviewCard = memo(({
                                                         fontSynthesis: 'none',
                                                         color: isIbcHook
                                                             ? getIbcArollTokenColor(grp)
+                                                            : isTcoHook
+                                                                ? (t.bold ? TCO_AROLL_HIGHLIGHT : '#ffffff')
                                                             : isBlackHighlightHook
                                                                 ? (t.bold ? (preset.name === 'bizzindia' ? BIZZINDIA_AROLL_HIGHLIGHT : preset.name === 'indianfoundercore' ? IFC2_AROLL_HIGHLIGHT : blackHighlightColors.highlight) : blackHighlightColors.regular)
                                                                 : isHandleWatermarkAroll(preset)
                                                                 ? (t.bold ? getPoppinsArollHighlight(preset) : FOUNDERS_AROLL_REGULAR)
                                                                 : (t.bold ? preset.color : '#FFFFFF'),
-                                                        fontWeight: isIbcHook
+                                                        fontWeight: isInterBoldHook
                                                             ? 700
                                                             : isBlackHighlightHook
                                                                 ? (t.bold ? 900 : 700)
                                                                 : (t.bold ? 700 : (isIfcAroll(preset) ? 500 : 400)),
                                                         fontFamily: isBlackHighlightHook
-                                                            ? (t.bold ? "'Inter Black', sans-serif" : "'Inter Bold', sans-serif")
-                                                            : isIbcHook
-                                                                ? "'Inter Bold', sans-serif"
+                                                            ? (t.bold ? "'Inter Black', sans-serif" : INTER_BOLD_FAMILY)
+                                                            : isInterBoldHook
+                                                                ? INTER_BOLD_FAMILY
                                                                 : undefined,
+                                                        marginRight: ti < line.tokens.length - 1 ? `${wordGapPx}px` : 0,
                                                     }}
                                                 >
-                                                    {t.text}{' '}
+                                                    {t.text}
                                                 </span>
                                             );
                                         })}
@@ -1686,33 +1830,36 @@ const PreviewCard = memo(({
                                     return 0;
                                 };
                                 const tokenColor = (highlight, highlightGroup) => {
-                                    if (preset.name === 'Real India Business') return highlightGroup === 1 ? '#FF8323' : highlightGroup >= 2 ? '#0DC100' : 'white';
-                                    if (preset.name === 'theprimefounder') return highlight ? '#1DB077' : 'white';
-                                    if (preset.name === 'foundrsonig') return highlight ? '#ECECDC' : 'white';
-                                    if (preset.name === 'indiasbestfounders' || preset.name === 'intelligence by ai') return highlight ? '#ECECDC' : 'white';
-                                    if (preset.name === 'elitefoundrs') return highlight ? '#5887FF' : 'white';
-                                    if (preset.name === 'indianfoundr') return highlight ? '#487AF9' : 'white';
-                                    if (preset.name === 'the ai phaze') return highlight ? '#95C5D1' : 'white';
-                                    if (preset.name === 'That AI page') return highlight ? '#6523FF' : 'white';
-                                    if (preset.name === 'Revolution in tech') return highlight ? '#FDB05E' : 'white';
-                                    if (preset.name === 'indiastartupstory') return highlight ? '#EF5350' : 'white';
-                                    if (presetNameLower === 'risewithcontent') return highlight ? '#E53935' : 'white';
-                                    if (preset.name === 'The Prime Ai Page') return highlight ? '#FFCD1D' : 'white';
-                                    if (preset.name === 'Dhandha India') return highlight ? '#FB9C39' : 'white';
-                                    if (preset.name === 'The Ai Gauntlet') return highlight ? '#FFCD1D' : 'white';
-                                    if (presetNameLower === 'bestindianpodcast') return highlight ? '#fde601' : 'white';
-                                    if (preset.name === 'bizzindia') return highlight ? BIZZINDIA_AROLL_HIGHLIGHT : 'white';
-                                    if (preset.name === 'indianfoundercore') return highlight ? IFC2_AROLL_HIGHLIGHT : 'white';
-                                    if (preset.name === 'indiabusinesscom') return highlightGroup === 1 ? IBC_AROLL_ORANGE : highlightGroup >= 2 ? IBC_AROLL_GREEN : 'white';
-                                    if (preset.name === 'founders-in-india') return highlight ? '#7F53FF' : 'white';
-                                    if (preset.name === 'Entrepreneursindia.co') return 'white';
-                                    if (preset.name === 'peakofai' || isAicrackedOrEvolvingPreset) return 'white';
-                                    if (['founderdaily', 'founderbusinesstips', 'kwazyfounders', 'startup madness'].includes(preset.name)) return 'black';
-                                    if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return 'white';
-                                    if (['Founders God', 'CEO Mindset India', 'The Founders Show', 'Life Wealth Lessons', 'Billionaires of Bharat', 'ceo hustle advice', 'indian hustle advice', 'rich indian ceo', 'startupcoded', 'founders cracked', 'indian business com', 'Entrepreneurial India', 'Finding Good AI', 'Finding Good Tech', 'startupsinthelast24hrs', 'indian ai future', 'techinthelast24hrs', 'indianaipage', 'indiantechdaily', '101xtechnology', 'therisingai', 'Revolution in ai', 'Founders.India', 'Technology In India', 'Daily Tech India', 'The Prime Ai Page', 'Dhandha India', 'The Ai Gauntlet', 'startupbydog', 'foundersoncrack'].includes(preset.name)) return 'white';
-                                    return highlight ? preset.color : 'white';
+                                    if (preset.name === 'Real India Business') return highlightGroup === 1 ? '#FF8323' : highlightGroup >= 2 ? '#0DC100' : '#ffffff';
+                                    if (preset.name === 'theprimefounder') return highlight ? '#1DB077' : '#ffffff';
+                                    if (preset.name === 'foundrsonig') return highlight ? '#ECECDC' : '#ffffff';
+                                    if (preset.name === 'indiasbestfounders' || preset.name === 'intelligence by ai') return highlight ? '#ECECDC' : '#ffffff';
+                                    if (preset.name === 'elitefoundrs') return highlight ? '#5887FF' : '#ffffff';
+                                    if (preset.name === 'indianfoundr') return highlight ? '#487AF9' : '#ffffff';
+                                    if (preset.name === 'the ai phaze') return highlight ? '#95C5D1' : '#ffffff';
+                                    if (preset.name === 'That AI page') return highlight ? '#6523FF' : '#ffffff';
+                                    if (preset.name === 'Revolution in tech') return highlight ? '#FDB05E' : '#ffffff';
+                                    if (preset.name === 'indiastartupstory') return highlight ? '#EF5350' : '#ffffff';
+                                    if (presetNameLower === 'risewithcontent') return highlight ? '#E53935' : '#ffffff';
+                                    if (preset.name === 'The Prime Ai Page') return highlight ? '#FFCD1D' : '#ffffff';
+                                    if (preset.name === 'Dhandha India') return highlight ? '#FB9C39' : '#ffffff';
+                                    if (preset.name === 'The Ai Gauntlet') return highlight ? '#FFCD1D' : '#ffffff';
+                                    if (presetNameLower === 'bestindianpodcast') return highlight ? '#fde601' : '#ffffff';
+                                    if (preset.name === '101xfounders-aroll') return highlight ? FOUNDERS_AROLL_HIGHLIGHT : '#ffffff';
+                                    if (preset.name === 'thechangingorder') return highlight ? TCO_AROLL_HIGHLIGHT : '#ffffff';
+                                    if (preset.name === 'bizzindia') return highlight ? BIZZINDIA_AROLL_HIGHLIGHT : '#ffffff';
+                                    if (preset.name === 'indianfoundercore') return highlight ? IFC2_AROLL_HIGHLIGHT : '#ffffff';
+                                    if (preset.name === 'indiabusinesscom') return highlightGroup === 1 ? IBC_AROLL_ORANGE : highlightGroup >= 2 ? IBC_AROLL_GREEN : '#ffffff';
+                                    if (preset.name === 'founders-in-india') return highlight ? '#7F53FF' : '#ffffff';
+                                    if (preset.name === 'Entrepreneursindia.co') return '#ffffff';
+                                    if (preset.name === 'peakofai' || isAicrackedOrEvolvingPreset) return '#ffffff';
+                                    if (['founderdaily', 'founderbusinesstips', 'kwazyfounders', 'startup madness'].includes(preset.name)) return '#000000';
+                                    if (['Smart Business.in', 'Founders wtf', 'mktg-wtf', 'Business wtf', 'Startups wtf'].includes(preset.name)) return '#ffffff';
+                                    if (['Founders God', 'CEO Mindset India', 'The Founders Show', 'Life Wealth Lessons', 'Billionaires of Bharat', 'ceo hustle advice', 'indian hustle advice', 'rich indian ceo', 'startupcoded', 'founders cracked', 'indian business com', 'Entrepreneurial India', 'Finding Good AI', 'Finding Good Tech', 'startupsinthelast24hrs', 'indian ai future', 'techinthelast24hrs', 'indianaipage', 'indiantechdaily', '101xtechnology', 'therisingai', 'Revolution in ai', 'Founders.India', 'Technology In India', 'Daily Tech India', 'The Prime Ai Page', 'Dhandha India', 'The Ai Gauntlet', 'startupbydog', 'foundersoncrack'].includes(preset.name)) return '#ffffff';
+                                    return highlight ? preset.color : '#ffffff';
                                 };
                                 const tokenWeight = (highlight) => {
+                                    if (preset.name === 'thechangingorder') return 700;
                                     if (preset.name === 'indian-founders-co') return highlight ? 800 : 400;
                                     if (preset.name === 'bizzindia' || preset.name === '101xfounders') return highlight ? 900 : 400;
                                     if (preset.name === 'theprimefounder' || preset.name === 'peakofai' || isAicrackedOrEvolvingPreset || preset.name === 'foundrsonig' || preset.name === 'indianfoundr' || preset.name === 'indiastartupstory' || preset.name === 'neworderai') return highlight ? 700 : 400;
@@ -1736,13 +1883,18 @@ const PreviewCard = memo(({
                                     : isPoppinsFont
                                         ? "'Poppins', sans-serif"
                                         : (preset.name === 'Smart Business.in' || preset.name === 'Founders wtf' || preset.name === 'mktg-wtf' || preset.name === 'Business wtf' || preset.name === 'Startups wtf') ? "'Inter', sans-serif" : 'inherit');
+                                // Mirror export exactly: the gap between words IS wordSpacing*fontSize
+                                // (not the font's native space glyph plus that) — so render words as their
+                                // own spans with an explicit margin instead of a literal ' ' text node,
+                                // which always rendered at the font's native width regardless of the slider.
+                                const wordGapPx = adjustedWordSpacing * previewFontSize;
                                 return mainHookLines.map((line, li) => (
                                     <div key={li} style={{ textAlign: isCenterAligned ? 'center' : 'left', width: '100%', letterSpacing: preset.name === 'indian-founders-co' ? '0px' : (isPoppinsFont ? '0px' : undefined) }}>
                                         {line.tokens.map((t, ti) => {
                                             const grp = groupForToken(t.bold);
                                             return (
-                                                <span key={ti} style={{ fontSynthesis: 'none', color: tokenColor(t.bold, grp), fontWeight: tokenWeight(t.bold), fontFamily: tokenFont }}>
-                                                    {t.text}{' '}
+                                                <span key={ti} style={{ fontSynthesis: 'none', color: tokenColor(t.bold, grp), fontWeight: tokenWeight(t.bold), fontFamily: tokenFont, marginRight: ti < line.tokens.length - 1 ? `${wordGapPx}px` : undefined }}>
+                                                    {t.text}
                                                 </span>
                                             );
                                         })}
@@ -2013,7 +2165,16 @@ const PreviewCard = memo(({
                                         {preset.rules.textLogo}
                                     </div>
                                 ) : getLogoUrl(preset.logo) && preset.rules?.logoPosition !== 'bottom-left' && !isInterNewsTicker(preset) ? (
-                                    <div className="absolute z-50" style={{ top: canvasPxToPercent(preset.rules?.logoPadY ?? 41), left: canvasPxToPercent(preset.rules?.logoPadX ?? 46) }}>
+                                    <div className="absolute z-50" style={(() => {
+                                        const isTcoLogo = isChangingOrderNews(preset);
+                                        const [rw, rh] = (preset.ratio || '9:16').split(':').map(Number);
+                                        const canvasH = Math.round(720 * (rh / rw));
+                                        const padY = isTcoLogo ? TCO_NEWS_PAD_Y : (preset.rules?.logoPadY ?? 41);
+                                        return {
+                                            top: isTcoLogo ? `${(padY / canvasH) * 100}%` : canvasPxToPercent(padY),
+                                            left: canvasPxToPercent(isTcoLogo ? TCO_NEWS_PAD_X : (preset.rules?.logoPadX ?? 46)),
+                                        };
+                                    })()}>
                                         <img
                                             src={getLogoUrl(preset.logo)}
                                             alt=""
@@ -2021,11 +2182,21 @@ const PreviewCard = memo(({
                                         />
                                     </div>
                                 ) : null)}
-                                {preset.name === 'indiabusinesscom-news' && (
-                                    <div className="absolute z-50" style={{ top: canvasPxToPercent(15), right: canvasPxToPercent(5) }}>
-                                        <img src={getLogoUrl('IndianBusinessCom NewsStatic Format (1).png')} style={{ width: canvasPxToPercent(32), height: 'auto', objectFit: 'contain' }} />
-                                    </div>
-                                )}
+                                {getNewsTickerSocialStrip(preset) && (() => {
+                                    const [rw, rh] = (preset.ratio || '9:16').split(':').map(Number);
+                                    const canvasH = Math.round(720 * (rh / rw));
+                                    return (
+                                        <div
+                                            className="absolute z-50"
+                                            style={{
+                                                top: `${(IBC_NEWS_STRIP_PAD_Y / canvasH) * 100}%`,
+                                                right: canvasPxToPercent(IBC_NEWS_STRIP_PAD_X),
+                                            }}
+                                        >
+                                            <img src={getLogoUrl(getNewsTickerSocialStrip(preset))} style={{ width: canvasPxToPercent(IBC_NEWS_STRIP_W), height: 'auto', objectFit: 'contain' }} />
+                                        </div>
+                                    );
+                                })()}
                                 {(() => {
                                     if (!newsFontReady) {
                                         // Font still loading — still allow HOOK drag so controls aren't dead
@@ -2053,7 +2224,8 @@ const PreviewCard = memo(({
                                     }
                                     const isIBC = preset.name === 'indiabusinesscom-news';
                                     const isISS = preset.name === 'indiastartupstory-news';
-                                    const isIFC = preset.name === 'ifc-news';
+                                    const isTco = isChangingOrderNews(preset);
+                                    const isIfcStyle = isInterBoldPillNews(preset);
                                     const isIFC2 = isIfc2News(preset);
                                     const isPlainText = isPlainTextNewsTicker(preset);
                                     const isFoundersNews = is101xFoundersNews(preset);
@@ -2063,7 +2235,7 @@ const PreviewCard = memo(({
                                     const skipPills = isPlainText || isInterNews || isBizzNews;
                                     const centerTicker = isCenteredNewsTicker(preset);
                                     // Bold (700) — Avant Garde / Helvetica World Bold files, not Black/ExtraBold
-                                    const ntFontWeight = isBizzNews ? 300 : isFoundersNews ? 400 : 700;
+                                    const ntFontWeight = isBizzNews ? 300 : isFoundersNews ? 500 : 700;
                                     const ntFontFamily = getNewsTickerFontFamily(preset);
                                     const [rw, rh] = (preset.ratio || '9:16').split(':').map(Number);
                                     const exportCanvasH = Math.round(720 * (rh / rw));
@@ -2084,22 +2256,33 @@ const PreviewCard = memo(({
                                             : (isFoundersNews ? INTER_BOLD_FAMILY : undefined),
                                         regularFontFamily: isBizzNews
                                             ? IVYPRESTO_HEADLINE_THIN_FAMILY
-                                            : (isFoundersNews ? INTER_REGULAR_FAMILY : undefined),
+                                            : (isFoundersNews ? INTER_MEDIUM_FAMILY : undefined),
                                         boldWeight: isBizzNews ? 700 : 700,
-                                        regularWeight: isBizzNews ? 300 : isFoundersNews ? 400 : 700,
+                                        regularWeight: isBizzNews ? 300 : isFoundersNews ? 500 : 700,
                                         maxLines: getNewsTickerMaxLines(preset),
                                         maxTotalBarsH: Math.round(exportCanvasH * ((isInterNews || isBizzNews) ? 0.36 : 0.28)) - lockupBlockH,
                                         fitRatios: getNewsTickerFitRatios(preset),
                                         tracking: getNewsTickerTracking(preset),
+                                        wordSpacingScale: getNewsTickerWordSpacingScale(preset),
                                     });
                                     const ntFontSize = Math.max(8, fittedExportFs * previewScale);
                                     // Mirror generateNewsTickerOverlay geometry (percent of frame height)
                                     const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fittedExportFs);
                                     const totalBarsH = getNewsTickerStackHeight(preset, fittedExportFs, lines.length);
                                     const supportFs = supportText ? getNewsSupportingFontSize(preset, fittedExportFs) : 0;
-                                    const supportGap = supportText ? Math.round(fittedExportFs * 0.38) : 0;
+                                    const supportGap = supportText ? getNewsSupportingGap(preset, fittedExportFs) : 0;
                                     const supportLineH = supportText ? getNewsSupportingLineHeight(preset, supportFs) : 0;
                                     const ntTrackingEm = getNewsTickerLetterSpacingEm(preset);
+                                    // CSS word-spacing is additive (px added atop the natural space), not a
+                                    // multiplier, so the Word Spacing slider's scale has to be converted here.
+                                    const ntWordSpacingScale = getNewsTickerWordSpacingScale(preset);
+                                    const ntWordSpacingPx = (() => {
+                                        if (ntWordSpacingScale === 1) return 0;
+                                        const mctx = getMeasureCtx();
+                                        if (!mctx) return 0;
+                                        mctx.font = `${ntFontWeight} ${ntFontSize}px ${ntFontFamily}`;
+                                        return mctx.measureText(' ').width * (ntWordSpacingScale - 1);
+                                    })();
                                     const supportMeasureCtx = getMeasureCtx();
                                     const supportLines = (supportText && supportMeasureCtx)
                                         ? wrapPlainWords(supportText, (w) => {
@@ -2172,6 +2355,40 @@ const PreviewCard = memo(({
                                                     background: '#000000',
                                                 }}
                                             />
+                                            {/* BREAKING badge — sits just above the hook stack, TCO only */}
+                                            {isTco && (() => {
+                                                // Canva reference: BREAKING's glyph height runs ~3.7x the body line height
+                                                // (measured directly off the exported PNG) — banner-scale, not a small eyebrow tag.
+                                                const badgeFsUnscaled = Math.round(fittedExportFs * TCO_BADGE_SCALE);
+                                                const badgeFs = Math.max(8, Math.round(badgeFsUnscaled * previewScale));
+                                                const badgeGap = Math.round(badgeFsUnscaled * 0.35);
+                                                const badgeTopPx = barYPx - badgeGap - badgeFsUnscaled;
+                                                return (
+                                                    <div
+                                                        className="absolute left-0 right-0 z-20 flex pointer-events-none"
+                                                        style={{
+                                                            top: `${(badgeTopPx / exportCanvasH) * 100}%`,
+                                                            paddingLeft: canvasPxToPercent(16),
+                                                            paddingRight: canvasPxToPercent(16),
+                                                            boxSizing: 'border-box',
+                                                            justifyContent: centerTicker ? 'center' : 'flex-start',
+                                                        }}
+                                                    >
+                                                        <span style={{
+                                                            fontFamily: BEBAS_NEUE_CYRILLIC_FAMILY,
+                                                            fontWeight: 400,
+                                                            fontStyle: 'normal',
+                                                            fontSynthesis: 'none',
+                                                            fontSize: `${badgeFs}px`,
+                                                            lineHeight: 1,
+                                                            letterSpacing: '0.02em',
+                                                            color: '#ffffff',
+                                                        }}>
+                                                            BREAKING
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })()}
                                             {/* Ticker text — sits above the reserved handle-lockup box */}
                                             <div
                                                 className="absolute left-0 right-0 z-20 flex flex-col pointer-events-none"
@@ -2202,44 +2419,44 @@ const PreviewCard = memo(({
                                                             fontSize: `${ntFontSize}px`,
                                                             lineHeight: highlightH / fittedExportFs,
                                                             letterSpacing: ntTrackingEm == null ? undefined : `${ntTrackingEm}em`,
+                                                            wordSpacing: ntWordSpacingPx ? `${ntWordSpacingPx}px` : undefined,
                                                             whiteSpace: 'nowrap',
                                                             maxWidth: '100%',
                                                             boxSizing: 'border-box',
                                                         }}>
                                                             {runs.map((run, j) => (
                                                                 <span key={j} style={{
-                                                                    background: (run.bold && !skipPills) ? (isIBC ? `linear-gradient(90deg, ${IBC_AROLL_ORANGE} 0%, #F2EFE1 50%, ${IBC_AROLL_GREEN} 100%)` : preset.color) : 'transparent',
+                                                                    background: (run.bold && !skipPills) ? (isIBC ? `linear-gradient(90deg, ${IBC_AROLL_ORANGE} 0%, #F2EFE1 50%, ${IBC_AROLL_GREEN} 100%)` : (isTco ? TCO_NEWS_HIGHLIGHT : preset.color)) : 'transparent',
+                                                                    fontFamily: isBizzNews
+                                                                        ? (run.bold ? IVYPRESTO_HEADLINE_SEMIBOLD_FAMILY : IVYPRESTO_HEADLINE_THIN_FAMILY)
+                                                                        : isFoundersNews
+                                                                            ? (run.bold ? INTER_BOLD_FAMILY : INTER_MEDIUM_FAMILY)
+                                                                        : isIFC2
+                                                                            ? HELVETICA_WORLD_BOLD_FAMILY
+                                                                            : isIfcStyle
+                                                                              ? INTER_BOLD_FAMILY
+                                                                              : isPlainText
+                                                                                ? HELVETICA_WORLD_BOLD_FAMILY
+                                                                              : undefined,
+                                                                    fontStyle: 'normal',
+                                                                    fontWeight: isBizzNews
+                                                                        ? (run.bold ? 600 : 300)
+                                                                        : (isIFC2 || isIfcStyle || isPlainText) ? 700
+                                                                        : isIhn ? 700 : isFoundersNews ? (run.bold ? 700 : 500) : ntFontWeight,
+                                                                    fontSynthesis: 'none',
                                                                     color: isBizzNews
                                                                         ? (run.bold ? BIZZINDIA_NEWS_HIGHLIGHT : '#ffffff')
                                                                         : isIhn
-                                                                        ? (run.bold ? IHN_NEWS_HIGHLIGHT : IHN_NEWS_REGULAR)
+                                                                        ? (run.bold ? IHN_NEWS_HIGHLIGHT : '#ffffff')
                                                                         : isFoundersNews
-                                                                        ? (run.bold ? FOUNDERS_NEWS_HIGHLIGHT : FOUNDERS_AROLL_REGULAR)
+                                                                        ? (run.bold ? FOUNDERS_NEWS_HIGHLIGHT : '#ffffff')
                                                                         : isIFC2
                                                                             ? (run.bold ? IFC2_NEWS_HIGHLIGHT : '#ffffff')
                                                                         : isPlainText
                                                                             ? (run.bold ? preset.color : '#ffffff')
-                                                                            : (isIBC || isIFC) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff',
-                                                                    fontFamily: isBizzNews
-                                                                        ? (run.bold ? IVYPRESTO_HEADLINE_SEMIBOLD_FAMILY : IVYPRESTO_HEADLINE_THIN_FAMILY)
-                                                                        : isFoundersNews
-                                                                            ? (run.bold ? INTER_BOLD_FAMILY : INTER_REGULAR_FAMILY)
-                                                                        : isIFC2
-                                                                            ? HELVETICA_WORLD_BOLD_FAMILY
-                                                                            : isIFC
-                                                                              ? "'Inter', sans-serif"
-                                                                              : undefined,
-                                                                    fontStyle: 'normal',
-                                                                    fontWeight: isBizzNews
-                                                                        ? (run.bold ? 700 : 300)
-                                                                        : (isIFC2 || isIFC) ? 700
-                                                                        : isIhn ? 700 : isFoundersNews ? (run.bold ? 700 : 400) : ntFontWeight,
-                                                                    fontSynthesis: 'none',
+                                                                            : (isIBC || isIfcStyle) ? (run.bold ? '#000000' : '#ffffff') : '#ffffff',
                                                                     WebkitFontSmoothing: isFoundersNews ? 'antialiased' : undefined,
                                                                     MozOsxFontSmoothing: isFoundersNews ? 'grayscale' : undefined,
-                                                                    WebkitTextStroke: (isFoundersNews && run.bold)
-                                                                        ? `${Math.max(0.35, 2 * previewScale)}px ${FOUNDERS_NEWS_HIGHLIGHT}`
-                                                                        : undefined,
                                                                     padding: (run.bold && !skipPills) ? '0 4px' : '0 2px',
                                                                     borderRadius: (isISS && run.bold) ? '6px' : undefined,
                                                                     flexShrink: 1,
@@ -2278,12 +2495,13 @@ const PreviewCard = memo(({
                                                         top: `${((barYPx + totalBarsH + supportGap) / exportCanvasH) * 100}%`,
                                                         paddingLeft: canvasPxToPercent(40),
                                                         paddingRight: canvasPxToPercent(40),
-                                                        fontFamily: ntFontFamily,
-                                                        fontWeight: isIhn ? 700 : 400,
+                                                        fontFamily: isFoundersNews ? INTER_MEDIUM_FAMILY : ntFontFamily,
+                                                        fontWeight: isIhn ? 700 : isFoundersNews ? 500 : 400,
+                                                        fontSynthesis: 'none',
                                                         fontSize: `${Math.max(8, supportFs * previewScale)}px`,
                                                         lineHeight: `${supportLineH * previewScale}px`,
                                                         letterSpacing: isFoundersNews ? 0 : undefined,
-                                                        color: getNewsSupportingColor(preset),
+                                                        color: '#ffffff',
                                                         textAlign: 'left',
                                                     }}
                                                 >
@@ -2453,7 +2671,7 @@ const PreviewCard = memo(({
                                             : isIfcAroll(preset)
                                                 ? "'Inter', sans-serif"
                                                 : undefined,
-                                        color: isHandleWatermarkAroll(preset) ? '#f5f3f5' : 'rgba(255, 255, 255, 0.5)',
+                                        color: isHandleWatermarkAroll(preset) ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
                                         opacity: isHandleWatermarkAroll(preset) ? 0.4 : undefined,
                                         textShadow: isHandleWatermarkAroll(preset) ? 'none' : '0px 1px 2px rgba(0,0,0,0.8)'
                                     }}
@@ -3142,6 +3360,7 @@ export default function App() {
             document.fonts.load("700 42px 'Inter'"),
             document.fonts.load("900 42px 'Inter Black'"),
             document.fonts.load("700 42px 'Inter Bold'"),
+            document.fonts.load("400 32px 'Bebas Neue Cyrillic'"),
             document.fonts.load("300 46px 'IvyPresto Headline Thin'"),
             document.fonts.load("700 46px 'IvyPresto Headline SemiBold'"),
         ])

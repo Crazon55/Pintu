@@ -183,16 +183,15 @@ export function getHookBaseFontSize(preset) {
 
 /** Poppins handle A-roll (101xf / ISS / FII): Bold highlight + Regular body, handle watermark. */
 export const FOUNDERS_AROLL_HIGHLIGHT = '#ff7c15';
-export const FOUNDERS_AROLL_REGULAR = '#f5f3f5';
+export const FOUNDERS_AROLL_REGULAR = '#ffffff';
 export const ISS_AROLL_HIGHLIGHT = '#ef5350';
 export const FII_AROLL_HIGHLIGHT = '#439eff';
 export const IFC_AROLL_HIGHLIGHT = '#32c26c';
-/** 101xfounders news ticker highlight.
- *  Brand target is #ff7c15. yuv420p on orange-on-black text reads ~#ff8610 / #ff7b00,
- *  so we paint a redder orange that lands on #ff7c15 in exported frames. */
-export const FOUNDERS_NEWS_HIGHLIGHT = '#ff6418';
+/** 101xfounders news ticker highlight — #ff8610 (A-roll stays FOUNDERS_AROLL_HIGHLIGHT). */
+export const FOUNDERS_NEWS_HIGHLIGHT = '#ff8610';
 /** Unique families — Windows will not pick Inter Bold from `'Inter'` + font-weight:700. */
-export const INTER_REGULAR_FAMILY = "'Inter', sans-serif";
+export const INTER_REGULAR_FAMILY = "'Inter Regular', sans-serif";
+export const INTER_MEDIUM_FAMILY = "'Inter Medium', sans-serif";
 export const INTER_BOLD_FAMILY = "'Inter Bold', sans-serif";
 
 export function is101xFoundersAroll(preset) {
@@ -213,6 +212,19 @@ export function isIfcAroll(preset) {
 
 export function isIbcAroll(preset) {
   return (preset?.name || '').toLowerCase() === 'indiabusinesscom';
+}
+
+/** Thechangingorder A-roll: Inter Bold highlight + body, 1:1 video hole. */
+export function isChangingOrderAroll(preset) {
+  return (preset?.name || '').toLowerCase() === 'thechangingorder';
+}
+
+export const TCO_AROLL_HIGHLIGHT = '#c7ff3e';
+export const TCO_AROLL_REGULAR = '#ffffff';
+
+/** IBC + TCO A-roll: Inter Bold for both highlight and body. */
+export function isInterBoldAroll(preset) {
+  return isIbcAroll(preset) || isChangingOrderAroll(preset);
 }
 
 export const IBC_AROLL_ORANGE = '#ff7838';
@@ -281,7 +293,7 @@ export function isBizzindiaNews(preset) {
   return (preset?.name || '').toLowerCase() === 'bizzindia-news';
 }
 
-export const BIZZINDIA_NEWS_HIGHLIGHT = '#f52a46'; // brand red — export strokes bold glyphs so yuv420p stays this bright
+export const BIZZINDIA_NEWS_HIGHLIGHT = '#f52a46';
 export const BIZZINDIA_NEWS_REGULAR = '#ffffff';
 /** Unique families — Windows cannot be trusted to pick Thin vs SemiBold by numeric weight. */
 export const IVYPRESTO_HEADLINE_THIN_FAMILY = "'IvyPresto Headline Thin', serif";
@@ -343,6 +355,12 @@ export function getNewsSupportingColor(preset) {
   return isIhnNews(preset) ? IHN_NEWS_SUBTEXT : FOUNDERS_AROLL_REGULAR;
 }
 
+/** Vertical gap between Inter-news hook and supporting paragraph. */
+export function getNewsSupportingGap(preset, hookFs) {
+  if (!isInterNewsTicker(preset)) return 0;
+  return Math.round(hookFs * 0.78);
+}
+
 /** Top-right year / place lockup. hookEyebrow overrides rules when typed. */
 export function get101xFoundersNewsKicker(preset) {
   const eyebrow = String(preset?.hookEyebrow || '').trim();
@@ -362,6 +380,19 @@ export function get101xFoundersNewsKicker(preset) {
  */
 export const NEWS_SAFE_PAD_X = 56;
 export const NEWS_SAFE_PAD_Y = 120;
+/** IBC / ISS news vertical social strip — keep clear of Instagram's right-rail UI. */
+export const IBC_NEWS_STRIP_W = 32;
+export const IBC_NEWS_STRIP_PAD_X = 32;
+export const IBC_NEWS_STRIP_PAD_Y = 48;
+export const IBC_NEWS_STRIP_FILE = 'IndianBusinessCom NewsStatic Format (1).png';
+export const ISS_NEWS_STRIP_FILE = 'IBC and ISS News.png';
+
+export function getNewsTickerSocialStrip(preset) {
+  const name = (preset?.name || '').toLowerCase();
+  if (name === 'indiabusinesscom-news') return IBC_NEWS_STRIP_FILE;
+  if (name === 'indiastartupstory-news') return ISS_NEWS_STRIP_FILE;
+  return null;
+}
 export const FOUNDERS_NEWS_PAD_X = NEWS_SAFE_PAD_X;
 export const FOUNDERS_NEWS_PAD_Y = NEWS_SAFE_PAD_Y;
 export const BIZZINDIA_NEWS_PAD_X = NEWS_SAFE_PAD_X;
@@ -382,9 +413,9 @@ export const FOUNDERS_NEWS_LOGO_H = 42;
 export const FOUNDERS_NEWS_KICKER_H = 58;
 
 export const IHN_NEWS_LOGO_FILE = 'indianhappeningnow-news-logo.png';
-export const IHN_NEWS_KICKER_FILE = FOUNDERS_NEWS_KICKER_FILE;
-export const IHN_NEWS_LOGO_H = 72;
-export const IHN_NEWS_KICKER_H = FOUNDERS_NEWS_KICKER_H;
+export const IHN_NEWS_KICKER_FILE = 'FS News Formats.png'; // same 2026/India lockup as Bizz
+export const IHN_NEWS_LOGO_H = 104;
+export const IHN_NEWS_KICKER_H = BIZZINDIA_NEWS_KICKER_H;
 
 // Opaque-row fractions in the cropped header PNGs — align 2026's cap-top
 // with 101xf. / INDIA (not the star, not the "India" subtitle).
@@ -403,18 +434,21 @@ export function getPngNewsHeaderAssets(preset) {
     ihn ? IHN_NEWS_LOGO_H : (bizz ? BIZZINDIA_NEWS_LOGO_H : FOUNDERS_NEWS_LOGO_H)
   ));
   if (bizz) logoH = Math.max(logoH, BIZZINDIA_NEWS_LOGO_H);
-  const kickerH = bizz
+  if (ihn) logoH = Math.max(logoH, IHN_NEWS_LOGO_H);
+  const kickerH = (bizz || ihn)
     ? BIZZINDIA_NEWS_KICKER_H
     : Math.round(Number(preset.rules?.kickerSize) || FOUNDERS_NEWS_KICKER_H);
   const { padX, padY } = get101xFoundersNewsHeaderPad();
   const logoY = padY;
   const capTop = ihn ? IHN_INDIA_CAP_TOP : (bizz ? BIZZ_LOGO_CAP_TOP : FOUNDERS_LOGO_CAP_TOP);
   const typeTop = logoY + logoH * capTop;
-  const kickerCap = bizz ? BIZZ_KICKER_YEAR_CAP_TOP : KICKER_YEAR_CAP_TOP;
+  const kickerCap = (bizz || ihn) ? BIZZ_KICKER_YEAR_CAP_TOP : KICKER_YEAR_CAP_TOP;
   const kickerY = Math.round(typeTop - kickerH * kickerCap);
   return {
     logoFile: preset.logo || (ihn ? IHN_NEWS_LOGO_FILE : (bizz ? BIZZINDIA_NEWS_LOGO_FILE : FOUNDERS_NEWS_LOGO_FILE)),
-    kickerFile: bizz ? BIZZINDIA_NEWS_KICKER_FILE : (preset.rules?.kickerLogo || FOUNDERS_NEWS_KICKER_FILE),
+    kickerFile: ihn
+      ? IHN_NEWS_KICKER_FILE
+      : (bizz ? BIZZINDIA_NEWS_KICKER_FILE : (preset.rules?.kickerLogo || FOUNDERS_NEWS_KICKER_FILE)),
     logoH,
     kickerH,
     padX,
@@ -540,6 +574,7 @@ export function isCenteredNewsTicker(preset) {
   const name = (preset?.name || '').toLowerCase();
   return name === 'indiabusinesscom-news'
     || name === 'ifc-news'
+    || name === 'thechangingorder-news'
     || name === 'indiastartupstory-news'
     || name === 'bizzindia-news'
     || isPlainTextNewsTicker(preset);
@@ -582,6 +617,10 @@ export const FOUNDERS_NEWS_LINE_GAP = 0.12;
  */
 export const PLAIN_TEXT_NEWS_TICKER_NAMES = ['indiafounderscore-news', 'foundersinindia-news'];
 
+export function isFiiNews(preset) {
+  return (preset?.name || '').toLowerCase() === 'foundersinindia-news';
+}
+
 export function isPlainTextNewsTicker(preset) {
   return PLAIN_TEXT_NEWS_TICKER_NAMES.includes((preset?.name || '').toLowerCase());
 }
@@ -591,13 +630,36 @@ export function isIfcNews(preset) {
   return (preset?.name || '').toLowerCase() === 'ifc-news';
 }
 
+/** thechangingorder-news: Inter Bold hook + lime pills, same 9:16 treatment as IFC. */
+export function isChangingOrderNews(preset) {
+  return (preset?.name || '').toLowerCase() === 'thechangingorder-news';
+}
+
+export function isInterBoldPillNews(preset) {
+  return isIfcNews(preset) || isChangingOrderNews(preset);
+}
+
+export const TCO_NEWS_HIGHLIGHT = '#c7ff3e';
+export const TCO_NEWS_LOGO_FILE = 'to India.png';
+export const TCO_NEWS_LOGO_H = 150;
+export const TCO_NEWS_PAD_X = NEWS_SAFE_PAD_X;
+export const TCO_NEWS_PAD_Y = NEWS_SAFE_PAD_Y;
+/** Condensed display face for the "BREAKING" badge above the TCO news hook. */
+export const BEBAS_NEUE_CYRILLIC_FAMILY = "'Bebas Neue Cyrillic', sans-serif";
+/**
+ * "BREAKING" font size as a multiple of the hook font size. Canva reference: BREAKING's
+ * glyph height runs ~3.7x the body line height (measured off the exported PNG, comparing
+ * white-glyph pixel bands) — it's a banner, not a small eyebrow tag above the hook.
+ */
+export const TCO_BADGE_SCALE = 3.0;
+
 /** indiafounderscore-news (ifc2): Helvetica World Bold, yellow highlight, no pills. */
 export function isIfc2News(preset) {
   return (preset?.name || '').toLowerCase() === 'indiafounderscore-news';
 }
 
-export const IFC2_NEWS_HIGHLIGHT = '#ffd412';
-export const HELVETICA_WORLD_BOLD_FAMILY = "'Helvetica World', 'ITC Avant Garde Gothic', Inter, sans-serif";
+export const IFC2_NEWS_HIGHLIGHT = '#e0e140';
+export const HELVETICA_WORLD_BOLD_FAMILY = "'Helvetica World', 'ITC Avant Garde Gothic', 'Inter Bold', sans-serif";
 
 /**
  * A-roll pages whose hooks are always ALL CAPS.
@@ -657,7 +719,7 @@ export function isBlackBarAnchoredNewsTicker(preset) {
 /** Full-bleed 9:16 tickers: taller fade and more solid pad, since there is no letterboxing. */
 export function isFullBleedNewsTicker(preset) {
   const name = (preset?.name || '').toLowerCase();
-  return name === 'ifc-news' || isPlainTextNewsTicker(preset) || isInterNewsTicker(preset) || isBizzindiaNews(preset);
+  return name === 'ifc-news' || name === 'thechangingorder-news' || isPlainTextNewsTicker(preset) || isInterNewsTicker(preset) || isBizzindiaNews(preset);
 }
 
 /**
@@ -673,22 +735,53 @@ export const NEWS_TICKER_CANVA_TYPE = {
     subSize: 23, subTracking: 0, subLineHeight: 1.5,
   },
   'ifc-news': { fontSize: 35.9, tracking: 12, lineHeight: 1.4 },
+  'thechangingorder-news': { fontSize: 35.9, tracking: 12, lineHeight: 1.4 },
   'bizzindia-news': { fontSize: 50.2, tracking: 0, lineHeight: 1.11 },
 };
 
+/**
+ * Base Canva type values for this preset, with the operator's per-preset Line
+ * Spacing slider (lineSpacingScale, default 1 = 100%, i.e. the Canva-matched
+ * baseline) applied on top. fontSize is left untouched — that's the separate
+ * Text Size slider's job. Letter spacing is handled separately by
+ * getNewsTickerTracking — a multiplier can't move a 0 baseline (Bizzindia's
+ * Canva tracking is 0), so that one is an additive offset instead.
+ */
 export function getNewsTickerCanvaType(preset) {
-  return NEWS_TICKER_CANVA_TYPE[(preset?.name || '').toLowerCase()] || null;
+  const base = NEWS_TICKER_CANVA_TYPE[(preset?.name || '').toLowerCase()] || null;
+  if (!base) return null;
+  const lineScale = Number.isFinite(Number(preset?.lineSpacingScale)) ? Number(preset.lineSpacingScale) : 1;
+  if (lineScale === 1) return base;
+  return { ...base, lineHeight: base.lineHeight * lineScale };
 }
 
+/**
+ * Letter spacing (thousandths of an em), Canva baseline plus the operator's
+ * per-preset Letter Spacing slider (letterSpacingOffset, additive, default 0).
+ * Additive rather than a multiplier so it still works on presets whose Canva
+ * baseline is 0 (Bizzindia) — a multiplier can never move off zero.
+ */
 export function getNewsTickerTracking(preset) {
-  return getNewsTickerCanvaType(preset)?.tracking ?? 0;
+  const base = getNewsTickerCanvaType(preset)?.tracking ?? 0;
+  const offset = Number.isFinite(Number(preset?.letterSpacingOffset)) ? Number(preset.letterSpacingOffset) : 0;
+  return base + offset;
+}
+
+/**
+ * Word Spacing slider for news tickers (newsWordSpacingScale, default 1 =
+ * 100% = the font's natural space width). Separate field from the aroll/
+ * hook_video `wordSpacing` (a fraction of font size, not of space width) —
+ * reusing that field would make every news ticker snap absurdly tight the
+ * moment this got wired in, since its default there is 0.25.
+ */
+export function getNewsTickerWordSpacingScale(preset) {
+  return Number.isFinite(Number(preset?.newsWordSpacingScale)) ? Number(preset.newsWordSpacingScale) : 1;
 }
 
 /** CSS `letter-spacing` in em, or null when the format has no Canva tracking. */
 export function getNewsTickerLetterSpacingEm(preset) {
-  const canva = getNewsTickerCanvaType(preset);
-  if (!canva) return null;
-  return canva.tracking / 1000;
+  if (!getNewsTickerCanvaType(preset)) return null;
+  return getNewsTickerTracking(preset) / 1000;
 }
 
 /**
@@ -716,7 +809,10 @@ export function getNewsTickerLineMetrics(preset, fontSize) {
   if (canva) {
     if (plain) {
       const highlightH = Math.round(fontSize * canva.lineHeight);
-      return { plain, highlightH, lineGap: 0, lineAdvance: highlightH };
+      const lineGap = (is101xFoundersNews(preset) || isFiiNews(preset))
+        ? Math.round(fontSize * 0.14)
+        : 0;
+      return { plain, highlightH, lineGap, lineAdvance: highlightH + lineGap };
     }
     const highlightH = Math.round(fontSize * NEWS_TICKER_HIGHLIGHT_HEIGHT);
     const lineGap = Math.max(0, Math.round(fontSize * canva.lineHeight) - highlightH);
@@ -739,7 +835,8 @@ export function getNewsTickerFitRatios(preset) {
   const canva = getNewsTickerCanvaType(preset);
   if (canva) {
     if (plain) {
-      return { highlightHeightRatio: canva.lineHeight, lineGapRatio: 0 };
+      const extraGap = (is101xFoundersNews(preset) || isFiiNews(preset)) ? 0.14 : 0;
+      return { highlightHeightRatio: canva.lineHeight, lineGapRatio: extraGap };
     }
     return {
       highlightHeightRatio: NEWS_TICKER_HIGHLIGHT_HEIGHT,
@@ -755,7 +852,7 @@ export function getNewsTickerFitRatios(preset) {
 }
 
 export function getNewsTickerMaxLines(preset) {
-  return (isInterNewsTicker(preset) || isBizzindiaNews(preset)) ? 5 : 3;
+  return (isInterNewsTicker(preset) || isBizzindiaNews(preset) || isChangingOrderNews(preset)) ? 5 : 3;
 }
 
 export function getNewsTickerBaseFontSize(preset) {
@@ -776,7 +873,7 @@ export function getNewsTickerStackHeight(preset, fontSize, lineCount) {
 export function getNewsTickerBottomMarginRatio(preset) {
   const pct = Number(preset?.rules?.bottomMarginPct);
   if (Number.isFinite(pct)) return Math.max(0, Math.min(60, pct)) / 100;
-  if ((preset?.name || '').toLowerCase() === 'ifc-news') return 0.055;
+  if ((preset?.name || '').toLowerCase() === 'ifc-news' || isChangingOrderNews(preset)) return 0.055;
   if (isInterNewsTicker(preset)) return 0.08;
   return 0.10;
 }
@@ -857,7 +954,7 @@ export function getNewsTickerHookBarY(preset, {
     const riseAboveBar = isBizzindiaNews(preset)
       ? -Math.round(fontSize * 0.38)
       : (is101xFoundersNews(preset)
-        ? twoLineH + Math.round(fontSize * 0.55)
+        ? twoLineH + Math.round(fontSize * 0.35)
         : twoLineH - kissIntoSolid);
     let barY = blackTop - riseAboveBar;
     // Keep a tiny floor so lockup / last line never clips the frame bottom.
@@ -900,8 +997,19 @@ export function getNewsTickerFontFamily(preset) {
   if (isBizzindiaNews(preset)) {
     return IVYPRESTO_HEADLINE_THIN_FAMILY;
   }
-  if (isInterNewsTicker(preset) || isIfcNews(preset)) {
-    return "'Inter', sans-serif";
+  if (isIfcNews(preset) || isChangingOrderNews(preset)) {
+    return INTER_BOLD_FAMILY;
+  }
+  if (isIhnNews(preset)) {
+    return INTER_BOLD_FAMILY;
+  }
+  if (is101xFoundersNews(preset)) {
+    // Inter-Regular.ttf is the 18pt optical cut — at headline size it reads as Thin.
+    // Inter Medium is the Regular weight at this size.
+    return INTER_MEDIUM_FAMILY;
+  }
+  if (isInterNewsTicker(preset)) {
+    return INTER_REGULAR_FAMILY;
   }
   if (isPlainTextNewsTicker(preset)) {
     return HELVETICA_WORLD_BOLD_FAMILY;
@@ -1115,4 +1223,41 @@ export function getHookVideoGap(preset) {
 export function getEffectiveLineSpacing(preset) {
   const v = Number(preset?.lineSpacing);
   return Number.isFinite(v) && v > 0 ? v : 1.25;
+}
+
+/**
+ * A-roll hook letter spacing (thousandths of an em), Canva-measured per brand.
+ * Line spacing for these same 7 presets is the existing `preset.lineSpacing`
+ * field (already wired end to end) — just set to each preset's Canva value.
+ */
+export const AROLL_CANVA_TRACKING = {
+  '101xfounders-aroll': -51,
+  'indiastartupstory': -51,
+  'founders-in-india': -51,
+  'indian-founders-co': 0,
+  'bizzindia': -51,
+  'indianfoundercore': -51,
+  'indiabusinesscom': -51,
+  'thechangingorder': -51,
+};
+
+export function hasArollCanvaTracking(preset) {
+  return Object.prototype.hasOwnProperty.call(AROLL_CANVA_TRACKING, (preset?.name || '').toLowerCase());
+}
+
+/**
+ * Canva baseline tracking plus the operator's per-preset Letter Spacing slider
+ * (letterSpacingOffset, additive, default 0 — same field the news formats use,
+ * safe to share since a preset is never both news_ticker and hook_video).
+ */
+export function getArollTracking(preset) {
+  const base = AROLL_CANVA_TRACKING[(preset?.name || '').toLowerCase()] ?? 0;
+  const offset = Number.isFinite(Number(preset?.letterSpacingOffset)) ? Number(preset.letterSpacingOffset) : 0;
+  return base + offset;
+}
+
+/** CSS `letter-spacing` in em, or null when this preset has no Canva A-roll tracking. */
+export function getArollLetterSpacingEm(preset) {
+  if (!hasArollCanvaTracking(preset)) return null;
+  return getArollTracking(preset) / 1000;
 }
