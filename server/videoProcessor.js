@@ -58,6 +58,8 @@ import {
   IHN_NEWS_REGULAR,
   BIZZINDIA_NEWS_HIGHLIGHT,
   BIZZINDIA_NEWS_REGULAR,
+  IBC_AROLL_ORANGE,
+  IBC_AROLL_GREEN,
   IFC2_NEWS_HIGHLIGHT,
   IFC_NEWS_PAD_X,
   IFC_NEWS_PAD_Y,
@@ -822,7 +824,7 @@ async function generateHookVideoOverlay(preset, headline, fontScale, wordSpacing
         fillColor = getIbcArollTokenColor(grp);
       } else if (isInterBlackHighlightAroll(preset)) {
         const blackHighlightColors = getInterBlackArollColors(preset);
-        fillColor = t.bold ? (hookColor || blackHighlightColors.highlight) : blackHighlightColors.regular;
+        fillColor = t.bold ? blackHighlightColors.highlight : blackHighlightColors.regular;
       } else if (isHandleWatermarkAroll(preset)) {
         fillColor = t.bold ? (hookColor || getPoppinsArollHighlight(preset)) : FOUNDERS_AROLL_REGULAR;
       } else {
@@ -1314,9 +1316,9 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
           const runW = runEndX - runStartX;
           if (isIBCNews) {
             const grad = ctx.createLinearGradient(runStartX, 0, runEndX, 0);
-            grad.addColorStop(0, '#FF8932');
+            grad.addColorStop(0, IBC_AROLL_ORANGE);
             grad.addColorStop(0.5, '#F2EFE1');
-            grad.addColorStop(1, '#3AB26B');
+            grad.addColorStop(1, IBC_AROLL_GREEN);
             ctx.fillStyle = grad;
             fillBar(runStartX, runW);
           } else {
@@ -1332,9 +1334,9 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
         const runW = runEndX - runStartX;
         if (isIBCNews) {
           const grad = ctx.createLinearGradient(runStartX, 0, runEndX, 0);
-          grad.addColorStop(0, '#FF8932');
+          grad.addColorStop(0, IBC_AROLL_ORANGE);
           grad.addColorStop(0.5, '#F2EFE1');
-          grad.addColorStop(1, '#3AB26B');
+          grad.addColorStop(1, IBC_AROLL_GREEN);
           ctx.fillStyle = grad;
           fillBar(runStartX, runW);
         } else {
@@ -1378,8 +1380,8 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
           if (tokenFace) {
             drawOpentypeTextWithFallback(
               ctx, tokenFace, otGlyphFallback, plain, px, baselineY, fontSize, color,
-              (isFoundersNews && t.bold) ? 2 : 0,
-              (isFoundersNews && t.bold) ? color : null,
+              ((isFoundersNews || isBizzNews) && t.bold) ? 2 : 0,
+              ((isFoundersNews || isBizzNews) && t.bold) ? color : null,
               newsTickerTracking,
             );
             return measurePlainWordAtSize(plain, fontSize, t.bold);
@@ -1398,9 +1400,10 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   if (isBizzNews) {
     const rule = getBizzindiaNewsRuleMetrics(fontSize, longestLineW || 280);
-    const ruleY = barY + totalBarsH + rule.gap;
+    const ruleY = Math.round((barY + totalBarsH + rule.gap) / 2) * 2;
+    const ruleX = Math.round((720 - rule.width) / 4) * 2;
     ctx.fillStyle = BIZZINDIA_NEWS_HIGHLIGHT;
-    ctx.fillRect(Math.round((720 - rule.width) / 2), ruleY, rule.width, rule.height);
+    ctx.fillRect(ruleX, ruleY, rule.width, rule.height);
   }
 
   // Inter-news: supporting paragraph under the hook.

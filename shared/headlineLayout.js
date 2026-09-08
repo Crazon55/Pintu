@@ -235,7 +235,7 @@ export function isIfc2Aroll(preset) {
   return (preset?.name || '').toLowerCase() === 'indianfoundercore';
 }
 
-export const BIZZINDIA_AROLL_HIGHLIGHT = '#f52a46';
+export const BIZZINDIA_AROLL_HIGHLIGHT = '#f52a46'; // Bizz India A-roll bold hook — never preset.color / #E31D38
 export const BIZZINDIA_AROLL_REGULAR = '#ffffff';
 export const IFC2_AROLL_HIGHLIGHT = '#ffd412';
 export const IFC2_AROLL_REGULAR = '#ffffff';
@@ -281,7 +281,7 @@ export function isBizzindiaNews(preset) {
   return (preset?.name || '').toLowerCase() === 'bizzindia-news';
 }
 
-export const BIZZINDIA_NEWS_HIGHLIGHT = '#f52a46';
+export const BIZZINDIA_NEWS_HIGHLIGHT = '#f52a46'; // brand red — export strokes bold glyphs so yuv420p stays this bright
 export const BIZZINDIA_NEWS_REGULAR = '#ffffff';
 /** Unique families — Windows cannot be trusted to pick Thin vs SemiBold by numeric weight. */
 export const IVYPRESTO_HEADLINE_THIN_FAMILY = "'IvyPresto Headline Thin', serif";
@@ -596,7 +596,7 @@ export function isIfc2News(preset) {
   return (preset?.name || '').toLowerCase() === 'indiafounderscore-news';
 }
 
-export const IFC2_NEWS_HIGHLIGHT = '#e0e140';
+export const IFC2_NEWS_HIGHLIGHT = '#ffd412';
 export const HELVETICA_WORLD_BOLD_FAMILY = "'Helvetica World', 'ITC Avant Garde Gothic', Inter, sans-serif";
 
 /**
@@ -853,15 +853,21 @@ export function getNewsTickerHookBarY(preset, {
     const kissIntoSolid = Math.round(fontSize * 0.2);
     // IBC: last line kisses the bar. 101xf type is smaller, so that kiss buries
     // the whole stack in the fade — sit the block just above the solid instead.
-    const riseAboveBar = (is101xFoundersNews(preset) || isBizzindiaNews(preset))
-      ? twoLineH + Math.round(fontSize * 0.55)
-      : twoLineH - kissIntoSolid;
+    // Bizz: hook + red rule sit ON the opaque black, below the fade (ACKO lockup).
+    const riseAboveBar = isBizzindiaNews(preset)
+      ? -Math.round(fontSize * 0.38)
+      : (is101xFoundersNews(preset)
+        ? twoLineH + Math.round(fontSize * 0.55)
+        : twoLineH - kissIntoSolid);
     let barY = blackTop - riseAboveBar;
     // Keep a tiny floor so lockup / last line never clips the frame bottom.
     const minBottom = Math.round(canvasH * 0.04);
     const stackBottom = barY + totalBarsH + lockupBlockH;
     if (stackBottom > canvasH - minBottom) {
       barY = canvasH - minBottom - lockupBlockH - totalBarsH;
+    }
+    if (isBizzindiaNews(preset)) {
+      barY = Math.max(barY, blackTop + Math.round(fontSize * 0.38));
     }
     return Math.max(0, barY);
   }
@@ -906,8 +912,9 @@ export function getNewsTickerFontFamily(preset) {
 /** Red rule under the Bizz India news hook (same colour as the highlight). */
 export function getBizzindiaNewsRuleMetrics(fontSize, longestLineW = 280) {
   const gap = Math.round(fontSize * 0.45);
-  const height = Math.max(3, Math.round(fontSize * 0.055));
-  const width = Math.round(Math.max(140, Math.min(360, longestLineW * 0.52)));
+  // Even height so yuv420p chroma blocks don't smear a 3px line into maroon.
+  const height = Math.max(4, Math.round(fontSize * 0.055 / 2) * 2);
+  const width = Math.round(Math.max(140, Math.min(360, longestLineW * 0.52)) / 2) * 2;
   return { gap, height, width, reserve: gap + height };
 }
 
