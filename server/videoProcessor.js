@@ -14,6 +14,7 @@ import {
   getExportNewsMaxLineWidth,
   getExportMaxTextWidth,
   getNewsTickerLineStartX,
+  getNewsTickerSidePads,
   fitNewsTickerFontSize,
   getNewsTickerLineMetrics,
   getNewsTickerStackHeight,
@@ -1347,12 +1348,10 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const supportFs = supportText ? getNewsSupportingFontSize(preset, fontSize) : 0;
   const supportGap = supportText ? getNewsSupportingGap(preset, fontSize) : 0;
   const supportLineH = supportText ? getNewsSupportingLineHeight(preset, supportFs) : 0;
-  const supportOtFace = isIhn
-    ? (_otInterBold || _otInterReg || otFace)
-    : (_otInterMedium || _otInterReg || _otInterBold || otFace);
+  const supportOtFace = _otInterMedium || _otInterReg || _otInterBold || otFace;
   const supportMeasure = (word) => {
     if (!supportOtFace) {
-      ctx.font = `${isIhn ? 'bold' : 'normal'} ${supportFs}px Inter`;
+      ctx.font = `500 ${supportFs}px Inter`;
       return ctx.measureText(word).width;
     }
     return measureOtWidthWithFallback(supportOtFace, otGlyphFallback, word, supportFs);
@@ -1426,9 +1425,11 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     const totalLineW = wordWidths.reduce((a, w, i) => a + w + (i > 0 ? spaceW : 0), 0);
     if (totalLineW > longestLineW) longestLineW = totalLineW;
     let lineStartX = getNewsTickerLineStartX(preset, totalLineW, 720);
-    // Never let a line paint past the right edge
-    if (lineStartX + totalLineW > 720 - 16) {
-      lineStartX = Math.max(16, 720 - 16 - totalLineW);
+    // Keep the Instagram Reels side pads — a 16px clamp used to shove 101xf/IHN
+    // lines back into the like/comment/share rail.
+    const { left: newsPadLeft, right: newsPadRight } = getNewsTickerSidePads(preset);
+    if (lineStartX + totalLineW > 720 - newsPadRight) {
+      lineStartX = Math.max(newsPadLeft, 720 - newsPadRight - totalLineW);
     }
     // ISS uses rounded-corner bars; others use plain rects
     const fillBar = (bx, bw) => {
@@ -1563,7 +1564,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
           ctx, supportOtFace, otGlyphFallback, line, supportX, baselineY, supportFs, supportColor,
         );
       } else {
-        ctx.font = `${isIhn ? 'bold' : 'normal'} ${supportFs}px Inter`;
+        ctx.font = `500 ${supportFs}px Inter`;
         ctx.fillStyle = supportColor;
         ctx.textBaseline = 'alphabetic';
         ctx.fillText(line, supportX, baselineY);

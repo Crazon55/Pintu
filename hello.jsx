@@ -89,6 +89,7 @@ import {
     IBC_NEWS_STRIP_PAD_X,
     IBC_NEWS_STRIP_PAD_Y,
     getNewsTickerSocialStrip,
+    getNewsTickerSidePads,
     HELVETICA_WORLD_BOLD_FAMILY,
     INTER_MEDIUM_FAMILY,
     INTER_BOLD_FAMILY,
@@ -227,8 +228,8 @@ const INITIAL_PRESETS_RAW = [
     { id: 99, name: 'indiantechdaily-aroll', handle: '@indiantechdaily', ratio: '16:9', color: '#ffffff', active: true, layout: 'aroll', logo: 'indiantechdaily.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { arollStyle: 'logo_social', hookPosition: 'mid', textLogo: 'Indian Tech Daily', topGlow: false } },
     { id: 93, name: 'indianfoundercore', handle: '@indianfoundercore', ratio: '3:4', color: '#ffd412', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.22, letterSpacingOffset: -5 },
     { id: 102, name: '101xfounders-aroll', handle: '@101xfounders', ratio: '4:3', color: '#ff7c15', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 12 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.16, letterSpacingOffset: -16 },
-    { id: 103, name: '101xfounders-news', handle: '@101xfounders', ratio: '9:16', color: '#ff8610', active: true, layout: 'news_ticker', logo: '101xfounders-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 42, logoPadX: 56, logoPadY: 120, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, solidBandPct: 30 } },
-    { id: 104, name: 'indianhappeningnow-news', handle: '@indianhappeningnow', ratio: '9:16', color: '#ffa928', active: true, layout: 'news_ticker', logo: 'indianhappeningnow-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 104, logoPadX: 56, logoPadY: 120, kickerLogo: 'FS News Formats.png', kickerSize: 93, bottomMarginPct: 8 } },
+    { id: 103, name: '101xfounders-news', handle: '@101xfounders', ratio: '9:16', color: '#ff8610', active: true, layout: 'news_ticker', logo: 'xf-new-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', fontScale: 0.8, lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 42, logoPadX: 56, logoPadY: 120, kickerLogo: '101xfounders-news-kicker.png', kickerSize: 58, solidBandPct: 30 } },
+    { id: 104, name: 'indianhappeningnow-news', handle: '@indianhappeningnow', ratio: '9:16', color: '#ffa928', active: true, layout: 'news_ticker', logo: 'indianhappeningnow-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', fontScale: 0.85, lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 104, logoPadX: 56, logoPadY: 120, kickerLogo: 'FS News Formats.png', kickerSize: 93, bottomMarginPct: 8 } },
     { id: 105, name: 'bizzindia-news', handle: '@bizzindia', ratio: '9:16', color: '#f52a46', active: true, layout: 'news_ticker', logo: 'bizzindia-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 88, logoPadX: 56, logoPadY: 120, kickerLogo: 'bizzindia-news-kicker.png', kickerSize: 93, solidBandPct: 34, bottomMarginPct: 12 } },
     { id: 106, name: 'thechangingorder-news', handle: '@thechangingorder', ratio: '9:16', color: '#c7ff3e', active: true, layout: 'news_ticker', logo: 'to India.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 150, logoPadX: 56, logoPadY: 100 } },
     { id: 107, name: 'thechangingorder', handle: '@thechangingorder', ratio: '1:1', color: '#c7ff3e', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.09, letterSpacingOffset: -11 },
@@ -280,8 +281,8 @@ const getLogoUrl = (logo) => {
     // Cache-bust so preset previews pick up logo color edits immediately
     const bust = (logo === 'FoundersCORE-white.png' || logo === 'FoundersCORE-removebg-preview.png')
         ? `?v=ifc2-white-ffd412`
-        : (logo === '101xfounders-news-logo.png' || logo === '101xfounders-news-kicker.png')
-            ? `?v=png-overlay-1`
+        : (logo === 'xf-new-logo.png' || logo === '101xfounders-news-logo.png' || logo === '101xfounders-news-kicker.png')
+            ? `?v=xf-new-1`
             : (logo === 'indianhappeningnow-news-logo.png')
                 ? `?v=ihn-operator-1`
                 : (logo === 'bizzindia-news-kicker.png' || logo === 'FS News Formats.png')
@@ -2232,6 +2233,7 @@ const PreviewCard = memo(({
                                     const isIhn = isIhnNews(preset);
                                     const isBizzNews = isBizzindiaNews(preset);
                                     const isInterNews = isInterNewsTicker(preset);
+                                    const newsPads = getNewsTickerSidePads(preset);
                                     const skipPills = isPlainText || isInterNews || isBizzNews;
                                     const centerTicker = isCenteredNewsTicker(preset);
                                     // Bold (700) — Avant Garde / Helvetica World Bold files, not Black/ExtraBold
@@ -2286,7 +2288,7 @@ const PreviewCard = memo(({
                                     const supportMeasureCtx = getMeasureCtx();
                                     const supportLines = (supportText && supportMeasureCtx)
                                         ? wrapPlainWords(supportText, (w) => {
-                                            supportMeasureCtx.font = `${isIhn ? 700 : 400} ${supportFs}px ${ntFontFamily}`;
+                                            supportMeasureCtx.font = `${isIhn || isFoundersNews ? 500 : 400} ${supportFs}px ${isIhn || isFoundersNews ? INTER_MEDIUM_FAMILY : ntFontFamily}`;
                                             return supportMeasureCtx.measureText(w).width;
                                         }, getExportNewsMaxLineWidth(preset)).slice(0, 3)
                                         : [];
@@ -2395,8 +2397,8 @@ const PreviewCard = memo(({
                                                 style={{
                                                     bottom: `${textBottomPct}%`,
                                                     gap: `${lineGapPx}px`,
-                                                    paddingLeft: isInterNews ? canvasPxToPercent(40) : canvasPxToPercent(16),
-                                                    paddingRight: canvasPxToPercent(isInterNews ? 40 : 16),
+                                                    paddingLeft: canvasPxToPercent(newsPads.left),
+                                                    paddingRight: canvasPxToPercent(newsPads.right),
                                                     boxSizing: 'border-box',
                                                     alignItems: centerTicker ? 'center' : 'flex-start',
                                                 }}
@@ -2493,15 +2495,15 @@ const PreviewCard = memo(({
                                                     className="absolute left-0 right-0 z-20 pointer-events-none"
                                                     style={{
                                                         top: `${((barYPx + totalBarsH + supportGap) / exportCanvasH) * 100}%`,
-                                                        paddingLeft: canvasPxToPercent(40),
-                                                        paddingRight: canvasPxToPercent(40),
-                                                        fontFamily: isFoundersNews ? INTER_MEDIUM_FAMILY : ntFontFamily,
-                                                        fontWeight: isIhn ? 700 : isFoundersNews ? 500 : 400,
+                                                        paddingLeft: canvasPxToPercent(newsPads.left),
+                                                        paddingRight: canvasPxToPercent(newsPads.right),
+                                                        fontFamily: (isFoundersNews || isIhn) ? INTER_MEDIUM_FAMILY : ntFontFamily,
+                                                        fontWeight: (isIhn || isFoundersNews) ? 500 : 400,
                                                         fontSynthesis: 'none',
                                                         fontSize: `${Math.max(8, supportFs * previewScale)}px`,
                                                         lineHeight: `${supportLineH * previewScale}px`,
-                                                        letterSpacing: isFoundersNews ? 0 : undefined,
-                                                        color: '#ffffff',
+                                                        letterSpacing: (isFoundersNews || isIhn) ? 0 : undefined,
+                                                        color: getNewsSupportingColor(preset),
                                                         textAlign: 'left',
                                                     }}
                                                 >
@@ -3389,6 +3391,10 @@ export default function App() {
                 if (src && src.logo && p.logo !== src.logo) {
                     changed = true;
                     nextP = { ...nextP, logo: src.logo };
+                }
+                if ((is101xFoundersNews(nextP) || isIhnNews(nextP)) && src?.fontScale != null && nextP.fontScale !== src.fontScale) {
+                    changed = true;
+                    nextP = { ...nextP, fontScale: src.fontScale };
                 }
                 if (isInterNewsTicker(nextP) && src?.rules) {
                     const nextRules = { ...nextP.rules, ...src.rules };

@@ -318,6 +318,8 @@ export function isPngHeaderNewsTicker(preset) {
 export const IHN_NEWS_HIGHLIGHT = '#ffa928';
 export const IHN_NEWS_REGULAR = '#ffffff';
 export const IHN_NEWS_SUBTEXT = '#b4b4b4';
+/** First hook line as a fraction of frame height (Brief India lockup). */
+export const IHN_NEWS_HOOK_TOP = 0.62;
 
 /** Supporting paragraph under Inter-news hooks. Ignores leftover Credit: footers. */
 export function getNewsSupportingText(preset) {
@@ -358,7 +360,7 @@ export function getNewsSupportingColor(preset) {
 /** Vertical gap between Inter-news hook and supporting paragraph. */
 export function getNewsSupportingGap(preset, hookFs) {
   if (!isInterNewsTicker(preset)) return 0;
-  return Math.round(hookFs * 0.78);
+  return Math.round(hookFs * (isIhnNews(preset) ? 0.55 : 0.78));
 }
 
 /** Top-right year / place lockup. hookEyebrow overrides rules when typed. */
@@ -380,6 +382,28 @@ export function get101xFoundersNewsKicker(preset) {
  */
 export const NEWS_SAFE_PAD_X = 56;
 export const NEWS_SAFE_PAD_Y = 120;
+/**
+ * 101xf / IHN hook + subtext on the 720 canvas.
+ * Meta Reels (1080): 64px side margins (6%) plus a 227px right cutout for
+ * likes / comments / share from y≈1150 down. Scaled to 720 that is ~43 / 151.
+ * Left is 80 (not 43) because the phone bezel + Reels swipe edge clips the
+ * current 40px inset — and 40 sat left of the 56px 101xf. wordmark.
+ */
+export const INTER_NEWS_PAD_LEFT = 80;
+export const INTER_NEWS_PAD_RIGHT = 152;
+/** IHN follows Brief India line length (~7% / ~14%), not the 101xf Reels cutout. */
+export const IHN_NEWS_PAD_LEFT = 56;
+export const IHN_NEWS_PAD_RIGHT = 100;
+
+export function getNewsTickerSidePads(preset) {
+  if (isIhnNews(preset)) {
+    return { left: IHN_NEWS_PAD_LEFT, right: IHN_NEWS_PAD_RIGHT };
+  }
+  if (isInterNewsTicker(preset)) {
+    return { left: INTER_NEWS_PAD_LEFT, right: INTER_NEWS_PAD_RIGHT };
+  }
+  return { left: 16, right: 16 };
+}
 /** IBC / ISS news vertical social strip — keep clear of Instagram's right-rail UI. */
 export const IBC_NEWS_STRIP_W = 32;
 export const IBC_NEWS_STRIP_PAD_X = 32;
@@ -407,7 +431,7 @@ export function get101xFoundersNewsHeaderPad() {
 }
 
 /** Operator-supplied wordmark / year-place PNGs (white on transparent). Heights at 720 canvas. */
-export const FOUNDERS_NEWS_LOGO_FILE = '101xfounders-news-logo.png';
+export const FOUNDERS_NEWS_LOGO_FILE = 'xf-new-logo.png';
 export const FOUNDERS_NEWS_KICKER_FILE = '101xfounders-news-kicker.png';
 export const FOUNDERS_NEWS_LOGO_H = 42;
 export const FOUNDERS_NEWS_KICKER_H = 58;
@@ -419,7 +443,7 @@ export const IHN_NEWS_KICKER_H = BIZZINDIA_NEWS_KICKER_H;
 
 // Opaque-row fractions in the cropped header PNGs — align 2026's cap-top
 // with 101xf. / INDIA (not the star, not the "India" subtitle).
-const FOUNDERS_LOGO_CAP_TOP = 4 / 79;
+const FOUNDERS_LOGO_CAP_TOP = 8 / 311;
 const IHN_INDIA_CAP_TOP = 29 / 143;
 const BIZZ_LOGO_CAP_TOP = 24 / 139;
 const KICKER_YEAR_CAP_TOP = 4 / 89;
@@ -565,7 +589,10 @@ export function getExportNewsMaxLineWidth(preset) {
   const name = (preset?.name || '').toLowerCase();
   // Leave room for left/right inset + bold bar padding (±4px) so lines never clip the frame.
   if (isBizzindiaNews({ name })) return 580; // centered IvyPresto, ~70px side pads
-  if (isInterNewsTicker({ name })) return 620; // left-aligned, ~40px side pads
+  if (isInterNewsTicker({ name })) {
+    const { left, right } = getNewsTickerSidePads({ name });
+    return CANVAS_REF_W - left - right;
+  }
   if (isPlainTextNewsTicker({ name })) return 500; // hook block spans ~68% of frame width in the reference
   return 600; // centered brands ~60px side margins + bar padding
 }
@@ -585,7 +612,7 @@ export function getNewsTickerLineStartX(preset, totalLineW, canvasW = CANVAS_REF
   if (isCenteredNewsTicker(preset)) {
     return Math.round((canvasW - totalLineW) / 2);
   }
-  if (isInterNewsTicker(preset)) return 40;
+  if (isInterNewsTicker(preset)) return getNewsTickerSidePads(preset).left;
   return 28;
 }
 
@@ -733,6 +760,12 @@ export const NEWS_TICKER_CANVA_TYPE = {
   '101xfounders-news': {
     fontSize: 44.1, tracking: -11, lineHeight: 0.99,
     subSize: 23, subTracking: 0, subLineHeight: 1.5,
+  },
+  // Brief India overlay: Inter Bold hook + Inter Medium body, −1.5% tracking.
+  // 50px is the optical match — 38px read as a caption, not a hed.
+  'indianhappeningnow-news': {
+    fontSize: 44, tracking: -15, lineHeight: 1.08,
+    subSize: 22, subTracking: 0, subLineHeight: 1.35,
   },
   'ifc-news': { fontSize: 35.9, tracking: 12, lineHeight: 1.4 },
   'thechangingorder-news': { fontSize: 35.9, tracking: 12, lineHeight: 1.4 },
@@ -888,7 +921,8 @@ export function getNewsTickerGradientHeight(preset, canvasH) {
     return Math.round(canvasH * 0.18);
   }
   if (isIhnNews(preset)) {
-    return Math.min(380, Math.round(canvasH * 0.30));
+    // Brief India: a short fade (~7% of frame), then a solid lower-third slab.
+    return Math.round(canvasH * 0.07);
   }
   const full = isFullBleedNewsTicker(preset);
   return Math.min(full ? 260 : 160, Math.round(canvasH * (full ? 0.24 : 0.18)));
@@ -915,12 +949,9 @@ export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBar
       : 0.30;
     return Math.max(0, Math.round(canvasH * (1 - ratio)) - (shiftY || 0));
   }
-  const stackH = totalBarsH + (lockupBlockH || 0);
   if (isIhnNews(preset)) {
-    // Solid begins at the last line of hook + subtext — stack sits on the fade,
-    // almost at the end of the gradient.
-    const kiss = Math.round(fontSize * 0.22);
-    return Math.max(0, barY + Math.max(0, stackH - kiss));
+    // First hook line rides the fade tail; the rest of the stack sits on the slab.
+    return Math.max(0, barY + Math.round(fontSize * 0.45));
   }
   const offset = getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH);
   return Math.max(0, barY - offset);
@@ -951,8 +982,9 @@ export function getNewsTickerHookBarY(preset, {
     // IBC: last line kisses the bar. 101xf type is smaller, so that kiss buries
     // the whole stack in the fade — sit the block just above the solid instead.
     // Bizz: hook + red rule sit ON the opaque black, below the fade (ACKO lockup).
+    const bizzBelowBlack = Math.round(fontSize * 0.04);
     const riseAboveBar = isBizzindiaNews(preset)
-      ? -Math.round(fontSize * 0.38)
+      ? -bizzBelowBlack
       : (is101xFoundersNews(preset)
         ? twoLineH + Math.round(fontSize * 0.35)
         : twoLineH - kissIntoSolid);
@@ -964,9 +996,12 @@ export function getNewsTickerHookBarY(preset, {
       barY = canvasH - minBottom - lockupBlockH - totalBarsH;
     }
     if (isBizzindiaNews(preset)) {
-      barY = Math.max(barY, blackTop + Math.round(fontSize * 0.38));
+      barY = Math.max(barY, blackTop + bizzBelowBlack);
     }
     return Math.max(0, barY);
+  }
+  if (isIhnNews(preset)) {
+    return Math.max(0, Math.round(canvasH * IHN_NEWS_HOOK_TOP) - (shiftY || 0));
   }
   const bottomMargin = Math.round(canvasH * getNewsTickerBottomMarginRatio(preset));
   return canvasH - bottomMargin - lockupBlockH - totalBarsH - shiftY;
