@@ -36,7 +36,7 @@ const founders = {
   id: 103,
   name: '101xfounders-news',
   color: '#ff7c15',
-  logo: 'xf-new-logo.png',
+  logo: 'new-new-101xfounder-logo.png',
   rules: {
     logoSize: 42,
     logoPadX: 56,
