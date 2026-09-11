@@ -7,8 +7,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const shared = {
   ratio: '9:16',
   layout: 'news_ticker',
-  headline: '<b>trick</b> The trick to making your employees loyal',
-  footer: 'nazi cuck way down we go gog gog gog gog go',
+  headline: 'The <b>trick</b> to making your employees loyal',
+  footer: 'The 2026 Summit brings 11 member nations together in New Delhi to discuss trade, technology, energy and global governance. Putin & Xi Jingping both arriving India',
   showLogo: true,
   alignment: 'left',
   lineSpacing: 1.25,

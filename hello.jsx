@@ -2244,7 +2244,29 @@ const PreviewCard = memo(({
                                     // Handle lockup reserves a fixed box under the hook (mirrors export)
                                     const handleLockup = getNewsTickerHandleLockup(preset);
                                     const supportText = getNewsSupportingText(preset);
-                                    const supportReserve = supportText ? Math.round(exportCanvasH * 0.08) : 0;
+                                    // Wrapped up front, ahead of the hook fit, so the hook's fitting budget
+                                    // reserves the support block's real (dynamic) height — not a flat guess —
+                                    // however many lines it actually wraps to. supportFs/supportLineH/wrap
+                                    // never actually depend on the hook's fitted size (every preset that uses
+                                    // it pins a Canva subSize), so the base size stands in safely. The gap
+                                    // DOES scale with the hook's font size, so this is only a budget estimate —
+                                    // it's recomputed for real once fittedExportFs is known, below.
+                                    const supportFs = supportText
+                                        ? getNewsSupportingFontSize(preset, getNewsTickerBaseFontSize(preset))
+                                        : 0;
+                                    const supportGapEstimate = supportText
+                                        ? getNewsSupportingGap(preset, getNewsTickerBaseFontSize(preset))
+                                        : 0;
+                                    const supportLineH = supportText ? getNewsSupportingLineHeight(preset, supportFs) : 0;
+                                    const supportMeasureCtx = getMeasureCtx();
+                                    const supportMaxW = getExportNewsMaxLineWidth(preset);
+                                    const supportLines = (supportText && supportMeasureCtx)
+                                        ? wrapPlainWords(supportText, (w) => {
+                                            supportMeasureCtx.font = `${isIhn || isFoundersNews ? 500 : 400} ${supportFs}px ${isIhn || isFoundersNews ? INTER_MEDIUM_FAMILY : ntFontFamily}`;
+                                            return supportMeasureCtx.measureText(w).width;
+                                        }, supportMaxW)
+                                        : [];
+                                    const supportReserve = supportText ? supportGapEstimate + supportLines.length * supportLineH : 0;
                                     const lockupBlockH = (handleLockup ? handleLockup.gap + handleLockup.height : 0) + supportReserve
                                         + (isBizzNews ? getBizzindiaNewsRuleMetrics(42).reserve : 0);
                                     // Same wrap budget as export (getExportNewsMaxLineWidth already leaves pad room)
@@ -2271,9 +2293,8 @@ const PreviewCard = memo(({
                                     // Mirror generateNewsTickerOverlay geometry (percent of frame height)
                                     const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fittedExportFs);
                                     const totalBarsH = getNewsTickerStackHeight(preset, fittedExportFs, lines.length);
-                                    const supportFs = supportText ? getNewsSupportingFontSize(preset, fittedExportFs) : 0;
+                                    // Real gap against the hook's actual (fitted) size — the estimate above only fed the budget.
                                     const supportGap = supportText ? getNewsSupportingGap(preset, fittedExportFs) : 0;
-                                    const supportLineH = supportText ? getNewsSupportingLineHeight(preset, supportFs) : 0;
                                     const ntTrackingEm = getNewsTickerLetterSpacingEm(preset);
                                     // CSS word-spacing is additive (px added atop the natural space), not a
                                     // multiplier, so the Word Spacing slider's scale has to be converted here.
@@ -2285,13 +2306,6 @@ const PreviewCard = memo(({
                                         mctx.font = `${ntFontWeight} ${ntFontSize}px ${ntFontFamily}`;
                                         return mctx.measureText(' ').width * (ntWordSpacingScale - 1);
                                     })();
-                                    const supportMeasureCtx = getMeasureCtx();
-                                    const supportLines = (supportText && supportMeasureCtx)
-                                        ? wrapPlainWords(supportText, (w) => {
-                                            supportMeasureCtx.font = `${isIhn || isFoundersNews ? 500 : 400} ${supportFs}px ${isIhn || isFoundersNews ? INTER_MEDIUM_FAMILY : ntFontFamily}`;
-                                            return supportMeasureCtx.measureText(w).width;
-                                        }, getExportNewsMaxLineWidth(preset)).slice(0, 3)
-                                        : [];
                                     const layoutLockupH = (handleLockup ? handleLockup.gap + handleLockup.height : 0)
                                         + (supportText ? supportGap + supportLines.length * supportLineH : 0)
                                         + (isBizzNews ? getBizzindiaNewsRuleMetrics(fittedExportFs).reserve : 0);
@@ -2490,26 +2504,30 @@ const PreviewCard = memo(({
                                                     </div>
                                                 );
                                             })()}
-                                            {isInterNews && supportLines.length > 0 && (
+                                            {isInterNews && supportText && (
                                                 <div
                                                     className="absolute left-0 right-0 z-20 pointer-events-none"
                                                     style={{
-                                                        top: `${((barYPx + totalBarsH + supportGap) / exportCanvasH) * 100}%`,
+                                                        // Canvas paints at baseline supportY + 0.82*fs. CSS line-height
+                                                        // adds half-leading above the glyphs — pull that back so the
+                                                        // first line sits on the export gap, not below it.
+                                                        top: `${((barYPx + totalBarsH + supportGap - (supportLineH - supportFs) / 2) / exportCanvasH) * 100}%`,
                                                         paddingLeft: canvasPxToPercent(newsPads.left),
                                                         paddingRight: canvasPxToPercent(newsPads.right),
+                                                        boxSizing: 'border-box',
                                                         fontFamily: (isFoundersNews || isIhn) ? INTER_MEDIUM_FAMILY : ntFontFamily,
                                                         fontWeight: (isIhn || isFoundersNews) ? 500 : 400,
                                                         fontSynthesis: 'none',
-                                                        fontSize: `${Math.max(8, supportFs * previewScale)}px`,
-                                                        lineHeight: `${supportLineH * previewScale}px`,
+                                                        fontSize: `${supportFs * previewScale}px`,
+                                                        lineHeight: supportFs ? (supportLineH / supportFs) : 1.35,
                                                         letterSpacing: (isFoundersNews || isIhn) ? 0 : undefined,
                                                         color: getNewsSupportingColor(preset),
                                                         textAlign: 'left',
+                                                        WebkitFontSmoothing: 'antialiased',
+                                                        MozOsxFontSmoothing: 'grayscale',
                                                     }}
                                                 >
-                                                    {supportLines.map((line, i) => (
-                                                        <div key={i}>{line}</div>
-                                                    ))}
+                                                    {supportText}
                                                 </div>
                                             )}
                                             {/* Handle lockup (Instagram + Facebook + wordmark) under the hook */}
@@ -3362,6 +3380,7 @@ export default function App() {
             document.fonts.load("700 42px 'Inter'"),
             document.fonts.load("900 42px 'Inter Black'"),
             document.fonts.load("700 42px 'Inter Bold'"),
+            document.fonts.load("500 42px 'Inter Medium'"),
             document.fonts.load("400 32px 'Bebas Neue Cyrillic'"),
             document.fonts.load("300 46px 'IvyPresto Headline Thin'"),
             document.fonts.load("700 46px 'IvyPresto Headline SemiBold'"),
