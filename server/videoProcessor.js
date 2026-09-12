@@ -59,6 +59,7 @@ import {
   getPngNewsHeaderAssets,
   wrapPlainWords,
   getNewsTickerMaxLines,
+  getNewsTickerHookBudgetH,
   getNewsTickerBaseFontSize,
   getBizzindiaNewsRuleMetrics,
   FOUNDERS_AROLL_REGULAR,
@@ -1293,10 +1294,6 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   // text budget shrinks by it and the bottom margin still measures from the lockup.
   const handleLockup = getNewsTickerHandleLockup(preset);
   const supportText = getNewsSupportingText(preset);
-  const supportReserve = supportText ? Math.round(canvasH * 0.08) : 0;
-  const lockupBlockH = (handleLockup ? handleLockup.gap + handleLockup.height : 0) + supportReserve;
-  // keep video dominant like Canva (~bottom 28%); Inter-news hooks run longer
-  const maxTickerH = Math.round(canvasH * ((isInterNews || isBizzNews) ? 0.36 : 0.28)) - lockupBlockH;
   let cleanedHtml = cleanHTML(headline || '');
   const otFace = newsTickerOpentypeFont(preset);
   // Helvetica World / Avant Garde lack ₹ (and some other currency marks). Inter has them.
@@ -1304,6 +1301,35 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   if (!otFace) {
     console.warn('[news_ticker] opentype face missing — wrap metrics may be wrong');
   }
+  // Support text is wrapped up front, ahead of the hook fit, so its real (dynamic)
+  // line count — not a flat guess — is what the hook's font-fit budget reserves
+  // against. supportFs/supportLineH/wrap never actually depend on the hook's fitted
+  // size (every preset that uses it pins a Canva subSize), so the base size stands
+  // in safely for presets that don't. The gap DOES scale with the hook's font size
+  // though, so this is only an estimate for the budget — it's recomputed for real
+  // once the hook's fitted fontSize is known, below.
+  const supportFs = supportText
+    ? getNewsSupportingFontSize(preset, getNewsTickerBaseFontSize(preset))
+    : 0;
+  const supportGapEstimate = supportText
+    ? getNewsSupportingGap(preset, getNewsTickerBaseFontSize(preset))
+    : 0;
+  const supportLineH = supportText ? getNewsSupportingLineHeight(preset, supportFs) : 0;
+  const supportOtFace = _otInterMedium || _otInterReg || _otInterBold || otFace;
+  const supportMeasure = (word) => {
+    if (!supportOtFace) {
+      ctx.font = `500 ${supportFs}px Inter`;
+      return ctx.measureText(word).width;
+    }
+    return measureOtWidthWithFallback(supportOtFace, otGlyphFallback, word, supportFs);
+  };
+  const supportLines = supportText
+    ? wrapPlainWords(supportText, supportMeasure, maxLineW)
+    : [];
+  const supportH = supportLines.length * supportLineH;
+  const supportReserve = supportText ? supportGapEstimate + supportH : 0;
+  const lockupBlockH = (handleLockup ? handleLockup.gap + handleLockup.height : 0) + supportReserve;
+  const maxTickerH = getNewsTickerHookBudgetH(preset, canvasH, lockupBlockH);
   const newsTickerFaceFor = (bold) => {
     if (isBizzNews) return ivyPrestoNewsFace(bold) || otFace;
     if (isFoundersNews) {
@@ -1345,21 +1371,8 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   const { highlightH, lineGap } = getNewsTickerLineMetrics(preset, fontSize);
   const totalBarsH = getNewsTickerStackHeight(preset, fontSize, lines.length);
-  const supportFs = supportText ? getNewsSupportingFontSize(preset, fontSize) : 0;
+  // Real gap against the hook's actual (fitted) size — the estimate above only fed the budget.
   const supportGap = supportText ? getNewsSupportingGap(preset, fontSize) : 0;
-  const supportLineH = supportText ? getNewsSupportingLineHeight(preset, supportFs) : 0;
-  const supportOtFace = _otInterMedium || _otInterReg || _otInterBold || otFace;
-  const supportMeasure = (word) => {
-    if (!supportOtFace) {
-      ctx.font = `500 ${supportFs}px Inter`;
-      return ctx.measureText(word).width;
-    }
-    return measureOtWidthWithFallback(supportOtFace, otGlyphFallback, word, supportFs);
-  };
-  const supportLines = supportText
-    ? wrapPlainWords(supportText, supportMeasure, maxLineW).slice(0, 3)
-    : [];
-  const supportH = supportLines.length * supportLineH;
   const layoutLockupH = (handleLockup ? handleLockup.gap + handleLockup.height : 0)
     + (supportText ? supportGap + supportH : 0)
     + (isBizzNews ? getBizzindiaNewsRuleMetrics(fontSize).reserve : 0);

@@ -384,19 +384,17 @@ export const NEWS_SAFE_PAD_X = 56;
 export const NEWS_SAFE_PAD_Y = 120;
 /**
  * 101xf / IHN hook + subtext on the 720 canvas.
- * Meta Reels (1080): 64px side margins (6%) plus a 227px right cutout for
- * likes / comments / share from y≈1150 down. Scaled to 720 that is ~43 / 151.
- * Left is 80 (not 43) because the phone bezel + Reels swipe edge clips the
- * current 40px inset — and 40 sat left of the 56px 101xf. wordmark.
+ * Same Brief India line length as IHN (~7% / ~14%). The old Reels cutout
+ * (80/152) wrapped the hook to 4 short lines and clipped the supporting
+ * paragraph after ~3.
  */
-export const INTER_NEWS_PAD_LEFT = 80;
-export const INTER_NEWS_PAD_RIGHT = 152;
-/** IHN follows Brief India line length (~7% / ~14%), not the 101xf Reels cutout. */
+export const INTER_NEWS_PAD_LEFT = 56;
+export const INTER_NEWS_PAD_RIGHT = 100;
 export const IHN_NEWS_PAD_LEFT = 56;
 export const IHN_NEWS_PAD_RIGHT = 100;
 
 export function getNewsTickerSidePads(preset) {
-  if (isIhnNews(preset)) {
+  if (isIhnNews(preset) || is101xFoundersNews(preset)) {
     return { left: IHN_NEWS_PAD_LEFT, right: IHN_NEWS_PAD_RIGHT };
   }
   if (isInterNewsTicker(preset)) {
@@ -887,7 +885,20 @@ export function getNewsTickerFitRatios(preset) {
 }
 
 export function getNewsTickerMaxLines(preset) {
-  return (isInterNewsTicker(preset) || isBizzindiaNews(preset) || isChangingOrderNews(preset)) ? 5 : 3;
+  // Inter-news / Bizz / TCO wrap as many lines as the copy needs. The stack
+  // lifts from the bottom so 5–6+ hook or body lines stay on the frame.
+  if (isInterNewsTicker(preset) || isBizzindiaNews(preset) || isChangingOrderNews(preset)) return 20;
+  return 3;
+}
+
+/** Height left for the hook after reserving support/lockup and the bottom pad. */
+export function getNewsTickerHookBudgetH(preset, canvasH, lockupBlockH = 0) {
+  const minBottom = Math.round(canvasH * getNewsTickerBottomMarginRatio(preset));
+  if (isInterNewsTicker(preset)) {
+    return Math.max(64, canvasH - minBottom - Math.max(0, lockupBlockH));
+  }
+  const ratio = isBizzindiaNews(preset) ? 0.36 : 0.28;
+  return Math.round(canvasH * ratio) - lockupBlockH;
 }
 
 export function getNewsTickerBaseFontSize(preset) {
@@ -942,7 +953,15 @@ export function getNewsTickerSolidTopY(preset, canvasH, barY, fontSize, totalBar
     const ratio = Number.isFinite(bandPct)
       ? Math.max(0.15, Math.min(0.55, bandPct / 100))
       : 0.30;
-    return Math.max(0, Math.round(canvasH * (1 - ratio)) - (shiftY || 0));
+    const defaultTop = Math.max(0, Math.round(canvasH * (1 - ratio)) - (shiftY || 0));
+    // 101xf / IHN: when a long hook+body stack lifts off the 2-line pin, the
+    // solid has to rise with it or the extra lines sit on the video / clip.
+    if (isInterNewsTicker(preset) && barY > 0 && fontSize > 0) {
+      const twoLineH = getNewsTickerStackHeight(preset, fontSize, 2);
+      const riseAboveBar = twoLineH + Math.round(fontSize * 0.35);
+      return Math.max(0, Math.min(defaultTop, barY + riseAboveBar));
+    }
+    return defaultTop;
   }
   const offset = getNewsTickerSolidTopOffset(preset, fontSize, totalBarsH);
   return Math.max(0, barY - offset);
@@ -976,11 +995,12 @@ export function getNewsTickerHookBarY(preset, {
       ? twoLineH + Math.round(fontSize * 0.35)
       : twoLineH - kissIntoSolid;
     let barY = blackTop - riseAboveBar;
-    // Keep a tiny floor so lockup / last line never clips the frame bottom.
-    const minBottom = Math.round(canvasH * 0.04);
+    const minBottom = Math.round(canvasH * (
+      isInterNewsTicker(preset) ? getNewsTickerBottomMarginRatio(preset) : 0.04
+    ));
     const stackBottom = barY + totalBarsH + lockupBlockH;
     if (stackBottom > canvasH - minBottom) {
-      barY = canvasH - minBottom - lockupBlockH - totalBarsH;
+      barY = canvasH - minBottom - lockupBlockH - totalBarsH - (shiftY || 0);
     }
     return Math.max(0, barY);
   }
