@@ -398,7 +398,13 @@ function captionResolutionFor(size, style, previewBlocks) {
   };
 
   const scaled = { ...style, resX, resY };
-  for (const k of ['fontSize', 'posX', 'lineStartX', 'maxLineWidth', 'letterSpacing', 'outline', 'glowBlur', 'glowBorder', 'innerGlowBlur', 'shadowOffsetX', 'shadowOffsetY', 'shadowBlur', 'baseEdgeHighlight', 'riseY']) {
+  for (const k of [
+    'fontSize', 'posX', 'lineStartX', 'maxLineWidth', 'letterSpacing', 'outline',
+    'glowBlur', 'glowBorder', 'innerGlowBlur',
+    'shadowOffsetX', 'shadowOffsetY', 'shadowBlur', 'shadowSpread',
+    'shadowTopOffsetX', 'shadowTopOffsetY', 'shadowTopBlur', 'shadowTopSpread',
+    'baseEdgeHighlight', 'riseY',
+  ]) {
     if (style?.[k] != null) scaled[k] = mul(style[k], s);
   }
   if (style?.posY != null) {
@@ -409,6 +415,14 @@ function captionResolutionFor(size, style, previewBlocks) {
   }
   if (Number.isFinite(Number(scaled.posX))) scaled.posX = Math.round(Number(scaled.posX));
 
+  // The preview positions every word with `top: (y / 1280) * 100%` of the stage's actual
+  // rendered height — the WHOLE y, line offset included, as one plain percentage of frame
+  // height. No separate treatment for the part of y that came from lineHeightMul*fontSize.
+  // A previous pass here split y into a posY baseline (scaled by sy) plus a line offset
+  // scaled by s (matching how fonts scale), reasoning that the offset is "font-based, so
+  // it should scale like fonts do" — but that isn't what the preview does, so on a clip
+  // that isn't 9:16 it made the burn's line gap diverge from the preview instead of
+  // matching it. Uniform sy on the whole value is what actually mirrors the preview.
   const scaledBlocks = Array.isArray(previewBlocks)
     ? previewBlocks.map((b) => ({
       ...b,

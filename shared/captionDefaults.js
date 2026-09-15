@@ -11,12 +11,12 @@
  */
 
 export const CAPTION_DEFAULT_STYLE = {
-  fontSize: 37,
+  fontSize: 38,
   baseColor: '#EDEAE3',
   activeColor: '#FF7A00',
-  baseFontName: 'Helvetica Now Text Bold',
-  fontName: 'HelveticaNowText Bold',
-  highlightFontName: 'EB Garamond Bold Italic',
+  baseFontName: 'Inter Bold',
+  fontName: 'Inter 18pt',
+  highlightFontName: 'Playfair Black Italic',
   outlineColor: '#0A0A0A',
   // Styled captions lean on the glow, not a border. There is no outline control
   // in the editor, so this stays 0. Normal mode overrides it below.
@@ -28,14 +28,30 @@ export const CAPTION_DEFAULT_STYLE = {
   popSettleScale: 100,
   popSettleMs: 0,
   glow: true,
-  baseGlowStrength: 469,
-  baseInnerGlowStrength: 0,
-  highlightGlowStrength: 354,
-  highlightInnerGlowStrength: 100,
-  glowBlur: 0,
-  glowBorder: 35,
-  innerGlowBlur: 3,
-  highlightScale: 135, // 50px when base is 37
+  baseGlowStrength: 533,
+  baseInnerGlowStrength: 38,
+  highlightGlowStrength: 195,
+  highlightInnerGlowStrength: 0,
+  glowBlur: 5,
+  glowBorder: 56,
+  innerGlowBlur: 8,
+  // Black drop shadow, offset down-right with real spread (the silhouette itself grows
+  // before it's blurred) so each word reads as sitting up off the frame, not just tinted.
+  shadowColor: '#000000',
+  shadowOpacity: 90,
+  shadowOffsetX: 0,
+  shadowOffsetY: 5,
+  shadowBlur: 12,
+  shadowSpread: 14,
+  // A second, independently tunable shadow above the word — every slider is its own,
+  // not locked to the one below it.
+  shadowTopColor: '#000000',
+  shadowTopOpacity: 15,
+  shadowTopOffsetX: -20,
+  shadowTopOffsetY: -8,
+  shadowTopBlur: 24,
+  shadowTopSpread: 7,
+  highlightScale: 100, // 38px when base is 38
   highlightWeight: 0,
   letterSpacing: -2,
   reveal: 'accumulate',
@@ -44,7 +60,7 @@ export const CAPTION_DEFAULT_STYLE = {
   riseMs: 690,
   lingerAfterLast: 0.5,
   posX: 360,
-  posY: 1020,
+  posY: 850,
   lineStartX: 80,
   maxLines: 2,
   maxWordsPerBlock: 4,
@@ -53,8 +69,8 @@ export const CAPTION_DEFAULT_STYLE = {
   // Gap between words as a fraction of font size. Back to a plain positive value: slots are
   // now measured from ink extents rather than advance width, so they already hug the glyphs
   // and no longer need a negative gap to cancel built-in padding.
-  wordGapMul: 0.25,
-  lineHeightMul: 2.5,
+  wordGapMul: 0.16,
+  lineHeightMul: 1.33,
 };
 
 export const CAPTION_DEFAULT_NORMAL_STYLE = {
@@ -251,6 +267,12 @@ export const CAPTION_DEFAULT_PODCAST_RED_STYLE = {
   shadowOffsetX: 0,
   shadowOffsetY: 0,
   shadowBlur: 0,
+  shadowSpread: 0,
+  shadowTopOpacity: 0,
+  shadowTopOffsetX: 0,
+  shadowTopOffsetY: 0,
+  shadowTopBlur: 0,
+  shadowTopSpread: 0,
 };
 
 /**

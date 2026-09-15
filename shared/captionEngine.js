@@ -86,7 +86,10 @@ export function layoutWrapAllowed(style, wordInputs, wordIndex, linesBuilt) {
 
 // Motion is baked in: each word rises from below into its own slot (ease-out),
 // fades in by 70% travel, then stays until the whole sentence ends.
-export const GLOW_OUTER_MAX = 500;
+// Raised from 500: the new drop shadow (above + below) sits closer to the glyph than
+// before and can visually eat into the glow's shine, so the ceiling needed real headroom
+// above the ~480% defaults to let it be pushed brighter/bigger to compensate.
+export const GLOW_OUTER_MAX = 800;
 
 // Both defaults live in shared/captionDefaults.js so the editor and the ASS burner
 // cannot drift apart. 13 of these used to disagree between preview and export.
@@ -512,6 +515,18 @@ export function normalizeStyle(s = {}) {
   out.shadowOffsetX = Math.max(-40, Math.min(40, Number(out.shadowOffsetX) || 0));
   out.shadowOffsetY = Math.max(-40, Math.min(40, Number(out.shadowOffsetY) || 0));
   out.shadowBlur = Math.max(0, Math.min(60, Number(out.shadowBlur) || 0));
+  // How far the shadow's own silhouette grows before it's blurred — same idea as the
+  // glow's spread (glowBorder), just applied to the dark offset copy instead.
+  out.shadowSpread = Math.max(0, Math.min(60, Number(out.shadowSpread) || 0));
+  // A second shadow drawn above the word, independent of the one below it.
+  out.shadowTopColor = typeof out.shadowTopColor === 'string' ? out.shadowTopColor : '#000000';
+  out.shadowTopOpacity = Math.max(0, Math.min(100, Number.isFinite(Number(out.shadowTopOpacity))
+    ? Number(out.shadowTopOpacity)
+    : 100));
+  out.shadowTopOffsetX = Math.max(-40, Math.min(40, Number(out.shadowTopOffsetX) || 0));
+  out.shadowTopOffsetY = Math.max(-40, Math.min(40, Number(out.shadowTopOffsetY) || 0));
+  out.shadowTopBlur = Math.max(0, Math.min(60, Number(out.shadowTopBlur) || 0));
+  out.shadowTopSpread = Math.max(0, Math.min(60, Number(out.shadowTopSpread) || 0));
   // Glow keys are shared with the styled look, which blooms in the text's own colour;
   // a caption look can override that with glowColor (Bizz India glows red under white).
   out.glowColor = typeof out.glowColor === 'string' && out.glowColor ? out.glowColor : null;
@@ -564,12 +579,22 @@ export function captionTextShadow(style, scale) {
     );
   }
   const shadowOn = (style.shadowOpacity ?? 0) > 0
-    && ((style.shadowOffsetX || 0) || (style.shadowOffsetY || 0) || (style.shadowBlur || 0));
+    && ((style.shadowOffsetX || 0) || (style.shadowOffsetY || 0)
+      || (style.shadowBlur || 0) || (style.shadowSpread || 0));
   if (shadowOn) {
+    const dx = (style.shadowOffsetX || 0) * scale;
+    const dy = (style.shadowOffsetY || 0) * scale;
+    const spread = Math.max(0, (style.shadowSpread || 0) * scale);
+    const blur = Math.max(0, (style.shadowBlur || 0) * scale);
+    const color = style.shadowColor || '#000000';
+    const alpha = (style.shadowOpacity ?? 100) / 100;
+    // Same trick as the glow above: text-shadow has no spread of its own, so a growing
+    // shape is faked with stacked radii at the same offset, biggest and faintest last.
+    const r = spread + blur;
     parts.push(
-      `${(style.shadowOffsetX || 0) * scale}px ${(style.shadowOffsetY || 0) * scale}px `
-      + `${(style.shadowBlur || 0) * scale}px `
-      + hexToRgba(style.shadowColor || '#000000', (style.shadowOpacity ?? 100) / 100),
+      `${dx}px ${dy}px ${Math.max(1, r * 0.5)}px ${hexToRgba(color, Math.min(1, alpha))}`,
+      `${dx}px ${dy}px ${Math.max(2, r)}px ${hexToRgba(color, alpha * 0.7)}`,
+      `${dx}px ${dy}px ${Math.max(3, r * 1.6)}px ${hexToRgba(color, alpha * 0.4)}`,
     );
   }
   return parts.length ? parts.join(', ') : 'none';
@@ -688,7 +713,7 @@ export function layoutPreviewWords(wordInputs, style) {
     const next = cur.indices.length === 0 ? w : cur.width + gapAt(li) + w;
     const forcedBreak = i > 0 && !!(typeof wordInputs[i] === 'object' && wordInputs[i].lineBreak);
     const canWrap = layoutWrapAllowed(style, wordInputs, i, lines.length);
-    if (cur.indices.length > 0 && (forcedBreak || (canWrap && next > maxW))) {
+    if (cur.indices.length > 0 && canWrap && (forcedBreak || next > maxW)) {
       lines.push(cur);
       const w2 = widthAt(i, lines.length);
       cur = { indices: [i], width: w2 };
@@ -812,6 +837,97 @@ export function outerGlowFactors(strengthPct, highlight = false) {
     mul,
     alpha: Math.min(0.85, 0.22 + mul * 0.16),
     sizeMul: Math.max(0.2, mul),
+  };
+}
+
+/**
+ * Glow numbers for the ASS burn. Strength drives opacity (below) same as always; spread
+ * used to be capped at ~10% of font size regardless of strength — glowBorder 56 at 195%
+ * and at 800% both landed on the exact same ~4-unit spread, so past a point the strength
+ * slider did nothing visible and the burn read as flat next to a vividly glowing preview.
+ * A first pass raised that cap to 60% of font size, which overshot the other way: \bord
+ * is a hard-edged fill expansion applied before any blur softens it, so a spread that
+ * wide physically thickened the glyph into a blob that bled into the background — "cheap
+ * HTML export" rather than the preview's tight, contained glow. 18% keeps strength doing
+ * something real without turning the glow into a solid shape of its own.
+ */
+export function outerGlowDrawParams(style, isHighlight = false) {
+  const glowOn = !!(style?.glow && ((Number(style.glowBlur) || 0) > 0 || (Number(style.glowBorder) || 0) > 0));
+  if (!glowOn) return { opacity: 0, blur: 0, spread: 0 };
+  const mul = Math.max(0, Number(
+    isHighlight ? style.highlightGlowStrength : style.baseGlowStrength,
+  ) || Number(style.glowStrength) || 0) / 100;
+  if (mul <= 0) return { opacity: 0, blur: 0, spread: 0 };
+  const gBord = Math.max(0, Number(style.glowBorder) || 0);
+  const gBlur = Math.max(0, Number(style.glowBlur) || 0);
+  const glyph = Math.max(8, Number(style.fontSize) || 56);
+  const spreadCap = Math.max(2, Math.round(glyph * 0.18));
+  const spread = Math.min(spreadCap, Math.max(0, Math.round(gBord * Math.max(0.15, mul) * 0.35)));
+  const blur = Math.min(
+    45,
+    Math.max(spread * 1.5, Math.round(gBlur * Math.max(0.35, mul)), Math.round(glyph * 0.22)),
+  );
+  // Orange (activeColor) picks up far more perceived brightness from any glow overlay
+  // than white does — white is already near-max luminance, so the same opacity reads as
+  // subtle on it but "glowing hot" on a saturated hue. Dropped the coefficient (not just
+  // the ceiling) since at the strengths actually in use the old ceiling rarely bound —
+  // the uncapped value from 0.2 + mul*0.14 sat comfortably under it either way.
+  return {
+    opacity: Math.min(isHighlight ? 0.55 : 0.48, 0.15 + mul * 0.09),
+    blur,
+    spread,
+  };
+}
+
+export function innerGlowDrawParams(style, isHighlight = false) {
+  const mul = Math.max(0, Number(
+    isHighlight ? style.highlightInnerGlowStrength : style.baseInnerGlowStrength,
+  ) || 0) / 100;
+  if (mul <= 0.01) return { opacity: 0, blur: 0 };
+  const gInnerBlur = Math.max(0, Number(style.innerGlowBlur) || 0);
+  return {
+    opacity: Math.min(0.85, 0.35 + mul * 0.35),
+    blur: Math.max(1, Math.round(gInnerBlur * Math.max(0.6, mul))),
+  };
+}
+
+/**
+ * Drop shadow for the burn, matching the editor's CSS text-shadow: blur-only (no \bord
+ * silhouette), radius = spread+blur. \bord on a 90% black duplicate is what turned
+ * neighbouring words into one cloud.
+ *
+ * The editor draws this as THREE stacked shadows (r*0.5/r/r*1.6, opacity 1/0.7/0.4x) —
+ * a single flat blur pass here read as an almost invisible wash next to that, because one
+ * wide gaussian blur dilutes the same amount of "ink" over a much bigger area than a
+ * tight near-full-opacity core does. `tightBlur`/`tightOpacity` mirror that innermost,
+ * barely-blurred tier so the shadow keeps a visible edge instead of just fading to haze.
+ */
+export function cssMatchedShadowAss(style, layer = 'bottom') {
+  const top = layer === 'top';
+  const opacityPct = Number(top ? style.shadowTopOpacity : style.shadowOpacity) || 0;
+  const dx = Number(top ? style.shadowTopOffsetX : style.shadowOffsetX) || 0;
+  const dy = Number(top ? style.shadowTopOffsetY : style.shadowOffsetY) || 0;
+  const spread = Math.max(0, Number(top ? style.shadowTopSpread : style.shadowSpread) || 0);
+  const blur = Math.max(0, Number(top ? style.shadowTopBlur : style.shadowBlur) || 0);
+  const playScale = Math.max(0.25, (Number(style.resX) || 720) / 720);
+  const cssCap = 30 * playScale;
+  const r = Math.min(cssCap, spread + blur);
+  const on = opacityPct > 0 && (dx || dy || r > 0);
+  const opacity = Math.max(0, Math.min(1, opacityPct / 100));
+  return {
+    on: !!on,
+    dx,
+    dy,
+    spread: 0,
+    blur: r,
+    // Was r*0.35 at up to 110% of the main opacity — nearly opaque and barely blurred,
+    // sitting almost coincident with the glyph itself (the offsets here are small), so it
+    // haloed the letter's own edges instead of reading as a separate offset shadow. This
+    // is meant as a light reinforcement of the wide soft pass, not a second glyph.
+    tightBlur: Math.max(1, r * 0.15),
+    tightOpacity: Math.min(1, opacity * 0.55),
+    opacity,
+    color: (top ? style.shadowTopColor : style.shadowColor) || '#000000',
   };
 }
 

@@ -42,6 +42,7 @@ import {
   riseOpacityAt,
   cardExitMotion,
   outerGlowFactors,
+  GLOW_OUTER_MAX,
 } from './shared/captionEngine.js';
 
 /* ------------------------------------------------------------------ overlay */
@@ -185,8 +186,6 @@ export function CaptionWordOverlay({ block, style, scale, time = 0 }) {
           isHi ? sStyle.highlightGlowStrength : sStyle.baseGlowStrength,
           isHi,
         );
-        // Inner core: highlight words use highlightInnerGlowStrength; the loud base line
-        // (Podcast Red's red tier) uses baseInnerGlowStrength so red can carry both blooms.
         const innerMul = Math.max(0, (
           isHi
             ? (sStyle.highlightInnerGlowStrength ?? 0)
@@ -195,13 +194,9 @@ export function CaptionWordOverlay({ block, style, scale, time = 0 }) {
         const innerAmt = Math.min(1, innerMul * 0.7);
         const innerBlur = Math.max(0, (sStyle.innerGlowBlur ?? 3) * scale * Math.max(1, innerMul));
         const shadowParts = [];
-        if (opacity > 0.05) {
-          const k = Math.max(0.6, 1.1 * scale);
-          shadowParts.push(`0 ${k}px ${k * 1.8}px rgba(0,0,0,0.45)`);
-        }
         if (sStyle.glow && opacity > 0.05 && outerGlow.mul > 0.01) {
           const glowFill = sStyle.glowColor || (isHi ? sStyle.activeColor : color);
-          const r = Math.max(2, (glowPx + glowThick * 0.4) * outerGlow.sizeMul);
+          const r = Math.min(30, Math.max(2, (glowPx + glowThick * 0.4) * outerGlow.sizeMul));
           const a = outerGlow.alpha;
           shadowParts.push(
             `0 0 ${Math.max(1, r * 0.4)}px ${hexToRgba(glowFill, Math.min(1, a))}`,
@@ -210,18 +205,40 @@ export function CaptionWordOverlay({ block, style, scale, time = 0 }) {
           );
         }
         if (sStyle.glow && opacity > 0.05 && innerAmt > 0.01) {
-          // White continuation line: inner core stays white so glyphs don't pick up red.
           const glowFill = isHi
             ? (sStyle.activeColor || '#FFFFFF')
             : (sStyle.glowColor || color);
-          const ib = Math.max(1, innerBlur);
+          const ib = Math.min(32, Math.max(1, innerBlur));
           shadowParts.push(
             `0 0 ${Math.max(1, ib * 0.45)}px ${hexToRgba(glowFill, Math.min(1, innerAmt))}`,
             `0 0 ${Math.max(2, ib * 0.95)}px ${hexToRgba(glowFill, innerAmt * 0.5)}`,
           );
         }
-        // White edge is a duplicate glyph layer (below), not text-shadow — shadows
-        // re-rasterize every frame of the card zoom and flicker between letters.
+        const pushShadowLayer = (offX, offY, spreadPx, blurPx, col, opacityPct) => {
+          const on = opacity > 0.05
+            && (opacityPct ?? 0) > 0
+            && ((offX || 0) || (offY || 0) || (blurPx || 0) || (spreadPx || 0));
+          if (!on) return;
+          const sdx = (offX || 0) * scale;
+          const sdy = (offY || 0) * scale;
+          const spread = Math.max(0, (spreadPx || 0) * scale);
+          const blur = Math.max(0, (blurPx || 0) * scale);
+          const alpha = (opacityPct ?? 100) / 100;
+          const r = Math.min(30, spread + blur);
+          shadowParts.push(
+            `${sdx}px ${sdy}px ${Math.max(1, r * 0.5)}px ${hexToRgba(col, Math.min(1, alpha))}`,
+            `${sdx}px ${sdy}px ${Math.max(2, r)}px ${hexToRgba(col, alpha * 0.7)}`,
+            `${sdx}px ${sdy}px ${Math.max(3, r * 1.6)}px ${hexToRgba(col, alpha * 0.4)}`,
+          );
+        };
+        pushShadowLayer(
+          sStyle.shadowOffsetX, sStyle.shadowOffsetY, sStyle.shadowSpread, sStyle.shadowBlur,
+          sStyle.shadowColor || '#000000', sStyle.shadowOpacity,
+        );
+        pushShadowLayer(
+          sStyle.shadowTopOffsetX, sStyle.shadowTopOffsetY, sStyle.shadowTopSpread, sStyle.shadowTopBlur,
+          sStyle.shadowTopColor || '#000000', sStyle.shadowTopOpacity,
+        );
         const shadow = shadowParts.length ? shadowParts.join(', ') : 'none';
         const edgePx = (!isHi && sStyle.roleBy === 'line')
           ? Math.max(0, Number(sStyle.baseEdgeHighlight) || 0) * scale
@@ -243,7 +260,6 @@ export function CaptionWordOverlay({ block, style, scale, time = 0 }) {
               display: 'inline-block',
               opacity,
               transform: wordTransform,
-              // One compositor layer for the whole word so edge + fill zoom together.
               willChange: 'transform, opacity',
               backfaceVisibility: 'hidden',
               fontFamily: `"${fontMeta?.cssFamily || (isHi ? 'Playfair Display Bold Italic' : 'Montserrat Black')}", "Segoe UI Emoji", "Apple Color Emoji", "Twemoji Mozilla", sans-serif`,
@@ -264,7 +280,6 @@ export function CaptionWordOverlay({ block, style, scale, time = 0 }) {
                   position: 'absolute',
                   left: 0,
                   top: 0,
-                  // Integer px offset — fractional shadows were the flicker source.
                   transform: `translate(${-Math.round(edgePx * 0.35)}px, ${-Math.round(edgePx * 0.22)}px)`,
                   color: edgeColor,
                   textShadow: 'none',
@@ -602,7 +617,7 @@ export default function CaptionsSection({
 
       {/* which look this cut uses — defaults per preset, tweakable after */}
       <div className="flex flex-wrap bg-[var(--pintu-toggle-bg)] rounded-md p-0.5 border border-[var(--pintu-toggle-border)]">
-        {['bizz', 'bizzindia', 'podcastred'].map((m) => (
+        {['bizz', 'bizzindia', 'podcastred', 'styled'].map((m) => (
           <button
             key={m}
             type="button"
@@ -783,15 +798,6 @@ export default function CaptionsSection({
                     setS({ highlightScale: Math.max(20, Math.min(300, pct)) });
                   }}
                 />
-                <Slider
-                  label="Line gap"
-                  value={Math.round(sStyle.lineHeightMul * 100)}
-                  min={50}
-                  max={200}
-                  step={1}
-                  suffix="%"
-                  onChange={(v) => setS({ lineHeightMul: v / 100 })}
-                />
                 <ColorInput label="Top line colour" value={sStyle.baseColor} onChange={(v) => setS({ baseColor: v })} />
                 <ColorInput label="Bottom line colour" value={sStyle.activeColor} onChange={(v) => setS({ activeColor: v })} />
               </>
@@ -804,6 +810,15 @@ export default function CaptionsSection({
             )}
             <Slider label="Words / card" value={sStyle.maxWordsPerBlock} min={1} max={8} onChange={(v) => setS({ maxWordsPerBlock: v })} />
             <Slider label="Max characters" value={sStyle.maxCharsPerBlock} min={0} max={60} onChange={(v) => setS({ maxCharsPerBlock: v })} />
+            <Slider
+              label="Line gap"
+              value={Math.round(sStyle.lineHeightMul * 100)}
+              min={50}
+              max={300}
+              step={1}
+              suffix="%"
+              onChange={(v) => setS({ lineHeightMul: v / 100 })}
+            />
             <Slider label="Caption height" value={sStyle.posY} min={200} max={1200} step={10} onChange={(v) => setS({ posY: v })} />
             <Slider label="Letter spacing" value={sStyle.letterSpacing} min={-12} max={16} step={0.5} suffix="px" onChange={(v) => setS({ letterSpacing: v })} />
             <Slider
@@ -849,8 +864,8 @@ export default function CaptionsSection({
                 />
                 <Slider label="Glow size" value={sStyle.glowBorder} min={0} max={40} onChange={(v) => setS({ glowBorder: v })} />
                 <Slider label="Glow blur" value={sStyle.glowBlur} min={0} max={80} onChange={(v) => setS({ glowBlur: v })} />
-                <Slider label="Outer glow" value={sStyle.baseGlowStrength} min={0} max={500} suffix="%" onChange={(v) => setS({ baseGlowStrength: v })} />
-                <Slider label="Inner glow" value={sStyle.baseInnerGlowStrength} min={0} max={500} suffix="%" onChange={(v) => setS({ baseInnerGlowStrength: v })} />
+                <Slider label="Outer glow" value={sStyle.baseGlowStrength} min={0} max={GLOW_OUTER_MAX} suffix="%" onChange={(v) => setS({ baseGlowStrength: v })} />
+                <Slider label="Inner glow" value={sStyle.baseInnerGlowStrength} min={0} max={GLOW_OUTER_MAX} suffix="%" onChange={(v) => setS({ baseInnerGlowStrength: v })} />
                 <Slider label="Inner glow blur" value={sStyle.innerGlowBlur} min={0} max={24} step={0.5} onChange={(v) => setS({ innerGlowBlur: v })} />
                 {look === 'podcastred' && (
                   <>
@@ -872,11 +887,30 @@ export default function CaptionsSection({
                 )}
               </>
             )}
+            {(look === 'styled' || look === 'podcastred') && (
+              <span className="block text-[10px] uppercase tracking-wide text-[var(--pintu-text-faint)] pt-1">
+                Shadow — below
+              </span>
+            )}
             <ColorInput label="Shadow colour" value={sStyle.shadowColor} onChange={(v) => setS({ shadowColor: v })} />
             <Slider label="Shadow X" value={sStyle.shadowOffsetX} min={-20} max={20} suffix="px" onChange={(v) => setS({ shadowOffsetX: v })} />
             <Slider label="Shadow Y" value={sStyle.shadowOffsetY} min={-20} max={20} suffix="px" onChange={(v) => setS({ shadowOffsetY: v })} />
             <Slider label="Shadow blur" value={sStyle.shadowBlur} min={0} max={40} onChange={(v) => setS({ shadowBlur: v })} />
+            <Slider label="Shadow spread" value={sStyle.shadowSpread} min={0} max={40} suffix="px" onChange={(v) => setS({ shadowSpread: v })} />
             <Slider label="Shadow opacity" value={sStyle.shadowOpacity} min={0} max={100} suffix="%" onChange={(v) => setS({ shadowOpacity: v })} />
+            {(look === 'styled' || look === 'podcastred') && (
+              <>
+                <span className="block text-[10px] uppercase tracking-wide text-[var(--pintu-text-faint)] pt-2">
+                  Shadow — above
+                </span>
+                <ColorInput label="Shadow colour" value={sStyle.shadowTopColor} onChange={(v) => setS({ shadowTopColor: v })} />
+                <Slider label="Shadow X" value={sStyle.shadowTopOffsetX} min={-20} max={20} suffix="px" onChange={(v) => setS({ shadowTopOffsetX: v })} />
+                <Slider label="Shadow Y" value={sStyle.shadowTopOffsetY} min={-20} max={20} suffix="px" onChange={(v) => setS({ shadowTopOffsetY: v })} />
+                <Slider label="Shadow blur" value={sStyle.shadowTopBlur} min={0} max={40} onChange={(v) => setS({ shadowTopBlur: v })} />
+                <Slider label="Shadow spread" value={sStyle.shadowTopSpread} min={0} max={40} suffix="px" onChange={(v) => setS({ shadowTopSpread: v })} />
+                <Slider label="Shadow opacity" value={sStyle.shadowTopOpacity} min={0} max={100} suffix="%" onChange={(v) => setS({ shadowTopOpacity: v })} />
+              </>
+            )}
             <Slider label="Stroke width" value={sStyle.outline} min={0} max={12} step={0.5} suffix="px" onChange={(v) => setS({ outline: v })} />
           </Section>
 

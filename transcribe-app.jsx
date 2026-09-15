@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Upload, Play, Pause, Loader2, Download, Wand2, Type, RotateCcw, AlertCircle, Check, ChevronDown,
 } from 'lucide-react';
@@ -106,6 +106,262 @@ function Slider({ label, value, min, max, step = 1, suffix = '', onChange, hint 
   );
 }
 
+const POINTER_DRAG_PX = 8;
+
+function dropTargetFromPoint(clientX, clientY, root, draggingId) {
+  if (!root) return null;
+  const stack = document.elementsFromPoint(clientX, clientY);
+  for (const node of stack) {
+    if (!(node instanceof Element) || !root.contains(node)) continue;
+    const zone = node.closest('[data-drop-new]');
+    if (zone && root.contains(zone)) {
+      return { si: Number(zone.getAttribute('data-drop-new')), wi: 0 };
+    }
+    const chip = node.closest('[data-word-chip]');
+    if (chip && root.contains(chip)) {
+      if (draggingId && chip.getAttribute('data-word-id') === draggingId) continue;
+      return {
+        si: Number(chip.getAttribute('data-si')),
+        wi: Number(chip.getAttribute('data-wi')),
+      };
+    }
+    const row = node.closest('[data-sentence-row]');
+    if (row && root.contains(row)) {
+      return {
+        si: Number(row.getAttribute('data-si')),
+        wi: Number(row.getAttribute('data-sent-len')),
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Pointer-based regrouping instead of HTML5 drag-and-drop. Native drag is tied to the
+ * source DOM node; the 60fps playhead clock re-renders this list and unmounts that node
+ * mid-gesture, so dragend never fires and the browser keeps the drag session — the whole
+ * page stops taking clicks, including highlight toggles on the same chips.
+ */
+const TranscriptPanel = memo(function TranscriptPanel({
+  sentences,
+  activeBlock,
+  editing,
+  setEditing,
+  indexById,
+  indexByStart,
+  updateWord,
+  toggleHighlight,
+  moveWord,
+  splitSentenceAfter,
+  seek,
+}) {
+  const rootRef = useRef(null);
+  const pointerRef = useRef(null);
+  const dropHintRef = useRef(null);
+  const suppressClickRef = useRef(false);
+  const [dragWordId, setDragWordId] = useState(null);
+  const [dropHint, setDropHint] = useState(null);
+
+  const clearVisual = useCallback(() => {
+    dropHintRef.current = null;
+    setDragWordId(null);
+    setDropHint(null);
+  }, []);
+
+  useEffect(() => {
+    const finish = (e) => {
+      const p = pointerRef.current;
+      if (!p) return;
+      pointerRef.current = null;
+      const hint = dropHintRef.current;
+      const moved = p.dragging;
+      clearVisual();
+      suppressClickRef.current = true;
+      requestAnimationFrame(() => { suppressClickRef.current = false; });
+      if (e.type === 'pointercancel') return;
+      if (!moved) {
+        if (p.idx !== undefined) toggleHighlight(p.idx);
+        return;
+      }
+      if (hint && Number.isFinite(hint.si) && !(hint.si === p.fromSi && hint.wi === p.fromWi)) {
+        try {
+          moveWord(p.fromSi, p.fromWi, hint.si, hint.wi);
+        } catch (err) {
+          console.error('moveWord failed:', err);
+        }
+      }
+    };
+    const onMove = (e) => {
+      const p = pointerRef.current;
+      if (!p) return;
+      if (p.dragging && e.pointerType === 'mouse' && e.buttons === 0) {
+        pointerRef.current = null;
+        clearVisual();
+        return;
+      }
+      const dx = e.clientX - p.x;
+      const dy = e.clientY - p.y;
+      if (!p.dragging && (dx * dx + dy * dy) < POINTER_DRAG_PX * POINTER_DRAG_PX) return;
+      if (!p.dragging) {
+        p.dragging = true;
+        setDragWordId(p.id);
+      }
+      if (p.dragging && e.cancelable) e.preventDefault();
+      const hint = dropTargetFromPoint(e.clientX, e.clientY, rootRef.current, p.id);
+      const prev = dropHintRef.current;
+      if (prev?.si === hint?.si && prev?.wi === hint?.wi) return;
+      dropHintRef.current = hint;
+      setDropHint(hint);
+    };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+    };
+  }, [clearVisual, moveWord, toggleHighlight]);
+
+  return (
+    <div ref={rootRef} className="max-h-80 overflow-y-auto space-y-2 pr-1 select-none">
+      {sentences.map((sent, si) => {
+        const sentStart = Math.min(...sent.map((w) => w.start));
+        const isNow = activeBlock
+          && activeBlock.words.some((aw) => sent.some((sw) => sw.id === aw.id || round3(sw.start) === round3(aw.start)));
+        return (
+          <div
+            key={`sent-${si}-${sent[0]?.id || si}`}
+            data-sentence-row
+            data-si={si}
+            data-sent-len={sent.length}
+            className={`rounded-md px-2 py-2 border transition-colors ${
+              isNow ? 'bg-neutral-800/70 border-neutral-700' : 'border-neutral-900 hover:border-neutral-800'
+            } ${dropHint?.si === si && dropHint?.wi === sent.length ? 'ring-1 ring-red-500/50' : ''}`}
+            onClick={() => {
+              if (suppressClickRef.current) return;
+              seek(sentStart + 0.01);
+            }}
+          >
+            <div className="flex items-center gap-2 mb-1.5" data-sent-meta>
+              <span className="text-[10px] text-neutral-600 tabular-nums">
+                {sentStart.toFixed(1)}s · sentence {si + 1}
+              </span>
+              <span className="text-[10px] text-neutral-700">{sent.length} words</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 items-center min-h-[28px]">
+              {sent.map((w, wi) => {
+                const idx = indexById.get(w.id) ?? indexByStart.get(round3(w.start));
+                const isEditing = editing === idx && idx !== undefined;
+                const isHi = !!w.highlight;
+                const isDragging = dragWordId === w.id;
+                const showDropBefore = dropHint?.si === si && dropHint?.wi === wi;
+                if (isEditing) {
+                  return (
+                    <input
+                      key={w.id || `${w.start}-${wi}`}
+                      autoFocus
+                      defaultValue={w.text}
+                      onClick={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onBlur={(e) => { updateWord(idx, e.target.value.trim() || w.text); setEditing(null); }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur();
+                        if (e.key === 'Escape') setEditing(null);
+                      }}
+                      className="bg-neutral-800 border border-neutral-600 rounded px-1.5 py-1
+                                 text-xs text-white w-28 focus:outline-none select-text"
+                    />
+                  );
+                }
+                return (
+                  <React.Fragment key={w.id || `${w.start}-${wi}`}>
+                    {showDropBefore && (
+                      <span className="w-0.5 h-5 bg-red-500 rounded-full self-center" />
+                    )}
+                    <button
+                      type="button"
+                      data-word-chip
+                      data-si={si}
+                      data-wi={wi}
+                      data-word-id={w.id}
+                      draggable={false}
+                      onDragStart={(e) => e.preventDefault()}
+                      onPointerDown={(e) => {
+                        if (e.button !== 0) return;
+                        e.stopPropagation();
+                        pointerRef.current = {
+                          id: w.id,
+                          idx,
+                          fromSi: si,
+                          fromWi: wi,
+                          x: e.clientX,
+                          y: e.clientY,
+                          dragging: false,
+                        };
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        if (idx !== undefined) setEditing(idx);
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        splitSentenceAfter(si, wi);
+                      }}
+                      title="Drag to regroup · click highlight · double-click edit · right-click split after"
+                      className={`text-xs rounded-md px-2 py-1 border cursor-grab active:cursor-grabbing transition-colors touch-none ${
+                        isDragging ? 'opacity-40' : ''
+                      } ${
+                        isHi
+                          ? 'text-orange-400 italic font-semibold border-orange-500/30 bg-orange-500/10'
+                          : 'text-neutral-200 border-neutral-800 bg-neutral-900/80 hover:border-neutral-600'
+                      }`}
+                    >
+                      {w.text}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      <div
+        data-drop-new={sentences.length}
+        className={`rounded-md border border-dashed px-3 py-2 text-[11px] text-neutral-600 text-center transition-colors ${
+          dropHint?.si === sentences.length ? 'border-red-500/60 text-neutral-400' : 'border-neutral-800'
+        }`}
+      >
+        Drop here to make a new sentence
+      </div>
+    </div>
+  );
+});
+
+class OverlayErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(err) {
+    console.error('Caption overlay failed:', err);
+  }
+  componentDidUpdate(prevProps) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
+    }
+  }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
 function ColorInput({ label, value, onChange, hint }) {
   return (
     <label className="block space-y-1">
@@ -142,8 +398,6 @@ export default function TranscribeApp() {
 
   const [words, setWords] = useState([]);
   const [manualGrouping, setManualGrouping] = useState(false);
-  const [dragWordId, setDragWordId] = useState(null);
-  const [dropHint, setDropHint] = useState(null); // { si, wi } insert before wi in sentence si
   const [serverVideoPath, setServerVideoPath] = useState(null);
   const [style, setStyle] = useState(DEFAULT_STYLE);
   const [captionMode, setCaptionMode] = useState('styled'); // styled | bizz | bizzindia | podcastred
@@ -166,7 +420,6 @@ export default function TranscribeApp() {
   const videoRef = useRef(null);
   const stageRef = useRef(null);
   const replaceInputRef = useRef(null); // swap the clip without leaving the editor
-  const dragRef = useRef(null); // { fromSi, fromWi } — more reliable than dataTransfer
   const [stageWidth, setStageWidth] = useState(0);
 
   // --- upload -------------------------------------------------------------
@@ -176,7 +429,7 @@ export default function TranscribeApp() {
     setVideoUrl((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(f); });
     setWords([]); setServerVideoPath(null);
     setBurnResult(null); setError(null); setPhase('idle'); setProgress(null);
-    setManualGrouping(false); setDragWordId(null); setDropHint(null); setEditing(null);
+    setManualGrouping(false); setEditing(null);
     // Playback state belongs to the old clip: a paused swap left the transport showing
     // Pause, and the scrubber holding the previous timeline until the new metadata landed.
     setPlaying(false); setTime(0); setDuration(0);
@@ -247,7 +500,10 @@ export default function TranscribeApp() {
     let raf;
     const tick = () => {
       const v = videoRef.current;
-      if (v) setTime(v.currentTime);
+      if (v) {
+        const t = v.currentTime;
+        setTime((prev) => (Math.abs(prev - t) < 0.025 ? prev : t));
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -269,10 +525,10 @@ export default function TranscribeApp() {
     if (v.paused) { v.play(); setPlaying(true); } else { v.pause(); setPlaying(false); }
   };
 
-  const seek = (t) => {
+  const seek = useCallback((t) => {
     const v = videoRef.current;
     if (v) { v.currentTime = t; setTime(t); }
-  };
+  }, []);
 
   // --- word editing -------------------------------------------------------
   const indexByStart = useMemo(() => {
@@ -302,22 +558,22 @@ export default function TranscribeApp() {
     stylePackRef.current[captionMode] = style;
   }, [style, captionMode]);
 
-  const updateWord = (idx, text) => {
+  const updateWord = useCallback((idx, text) => {
     setWords((prev) => prev.map((w, i) => (i === idx ? { ...w, text } : w)));
-  };
+  }, []);
 
-  const toggleHighlight = (idx) => {
+  const toggleHighlight = useCallback((idx) => {
     setWords((prev) => prev.map((w, i) => (
       i === idx ? { ...w, highlight: !w.highlight } : w
     )));
-  };
+  }, []);
 
-  const applySentences = (nextSentences) => {
+  const applySentences = useCallback((nextSentences) => {
     setManualGrouping(true);
     setWords(sentencesToWords(nextSentences.filter((s) => s.length > 0)));
-  };
+  }, []);
 
-  const moveWord = (fromSi, fromWi, toSi, toWi) => {
+  const moveWord = useCallback((fromSi, fromWi, toSi, toWi) => {
     const sents = wordsToSentences(words);
     if (!sents[fromSi] || fromWi < 0 || fromWi >= sents[fromSi].length) return;
     const next = sents.map((s) => [...s]);
@@ -345,9 +601,9 @@ export default function TranscribeApp() {
     setWords(sentencesToWords(cleaned));
     const dest = cleaned[seekSi];
     if (dest?.length) seek(Math.min(...dest.map((w) => w.start)) + 0.01);
-  };
+  }, [words, seek]);
 
-  const splitSentenceAfter = (si, wi) => {
+  const splitSentenceAfter = useCallback((si, wi) => {
     const sents = wordsToSentences(words);
     if (!sents[si] || wi < 0 || wi >= sents[si].length - 1) return;
     const left = sents[si].slice(0, wi + 1);
@@ -355,7 +611,7 @@ export default function TranscribeApp() {
     const next = [...sents.slice(0, si), left, right, ...sents.slice(si + 1)];
     applySentences(next);
     if (right.length) seek(Math.min(...right.map((w) => w.start)) + 0.01);
-  };
+  }, [words, applySentences, seek]);
 
   const reAutoGroup = () => {
     setWords((prev) => stampAutoSentenceBreaks(prev, normalizeStyle(style)));
@@ -460,10 +716,10 @@ export default function TranscribeApp() {
 
       <div className="flex flex-col lg:flex-row gap-6 p-6 max-w-[1500px] mx-auto">
         {/* ---------------- preview ---------------- */}
-        <div className="lg:w-[420px] shrink-0">
+        <div className="lg:w-[420px] shrink-0 lg:sticky lg:top-6 lg:self-start">
           <div
             ref={stageRef}
-            className="relative w-full bg-black rounded-xl overflow-hidden border border-neutral-900"
+            className="relative w-full bg-black rounded-xl overflow-hidden border border-neutral-900 lg:max-h-[65vh]"
             style={{ aspectRatio: String(aspect) }}
             // Dropping a clip on the stage swaps it, loaded or not — no round trip to the
             // empty state. Word drags from the transcript carry no files, so they fall through.
@@ -520,6 +776,7 @@ export default function TranscribeApp() {
             )}
 
             {/* caption overlay — live from transcript (edits apply immediately) */}
+            <OverlayErrorBoundary resetKey={`${activeBlock?.index ?? 'x'}-${words.length}`}>
             {activeBlock && scale > 0 && !isWordLook && (
               <div className="absolute inset-0 pointer-events-none">
                 {(() => {
@@ -593,6 +850,7 @@ export default function TranscribeApp() {
                 time={time}
               />
             )}
+            </OverlayErrorBoundary>
           </div>
 
           {/* One input behind both the stage button and the filename link. Clearing value on
@@ -908,6 +1166,7 @@ export default function TranscribeApp() {
                 <Slider label="Shadow X" value={sStyle.shadowOffsetX} min={-20} max={20} step={1} suffix="px" hint="How far right the shadow sits." onChange={(v) => setS({ shadowOffsetX: v })} />
                 <Slider label="Shadow Y" value={sStyle.shadowOffsetY} min={-20} max={20} step={1} suffix="px" hint="How far down the shadow sits." onChange={(v) => setS({ shadowOffsetY: v })} />
                 <Slider label="Shadow blur" value={sStyle.shadowBlur} min={0} max={40} step={1} hint="How soft the shadow edge is. 0 is a hard offset copy." onChange={(v) => setS({ shadowBlur: v })} />
+                <Slider label="Shadow spread" value={sStyle.shadowSpread} min={0} max={40} step={1} suffix="px" hint="How far the shadow's own shape grows before it's blurred." onChange={(v) => setS({ shadowSpread: v })} />
                 <Slider label="Shadow opacity" value={sStyle.shadowOpacity} min={0} max={100} step={1} suffix="%" hint="How solid the shadow is." onChange={(v) => setS({ shadowOpacity: v })} />
                 <Slider label="Stroke width" value={sStyle.outline} min={0} max={12} step={0.5} suffix="px" hint="Black outline drawn around each letter." onChange={(v) => setS({ outline: v })} />
               </CollapsibleSection>
@@ -969,6 +1228,38 @@ export default function TranscribeApp() {
                   </CollapsibleSection>
                   )}
 
+                  {isWordLook && (
+                  <CollapsibleSection title="Shadow (below)">
+                    <ColorInput
+                      label="Shadow colour"
+                      value={sStyle.shadowColor}
+                      hint="Colour of the drop shadow behind each word."
+                      onChange={(v) => setS({ shadowColor: v })}
+                    />
+                    <Slider label="Shadow X" value={sStyle.shadowOffsetX} min={-20} max={20} step={1} suffix="px" hint="How far right the shadow sits." onChange={(v) => setS({ shadowOffsetX: v })} />
+                    <Slider label="Shadow Y" value={sStyle.shadowOffsetY} min={-20} max={20} step={1} suffix="px" hint="How far down the shadow sits." onChange={(v) => setS({ shadowOffsetY: v })} />
+                    <Slider label="Shadow blur" value={sStyle.shadowBlur} min={0} max={40} step={1} hint="How soft the shadow edge is. 0 is a hard offset copy." onChange={(v) => setS({ shadowBlur: v })} />
+                    <Slider label="Shadow spread" value={sStyle.shadowSpread} min={0} max={40} step={1} suffix="px" hint="How far the shadow's own shape grows before it's blurred." onChange={(v) => setS({ shadowSpread: v })} />
+                    <Slider label="Shadow opacity" value={sStyle.shadowOpacity} min={0} max={100} step={1} suffix="%" hint="How solid the shadow is." onChange={(v) => setS({ shadowOpacity: v })} />
+                  </CollapsibleSection>
+                  )}
+
+                  {isWordLook && (
+                  <CollapsibleSection title="Shadow (above)">
+                    <ColorInput
+                      label="Shadow colour"
+                      value={sStyle.shadowTopColor}
+                      hint="Colour of the drop shadow above each word."
+                      onChange={(v) => setS({ shadowTopColor: v })}
+                    />
+                    <Slider label="Shadow X" value={sStyle.shadowTopOffsetX} min={-20} max={20} step={1} suffix="px" hint="How far right the shadow sits." onChange={(v) => setS({ shadowTopOffsetX: v })} />
+                    <Slider label="Shadow Y" value={sStyle.shadowTopOffsetY} min={-20} max={20} step={1} suffix="px" hint="How far down the shadow sits. Negative sits above the word." onChange={(v) => setS({ shadowTopOffsetY: v })} />
+                    <Slider label="Shadow blur" value={sStyle.shadowTopBlur} min={0} max={40} step={1} hint="How soft the shadow edge is. 0 is a hard offset copy." onChange={(v) => setS({ shadowTopBlur: v })} />
+                    <Slider label="Shadow spread" value={sStyle.shadowTopSpread} min={0} max={40} step={1} suffix="px" hint="How far the shadow's own shape grows before it's blurred." onChange={(v) => setS({ shadowTopSpread: v })} />
+                    <Slider label="Shadow opacity" value={sStyle.shadowTopOpacity} min={0} max={100} step={1} suffix="%" hint="How solid the shadow is." onChange={(v) => setS({ shadowTopOpacity: v })} />
+                  </CollapsibleSection>
+                  )}
+
                   <CollapsibleSection title="Placement & spacing">
                     <Slider label="Caption height" value={sStyle.posY} min={200} max={1200} step={10} hint="How far down the frame the captions sit." onChange={(v) => setS({ posY: v })} />
                     {isWordLook && (
@@ -1016,152 +1307,19 @@ export default function TranscribeApp() {
                 Drag words between sentences to regroup — the preview overlay updates live.
                 Double-click to edit text.{isWordLook ? ' Click to mark a highlight word.' : ''}{!isWordLook ? ' Click to mark an emphasised word.' : ''} Right-click to split after.
               </p>
-              <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
-                {sentences.map((sent, si) => {
-                  const sentStart = Math.min(...sent.map((w) => w.start));
-                  const isNow = activeBlock
-                    && activeBlock.words.some((aw) => sent.some((sw) => sw.id === aw.id || round3(sw.start) === round3(aw.start)));
-                  return (
-                    <div
-                      key={`sent-${si}-${sent[0]?.id || si}`}
-                      className={`rounded-md px-2 py-2 border transition-colors ${
-                        isNow ? 'bg-neutral-800/70 border-neutral-700' : 'border-neutral-900 hover:border-neutral-800'
-                      } ${dropHint?.si === si && dropHint?.wi === sent.length ? 'ring-1 ring-red-500/50' : ''}`}
-                      onClick={() => seek(sentStart + 0.01)}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = 'move';
-                        setDropHint({ si, wi: sent.length });
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const src = dragRef.current;
-                        if (!src) return;
-                        moveWord(src.fromSi, src.fromWi, si, sent.length);
-                        dragRef.current = null;
-                        setDragWordId(null);
-                        setDropHint(null);
-                      }}
-                    >
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] text-neutral-600 tabular-nums">
-                          {sentStart.toFixed(1)}s · sentence {si + 1}
-                        </span>
-                        <span className="text-[10px] text-neutral-700">{sent.length} words</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 items-center min-h-[28px]">
-                        {sent.map((w, wi) => {
-                          const idx = indexById.get(w.id) ?? indexByStart.get(round3(w.start));
-                          const isEditing = editing === idx && idx !== undefined;
-                          const isHi = !!w.highlight;
-                          const isDragging = dragWordId === w.id;
-                          const showDropBefore = dropHint?.si === si && dropHint?.wi === wi;
-                          if (isEditing) {
-                            return (
-                              <input
-                                key={w.id || `${w.start}-${wi}`}
-                                autoFocus
-                                defaultValue={w.text}
-                                onClick={(e) => e.stopPropagation()}
-                                onBlur={(e) => { updateWord(idx, e.target.value.trim() || w.text); setEditing(null); }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') e.currentTarget.blur();
-                                  if (e.key === 'Escape') setEditing(null);
-                                }}
-                                className="bg-neutral-800 border border-neutral-600 rounded px-1.5 py-1
-                                           text-xs text-white w-28 focus:outline-none"
-                              />
-                            );
-                          }
-                          return (
-                            <React.Fragment key={w.id || `${w.start}-${wi}`}>
-                              {showDropBefore && (
-                                <span className="w-0.5 h-5 bg-red-500 rounded-full self-center" />
-                              )}
-                              <button
-                                type="button"
-                                draggable
-                                onDragStart={(e) => {
-                                  e.stopPropagation();
-                                  dragRef.current = { fromSi: si, fromWi: wi };
-                                  e.dataTransfer.setData('text/plain', `${si},${wi}`);
-                                  e.dataTransfer.effectAllowed = 'move';
-                                  setDragWordId(w.id);
-                                }}
-                                onDragEnd={() => {
-                                  dragRef.current = null;
-                                  setDragWordId(null);
-                                  setDropHint(null);
-                                }}
-                                onDragOver={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setDropHint({ si, wi });
-                                }}
-                                onDrop={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  const src = dragRef.current;
-                                  if (!src) return;
-                                  moveWord(src.fromSi, src.fromWi, si, wi);
-                                  dragRef.current = null;
-                                  setDragWordId(null);
-                                  setDropHint(null);
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (idx !== undefined) toggleHighlight(idx);
-                                }}
-                                onDoubleClick={(e) => {
-                                  e.stopPropagation();
-                                  if (idx !== undefined) setEditing(idx);
-                                }}
-                                onContextMenu={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  splitSentenceAfter(si, wi);
-                                }}
-                                title="Drag to regroup · double-click edit · right-click split after"
-                                className={`text-xs rounded-md px-2 py-1 border cursor-grab active:cursor-grabbing transition-colors ${
-                                  isDragging ? 'opacity-40' : ''
-                                } ${
-                                  isHi
-                                    ? 'text-orange-400 italic font-semibold border-orange-500/30 bg-orange-500/10'
-                                    : 'text-neutral-200 border-neutral-800 bg-neutral-900/80 hover:border-neutral-600'
-                                }`}
-                              >
-                                {w.text}
-                              </button>
-                            </React.Fragment>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-                {/* Drop zone to start a new sentence at the bottom */}
-                <div
-                  className={`rounded-md border border-dashed px-3 py-2 text-[11px] text-neutral-600 text-center transition-colors ${
-                    dropHint?.si === sentences.length ? 'border-red-500/60 text-neutral-400' : 'border-neutral-800'
-                  }`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDropHint({ si: sentences.length, wi: 0 });
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const src = dragRef.current;
-                    if (!src) return;
-                    moveWord(src.fromSi, src.fromWi, sentences.length, 0);
-                    dragRef.current = null;
-                    setDragWordId(null);
-                    setDropHint(null);
-                  }}
-                >
-                  Drop here to make a new sentence
-                </div>
-              </div>
+              <TranscriptPanel
+                sentences={sentences}
+                activeBlock={activeBlock}
+                editing={editing}
+                setEditing={setEditing}
+                indexById={indexById}
+                indexByStart={indexByStart}
+                updateWord={updateWord}
+                toggleHighlight={toggleHighlight}
+                moveWord={moveWord}
+                splitSentenceAfter={splitSentenceAfter}
+                seek={seek}
+              />
             </section>
           )}
 

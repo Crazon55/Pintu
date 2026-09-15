@@ -18,6 +18,9 @@ import {
   effectiveMaxLineWidth,
   layoutWrapAllowed,
   sequenceCaptionBlocks,
+  outerGlowDrawParams,
+  innerGlowDrawParams,
+  cssMatchedShadowAss,
 } from '../shared/captionEngine.js';
 
 const __subtitleDir = dirname(fileURLToPath(import.meta.url));
@@ -173,7 +176,7 @@ function layoutCaptionWords(wordInputs, {
     const next = cur.indices.length === 0 ? w : cur.width + gapAt(li) + w;
     const forcedBreak = i > 0 && !!(typeof wordInputs[i] === 'object' && wordInputs[i].lineBreak);
     const canWrap = layoutWrapAllowed(layoutStyle, wordInputs, i, lines.length);
-    if (cur.indices.length > 0 && (forcedBreak || (canWrap && next > maxW))) {
+    if (cur.indices.length > 0 && canWrap && (forcedBreak || next > maxW)) {
       lines.push(cur);
       cur = { indices: [i], width: widthAt(i, lines.length) };
     } else {
@@ -1024,6 +1027,18 @@ export function generateWordHighlightASS(words, rawOptions = {}) {
     lineHeightMul = 0.78,
     baseEdgeHighlight = 0,
     edgeHighlightColor = '#FFFFFF',
+    shadowColor = '#000000',
+    shadowOpacity = 0,
+    shadowOffsetX = 0,
+    shadowOffsetY = 0,
+    shadowBlur = 0,
+    shadowSpread = 0,
+    shadowTopColor = '#000000',
+    shadowTopOpacity = 0,
+    shadowTopOffsetX = 0,
+    shadowTopOffsetY = 0,
+    shadowTopBlur = 0,
+    shadowTopSpread = 0,
   } = options;
 
   // Floor was 80: an emphasis word never shrinks much. Podcast Red's second tier is 43%
@@ -1055,6 +1070,26 @@ export function generateWordHighlightASS(words, rawOptions = {}) {
   // No shadow. It only applied to the hold state, not the rise, so it ticked in as each
   // word landed. Contrast comes from the glow behind the word instead.
   const baseShadow = '\\shad0';
+  const shadowC = toAssColor(shadowColor, '&H00000000&');
+  const shBottom = cssMatchedShadowAss(options, 'bottom');
+  const shadowSpreadAss = shBottom.spread;
+  const shadowBlurAss = shBottom.blur;
+  const shadowAlphaHex = assAlphaHex(shBottom.opacity);
+  const shadowTightBlurAss = shBottom.tightBlur;
+  const shadowTightAlphaHex = assAlphaHex(shBottom.tightOpacity);
+  const shadowDx = shBottom.dx;
+  const shadowDy = shBottom.dy;
+  const drawsWordShadow = shBottom.on;
+  const shadowTopC = toAssColor(shadowTopColor, '&H00000000&');
+  const shTop = cssMatchedShadowAss(options, 'top');
+  const shadowTopSpreadAss = shTop.spread;
+  const shadowTopBlurAss = shTop.blur;
+  const shadowTopAlphaHex = assAlphaHex(shTop.opacity);
+  const shadowTopTightBlurAss = shTop.tightBlur;
+  const shadowTopTightAlphaHex = assAlphaHex(shTop.tightOpacity);
+  const shadowTopDx = shTop.dx;
+  const shadowTopDy = shTop.dy;
+  const drawsWordShadowTop = shTop.on;
   const glowC = toAssColor(glowColor || activeColor, '&H000000FF&');
   const baseGlowC = toAssColor(baseColor, '&H00FFFFFF&');
   const edgeHiPx = Math.max(0, Math.min(8, Number(baseEdgeHighlight) || 0));
@@ -1147,57 +1182,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
   };
 
   // Soft OUTER glow underlay — strength is per font (Montserrat vs Playfair).
-  const legacyStrength = Number.isFinite(Number(glowStrength)) ? Number(glowStrength) : 35;
-  const baseStr = Number.isFinite(Number(baseGlowStrength)) ? Number(baseGlowStrength) : legacyStrength;
-  const hiStr = Number.isFinite(Number(highlightGlowStrength)) ? Number(highlightGlowStrength) : legacyStrength;
-  const baseInnerStr = Math.max(0, Math.min(500, Number.isFinite(Number(baseInnerGlowStrength))
-    ? Number(baseInnerGlowStrength)
-    : 0));
-  const hiInnerStr = Math.max(0, Math.min(500, Number.isFinite(Number(highlightInnerGlowStrength))
-    ? Number(highlightInnerGlowStrength)
-    : 75));
   const gBord = Number.isFinite(Number(glowBorder)) ? Math.max(0, Number(glowBorder)) : 35;
   const gBlur = Number.isFinite(Number(glowBlur)) ? Math.max(0, Number(glowBlur)) : 0;
-  const gInnerBlur = Number.isFinite(Number(innerGlowBlur)) ? Math.max(0, Number(innerGlowBlur)) : 4;
-  const innerStrFor = (isHi) => (isHi ? hiInnerStr : baseInnerStr);
   const innerGlowHold = (fill, italic, isHi) => {
-    const mul = Math.max(0, innerStrFor(isHi) / 100);
-    if (mul <= 0.01) return null;
-    const op = Math.min(0.85, 0.35 + mul * 0.35);
-    const blur = Math.max(1, Math.round(gInnerBlur * Math.max(0.6, mul)));
-    return `${bloomTags(op, fill, blur, 0)}${italic ? '\\i1' : '\\i0'}`;
+    const inner = innerGlowDrawParams(options, isHi);
+    if (inner.opacity <= 0.01) return null;
+    return `${bloomTags(inner.opacity, fill, inner.blur, 0)}${italic ? '\\i1' : '\\i0'}`;
   };
   const innerGlowFade = (op0, op1, dur, fill, isHi) => {
-    const mul = Math.max(0, innerStrFor(isHi) / 100);
-    if (mul <= 0.01) return null;
-    const peak = Math.min(0.85, 0.35 + mul * 0.35);
-    const blur = Math.max(1, Math.round(gInnerBlur * Math.max(0.6, mul)));
-    return bloomFade(op0 * peak, op1 * peak, dur, fill, blur, 0);
+    const inner = innerGlowDrawParams(options, isHi);
+    if (inner.opacity <= 0.01) return null;
+    return bloomFade(op0 * inner.opacity, op1 * inner.opacity, dur, fill, inner.blur, 0);
   };
-  const outerGlowParams = (isHi) => {
-    const mul = Math.max(0, (isHi ? hiStr : baseStr) / 100);
-    // \bord and \blur are absolute script units, so a fixed cap means the glow is a soft
-    // halo on a 150-unit caption and a solid blob on a 37-unit one. Both must track the
-    // font. The old constants (spread clamped to 18, blur floored at 3) put a half-glyph
-    // hard-edged ring around every word with nothing to soften it — that is the "pill".
-    const glyph = Math.max(8, Number(fontSize) || 56);
-    const spreadCap = Math.max(2, Math.round(glyph * 0.10));
-    const spread = Math.min(spreadCap, Math.max(0, Math.round(gBord * Math.max(0.15, mul) * 0.35)));
-    // Glow only reads as glow when the blur clearly exceeds the spread. Otherwise the
-    // padded glyph keeps a hard edge and renders as a filled shape behind the word.
-    const blur = Math.min(
-      72,
-      Math.max(spread * 2.5, Math.round(gBlur * Math.max(0.35, mul)), Math.round(glyph * 0.22)),
-    );
-    return {
-      // A strength of exactly 0 means off. Without this the floor term (0.2) still drew a
-      // faint bloom, which put a halo on Podcast Red's white line where it wants none.
-      opacity: mul <= 0 ? 0 : Math.min(isHi ? 0.72 : 0.58, 0.2 + mul * 0.14),
-      // Blur the glyph fill — never a hollow \bord ring (that glows inside letter holes).
-      blur,
-      spread,
-    };
-  };
+  const outerGlowParams = (isHi) => outerGlowDrawParams(options, isHi);
   const glowOpFor = (isHi) => outerGlowParams(isHi).opacity;
   // Soft filled bloom: same color fill+outline so counters stay filled, not outlined.
   const bloomTags = (op, fill, blur, spread = 0) => {
@@ -1294,7 +1291,49 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
       const paintWord = (anchor, colorTags, scaleTags, fontTag = fnBase) => (
         `{${anchor}\\frz${frz}${faxTag}${fontTag}${wordBold}${fsTag}${fsp}${colorTags}${scaleTags}}${wordText}`
       );
+      // Black drop shadow duplicate: same colour fill+outline as the shadow itself so the
+      // \bord just thickens the silhouette (real spread) and \blur softens its edge.
+      // Drawn as TWO passes, same as the editor's stacked CSS shadow tiers — a single
+      // wide \blur alone dilutes to a near-invisible wash; the tight, barely-blurred pass
+      // underneath it is what actually reads as a visible shadow edge.
+      const pushShadowDupe = (
+        layer, start, end, anchor, scaleTags, fontTag, dx, dy, spreadAss, blurAss, colorC, alphaHex,
+        tightBlurAss, tightAlphaHex,
+      ) => {
+        const softTags = `\\alpha&H${alphaHex}&\\c${colorC}\\3c${colorC}`
+          + `\\bord${spreadAss}\\blur${blurAss}\\shad0\\i0`;
+        dialogues.push(
+          `Dialogue: ${layer},${start},${end},Default,,0,0,0,,${paintWord(
+            offsetAnchor(anchor, dx, dy), softTags, scaleTags, fontTag,
+          )}`,
+        );
+        const tightTags = `\\alpha&H${tightAlphaHex}&\\c${colorC}\\3c${colorC}`
+          + `\\bord${spreadAss}\\blur${tightBlurAss}\\shad0\\i0`;
+        dialogues.push(
+          `Dialogue: ${layer + 1},${start},${end},Default,,0,0,0,,${paintWord(
+            offsetAnchor(anchor, dx, dy), tightTags, scaleTags, fontTag,
+          )}`,
+        );
+      };
       const pushMainDialogue = (layer, start, end, anchor, colorTags, scaleTags, fontTag) => {
+        // Two independent shadows — one below the word, one above — drawn on layers
+        // BELOW the glow underlays (which sit at 0/1), not just behind the main glyph.
+        // ASS draws higher layers on top, so a shadow above the glow's layer would sit
+        // in front of it and mute its colour out — same bug the preview had.
+        if (drawsWordShadow) {
+          pushShadowDupe(
+            -4, start, end, anchor, scaleTags, fontTag,
+            shadowDx, shadowDy, shadowSpreadAss, shadowBlurAss, shadowC, shadowAlphaHex,
+            shadowTightBlurAss, shadowTightAlphaHex,
+          );
+        }
+        if (drawsWordShadowTop) {
+          pushShadowDupe(
+            -6, start, end, anchor, scaleTags, fontTag,
+            shadowTopDx, shadowTopDy, shadowTopSpreadAss, shadowTopBlurAss, shadowTopC, shadowTopAlphaHex,
+            shadowTopTightBlurAss, shadowTopTightAlphaHex,
+          );
+        }
         if (bevelForBase && !isHighlight) {
           // Crisp white copy under the red fill — same as the preview duplicate glyph.
           const dx = -Math.max(1, Math.round(edgeHiPx * 0.35));
@@ -1359,16 +1398,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
             const glowTags = outerGlowFade(seg.op0, seg.op1, eventMs, gFill, isHighlight)
               + (useItalic ? '\\i1' : '\\i0');
             dialogues.push(`Dialogue: 0,${s},${e},Default,,0,0,0,,${paintWord(move, glowTags, scaleTags, riseFont)}`);
-            const p = outerGlowParams(isHighlight);
-            const tight = bloomFade(
-              seg.op0 * Math.min(0.9, p.opacity * 1.15),
-              seg.op1 * Math.min(0.9, p.opacity * 1.15),
-              eventMs,
-              gFill,
-              Math.max(2, Math.round(p.blur * 0.4)),
-              0,
-            ) + (useItalic ? '\\i1' : '\\i0');
-            dialogues.push(`Dialogue: 1,${s},${e},Default,,0,0,0,,${paintWord(move, tight, scaleTags, riseFont)}`);
           }
           const riseInner = glow ? innerGlowFade(seg.op0, seg.op1, eventMs, innerFill, isHighlight) : null;
           if (riseInner) {
@@ -1376,7 +1405,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
               `Dialogue: 1,${s},${e},Default,,0,0,0,,${paintWord(move, riseInner + (useItalic ? '\\i1' : '\\i0'), scaleTags, riseFont)}`,
             );
           }
-          pushMainDialogue(2, s, e, move, activeTags, scaleTags, riseFont);
+          pushMainDialogue(3, s, e, move, activeTags, scaleTags, riseFont);
         }
         holdFrom = riseEndAbs;
       }
@@ -1460,11 +1489,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
             dialogues.push(
               `Dialogue: 0,${hs},${blockEndT},Default,,0,0,0,,${paintWord(fixed, holdGlow, holdScale + popTags + driftTags + exitTags, holdFont)}`,
             );
-            const p = outerGlowParams(isHighlight);
-            const holdTight = `${bloomTags(Math.min(0.9, p.opacity * 1.15), gFill, Math.max(2, Math.round(p.blur * 0.4)), 0)}${useItalic ? '\\i1' : '\\i0'}${hiScaleTags}`;
-            dialogues.push(
-              `Dialogue: 1,${hs},${blockEndT},Default,,0,0,0,,${paintWord(fixed, holdTight, holdScale + popTags + driftTags + exitTags, holdFont)}`,
-            );
           }
           {
             const gFill = isHighlight ? glowC : (glowColor ? glowC : baseGlowC);
@@ -1477,7 +1501,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
             }
           }
           pushMainDialogue(
-            2, hs, blockEndT, fixed, holdTags, holdScale + popTags + driftTags + exitTags, holdFont,
+            3, hs, blockEndT, fixed, holdTags, holdScale + popTags + driftTags + exitTags, holdFont,
           );
         }
       }
