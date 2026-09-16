@@ -194,7 +194,8 @@ export function CaptionWordOverlay({ block, style, scale, time = 0 }) {
         const innerAmt = Math.min(1, innerMul * 0.7);
         const innerBlur = Math.max(0, (sStyle.innerGlowBlur ?? 3) * scale * Math.max(1, innerMul));
         const shadowParts = [];
-        if (sStyle.glow && opacity > 0.05 && outerGlow.mul > 0.01) {
+        const glowAsHalo = sStyle.roleBy === 'line' || !isHi;
+        if (sStyle.glow && glowAsHalo && opacity > 0.05 && outerGlow.mul > 0.01) {
           const glowFill = sStyle.glowColor || (isHi ? sStyle.activeColor : color);
           const r = Math.min(30, Math.max(2, (glowPx + glowThick * 0.4) * outerGlow.sizeMul));
           const a = outerGlow.alpha;
@@ -204,7 +205,7 @@ export function CaptionWordOverlay({ block, style, scale, time = 0 }) {
             `0 0 ${Math.max(6, r * 1.6)}px ${hexToRgba(glowFill, a * 0.32)}`,
           );
         }
-        if (sStyle.glow && opacity > 0.05 && innerAmt > 0.01) {
+        if (sStyle.glow && glowAsHalo && opacity > 0.05 && innerAmt > 0.01) {
           const glowFill = isHi
             ? (sStyle.activeColor || '#FFFFFF')
             : (sStyle.glowColor || color);
@@ -231,14 +232,18 @@ export function CaptionWordOverlay({ block, style, scale, time = 0 }) {
             `${sdx}px ${sdy}px ${Math.max(3, r * 1.6)}px ${hexToRgba(col, alpha * 0.4)}`,
           );
         };
-        pushShadowLayer(
-          sStyle.shadowOffsetX, sStyle.shadowOffsetY, sStyle.shadowSpread, sStyle.shadowBlur,
-          sStyle.shadowColor || '#000000', sStyle.shadowOpacity,
-        );
-        pushShadowLayer(
-          sStyle.shadowTopOffsetX, sStyle.shadowTopOffsetY, sStyle.shadowTopSpread, sStyle.shadowTopBlur,
-          sStyle.shadowTopColor || '#000000', sStyle.shadowTopOpacity,
-        );
+        if (sStyle.roleBy !== 'line' && isHi) {
+          pushShadowLayer(0, 2, 1, 4, '#000000', 100);
+        } else {
+          pushShadowLayer(
+            sStyle.shadowOffsetX, sStyle.shadowOffsetY, sStyle.shadowSpread, sStyle.shadowBlur,
+            sStyle.shadowColor || '#000000', sStyle.shadowOpacity,
+          );
+          pushShadowLayer(
+            sStyle.shadowTopOffsetX, sStyle.shadowTopOffsetY, sStyle.shadowTopSpread, sStyle.shadowTopBlur,
+            sStyle.shadowTopColor || '#000000', sStyle.shadowTopOpacity,
+          );
+        }
         const shadow = shadowParts.length ? shadowParts.join(', ') : 'none';
         const edgePx = (!isHi && sStyle.roleBy === 'line')
           ? Math.max(0, Number(sStyle.baseEdgeHighlight) || 0) * scale

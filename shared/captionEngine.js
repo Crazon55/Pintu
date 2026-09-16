@@ -931,7 +931,28 @@ export function cssMatchedShadowAss(style, layer = 'bottom') {
   };
 }
 
-/** Word-by-word reveal (Flow, Podcast Red) vs whole-line (Basic, Strong). */
+/**
+ * Tight dark drop shadow for marked highlight words only. Offset slightly down, small
+ * blur — no omnidirectional halo, so it does not bleed off the glyph on the Y axis.
+ */
+export function highlightDropShadowAss(style = {}) {
+  const playScale = Math.max(0.25, (Number(style.resX) || 720) / 720);
+  // Same geometry as the editor: pushShadowLayer(0, 2, 1, 4, black, 100)
+  // then three CSS tiers at r*0.5 / r / r*1.6.
+  const r = Math.max(2, 5 * playScale);
+  return {
+    dx: 0,
+    dy: 2 * playScale,
+    spread: 0,
+    tightBlur: Math.max(1, r * 0.5),
+    tightOpacity: 1,
+    blur: r,
+    opacity: 0.7,
+    outerBlur: Math.max(2, r * 1.6),
+    outerOpacity: 0.4,
+  };
+}
+
 export function usesWordAnimation(style) {
   return normalizeStyle(style).reveal === 'accumulate';
 }

@@ -21,6 +21,7 @@ import {
   outerGlowDrawParams,
   innerGlowDrawParams,
   cssMatchedShadowAss,
+  highlightDropShadowAss,
 } from '../shared/captionEngine.js';
 
 const __subtitleDir = dirname(fileURLToPath(import.meta.url));
@@ -1266,6 +1267,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
       const isHighlight = roleBy === 'line'
         ? (Number(layout[j].line) || 0) > 0
         : !!ws[j].highlight;
+      const glowAsHalo = roleBy === 'line' || !isHighlight;
       const primaryFile = isHighlight ? hiMeta.file : baseMeta.file;
       const primaryAss = isHighlight ? resolvedHi : resolvedBase;
       const wordText = assEscapeWithGlyphFallback(
@@ -1288,8 +1290,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
       const wordScaleTags = `\\fscx${fscxWord}\\fscy${fscyWord}`;
       const fsTag = `\\fs${gdiFontSize(fontSize, primaryFile)}`;
 
+      // Italic last so a shadow/glow pass cannot override it with \i0 — libass picks the
+      // face from family + the italic flag, and \i0 on Playfair Bold Italic falls back to
+      // a roman cut. That left italic highlights with no matching drop-shadow silhouette.
+      const italicTag = useItalic ? '\\i1' : '\\i0';
       const paintWord = (anchor, colorTags, scaleTags, fontTag = fnBase) => (
-        `{${anchor}\\frz${frz}${faxTag}${fontTag}${wordBold}${fsTag}${fsp}${colorTags}${scaleTags}}${wordText}`
+        `{${anchor}\\frz${frz}${faxTag}${fontTag}${wordBold}${fsTag}${fsp}${colorTags}${scaleTags}${italicTag}}${wordText}`
       );
       // Black drop shadow duplicate: same colour fill+outline as the shadow itself so the
       // \bord just thickens the silhouette (real spread) and \blur softens its edge.
@@ -1298,17 +1304,26 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
       // underneath it is what actually reads as a visible shadow edge.
       const pushShadowDupe = (
         layer, start, end, anchor, scaleTags, fontTag, dx, dy, spreadAss, blurAss, colorC, alphaHex,
-        tightBlurAss, tightAlphaHex,
+        tightBlurAss, tightAlphaHex, outerBlurAss, outerAlphaHex,
       ) => {
+        if (outerBlurAss != null && outerAlphaHex) {
+          const outerTags = `\\alpha&H${outerAlphaHex}&\\c${colorC}\\3c${colorC}`
+            + `\\bord${spreadAss}\\blur${outerBlurAss}\\shad0`;
+          dialogues.push(
+            `Dialogue: ${layer - 1},${start},${end},Default,,0,0,0,,${paintWord(
+              offsetAnchor(anchor, dx, dy), outerTags, scaleTags, fontTag,
+            )}`,
+          );
+        }
         const softTags = `\\alpha&H${alphaHex}&\\c${colorC}\\3c${colorC}`
-          + `\\bord${spreadAss}\\blur${blurAss}\\shad0\\i0`;
+          + `\\bord${spreadAss}\\blur${blurAss}\\shad0`;
         dialogues.push(
           `Dialogue: ${layer},${start},${end},Default,,0,0,0,,${paintWord(
             offsetAnchor(anchor, dx, dy), softTags, scaleTags, fontTag,
           )}`,
         );
         const tightTags = `\\alpha&H${tightAlphaHex}&\\c${colorC}\\3c${colorC}`
-          + `\\bord${spreadAss}\\blur${tightBlurAss}\\shad0\\i0`;
+          + `\\bord${spreadAss}\\blur${tightBlurAss}\\shad0`;
         dialogues.push(
           `Dialogue: ${layer + 1},${start},${end},Default,,0,0,0,,${paintWord(
             offsetAnchor(anchor, dx, dy), tightTags, scaleTags, fontTag,
@@ -1316,23 +1331,31 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
         );
       };
       const pushMainDialogue = (layer, start, end, anchor, colorTags, scaleTags, fontTag) => {
-        // Two independent shadows — one below the word, one above — drawn on layers
-        // BELOW the glow underlays (which sit at 0/1), not just behind the main glyph.
-        // ASS draws higher layers on top, so a shadow above the glow's layer would sit
-        // in front of it and mute its colour out — same bug the preview had.
-        if (drawsWordShadow) {
+        // Highlighted words get a tight black drop shadow only — no omnidirectional
+        // glow and no top-shadow, so the silhouette does not bleed off the glyph on Y.
+        if (roleBy !== 'line' && isHighlight) {
+          const hi = highlightDropShadowAss(options);
           pushShadowDupe(
             -4, start, end, anchor, scaleTags, fontTag,
-            shadowDx, shadowDy, shadowSpreadAss, shadowBlurAss, shadowC, shadowAlphaHex,
-            shadowTightBlurAss, shadowTightAlphaHex,
+            hi.dx, hi.dy, 0, hi.blur, toAssColor('#000000'), assAlphaHex(hi.opacity),
+            hi.tightBlur, assAlphaHex(hi.tightOpacity),
+            hi.outerBlur, assAlphaHex(hi.outerOpacity),
           );
-        }
-        if (drawsWordShadowTop) {
-          pushShadowDupe(
-            -6, start, end, anchor, scaleTags, fontTag,
-            shadowTopDx, shadowTopDy, shadowTopSpreadAss, shadowTopBlurAss, shadowTopC, shadowTopAlphaHex,
-            shadowTopTightBlurAss, shadowTopTightAlphaHex,
-          );
+        } else {
+          if (drawsWordShadow) {
+            pushShadowDupe(
+              -4, start, end, anchor, scaleTags, fontTag,
+              shadowDx, shadowDy, shadowSpreadAss, shadowBlurAss, shadowC, shadowAlphaHex,
+              shadowTightBlurAss, shadowTightAlphaHex,
+            );
+          }
+          if (drawsWordShadowTop) {
+            pushShadowDupe(
+              -6, start, end, anchor, scaleTags, fontTag,
+              shadowTopDx, shadowTopDy, shadowTopSpreadAss, shadowTopBlurAss, shadowTopC, shadowTopAlphaHex,
+              shadowTopTightBlurAss, shadowTopTightAlphaHex,
+            );
+          }
         }
         if (bevelForBase && !isHighlight) {
           // Crisp white copy under the red fill — same as the preview duplicate glyph.
@@ -1394,12 +1417,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
           const wordGlowOp = glowOpFor(isHighlight);
           const gFill = isHighlight ? glowC : (glowColor ? glowC : baseGlowC);
           const innerFill = isHighlight ? active : gFill;
-          if (glow && wordGlowOp > 0.01 && (gBlur > 0 || gBord > 0)) {
+          if (glow && glowAsHalo && wordGlowOp > 0.01 && (gBlur > 0 || gBord > 0)) {
             const glowTags = outerGlowFade(seg.op0, seg.op1, eventMs, gFill, isHighlight)
               + (useItalic ? '\\i1' : '\\i0');
             dialogues.push(`Dialogue: 0,${s},${e},Default,,0,0,0,,${paintWord(move, glowTags, scaleTags, riseFont)}`);
           }
-          const riseInner = glow ? innerGlowFade(seg.op0, seg.op1, eventMs, innerFill, isHighlight) : null;
+          const riseInner = glow && glowAsHalo
+            ? innerGlowFade(seg.op0, seg.op1, eventMs, innerFill, isHighlight)
+            : null;
           if (riseInner) {
             dialogues.push(
               `Dialogue: 1,${s},${e},Default,,0,0,0,,${paintWord(move, riseInner + (useItalic ? '\\i1' : '\\i0'), scaleTags, riseFont)}`,
@@ -1482,7 +1507,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
             ? `\\t(0,${Math.round(driftMs)},${assAccel},\\fscx${sToX}\\fscy${sToY})`
             : '';
           const exitTags = '';
-          if (glow && glowOpFor(isHighlight) > 0.01 && (gBlur > 0 || gBord > 0)) {
+          if (glow && glowAsHalo && glowOpFor(isHighlight) > 0.01 && (gBlur > 0 || gBord > 0)) {
             const gFill = isHighlight ? glowC : (glowColor ? glowC : baseGlowC);
             const hiScaleTags = wordScaleTags;
             const holdGlow = outerGlowHold(gFill, useItalic, isHighlight) + hiScaleTags;
@@ -1493,7 +1518,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
           {
             const gFill = isHighlight ? glowC : (glowColor ? glowC : baseGlowC);
             const innerFill = isHighlight ? active : gFill;
-            const holdInner = glow ? innerGlowHold(innerFill, useItalic, isHighlight) : null;
+            const holdInner = glow && glowAsHalo
+              ? innerGlowHold(innerFill, useItalic, isHighlight)
+              : null;
             if (holdInner) {
               dialogues.push(
                 `Dialogue: 1,${hs},${blockEndT},Default,,0,0,0,,${paintWord(fixed, holdInner + wordScaleTags, holdScale + popTags + driftTags + exitTags, holdFont)}`,
