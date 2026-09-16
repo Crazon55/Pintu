@@ -28,6 +28,7 @@ import {
   isPlainTextNewsTicker,
   isIfc2News,
   isIfcNews,
+  isFiiNews,
   isChangingOrderNews,
   isInterBoldPillNews,
   applyHookCasing,
@@ -71,6 +72,8 @@ import {
   IBC_AROLL_ORANGE,
   IBC_AROLL_GREEN,
   IFC2_NEWS_HIGHLIGHT,
+  IFC_NEWS_HIGHLIGHT,
+  FII_NEWS_HIGHLIGHT,
   TCO_NEWS_HIGHLIGHT,
   TCO_AROLL_HIGHLIGHT,
   TCO_AROLL_REGULAR,
@@ -251,7 +254,7 @@ try {
   if (existsSync(poppinsBold))    { _otPoppinsBold = opentypeLoad(poppinsBold);   console.log('✓ Poppins Bold loaded via opentype.js'); }
 } catch(e) { console.warn('opentype.js load failed:', e.message); }
 
-let _otInterReg = null, _otInterBold = null, _otInterMedium = null, _otInterBlack = null;
+let _otInterReg = null, _otInterBold = null, _otInterMedium = null, _otInterBlack = null, _otInterExtraBold = null;
 try {
   if (existsSync(interRegular)) {
     _otInterReg = opentypeLoad(interRegular);
@@ -264,6 +267,10 @@ try {
   if (interMedium && existsSync(interMedium)) {
     _otInterMedium = opentypeLoad(interMedium);
     console.log('✓ Inter Medium loaded via opentype.js:', interMedium, _otInterMedium.names?.fullName?.en || '');
+  }
+  if (interExtraBold && existsSync(interExtraBold)) {
+    _otInterExtraBold = opentypeLoad(interExtraBold);
+    console.log('✓ Inter ExtraBold loaded via opentype.js:', interExtraBold, _otInterExtraBold.names?.fullName?.en || '');
   }
   if (interBlack && existsSync(interBlack)) { _otInterBlack = opentypeLoad(interBlack); console.log('✓ Inter Black loaded via opentype.js'); }
 } catch (e) { console.warn('Inter opentype load failed:', e.message); }
@@ -361,6 +368,7 @@ function ivyPrestoNewsFace(bold) {
 
 function newsTickerOpentypeFont(preset) {
   if (isBizzindiaNews(preset)) return ivyPrestoNewsFace(false) || _otInterBold || _otInterReg;
+  if (isIfcNews(preset) || isFiiNews(preset)) return _otInterExtraBold || _otInterBold || _otInterReg;
   if (isInterBoldPillNews(preset) || isInterNewsTicker(preset)) return _otInterBold || _otInterReg;
   if (isPlainTextNewsTicker(preset) && _otHelveticaWorldBold) return _otHelveticaWorldBold;
   return _otAvantGardeBold;
@@ -1271,6 +1279,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   const isIBCNews = (preset.name || '').toLowerCase() === 'indiabusinesscom-news';
   const isISSNews = (preset.name || '').toLowerCase() === 'indiastartupstory-news';
   const isIFCNews = isIfcNews(preset);
+  const isFIINews = isFiiNews(preset);
   const isTcoNews = isChangingOrderNews(preset);
   const isIfcStyleNews = isInterBoldPillNews(preset);
   const isFoundersNews = is101xFoundersNews(preset);
@@ -1294,7 +1303,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   // text budget shrinks by it and the bottom margin still measures from the lockup.
   const handleLockup = getNewsTickerHandleLockup(preset);
   const supportText = getNewsSupportingText(preset);
-  let cleanedHtml = cleanHTML(headline || '');
+  let cleanedHtml = cleanHTML(applyHookCasing(preset, headline || '') || '');
   const otFace = newsTickerOpentypeFont(preset);
   // Helvetica World / Avant Garde lack ₹ (and some other currency marks). Inter has them.
   const otGlyphFallback = _otInterBold || _otInterReg;
@@ -1337,7 +1346,10 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
       // Inter-Regular.ttf is Inter 18pt Regular — at headline size it reads as Thin.
       return _otInterMedium || _otInterReg || _otInterBold || otFace;
     }
-    if (isIFCNews || isTcoNews) return _otInterBold || _otInterMedium || _otInterReg;
+    if (isIFCNews || isFIINews || isTcoNews) {
+      if (isIFCNews || isFIINews) return _otInterExtraBold || _otInterBold || _otInterMedium || _otInterReg;
+      return _otInterBold || _otInterMedium || _otInterReg;
+    }
     if (isPlainText) return _otHelveticaWorldBold || _otAvantGardeBold || otFace;
     return otFace;
   };
@@ -1479,7 +1491,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
             ctx.fillStyle = grad;
             fillBar(runStartX, runW);
           } else {
-            ctx.fillStyle = isTcoNews ? TCO_NEWS_HIGHLIGHT : (preset.color || '#e31d38');
+            ctx.fillStyle = isTcoNews ? TCO_NEWS_HIGHLIGHT : (isIFCNews ? IFC_NEWS_HIGHLIGHT : (isFIINews ? FII_NEWS_HIGHLIGHT : (preset.color || '#e31d38')));
             fillBar(runStartX, runW);
           }
           runStartX = null;
@@ -1497,7 +1509,7 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
           ctx.fillStyle = grad;
           fillBar(runStartX, runW);
         } else {
-            ctx.fillStyle = isTcoNews ? TCO_NEWS_HIGHLIGHT : (preset.color || '#e31d38');
+            ctx.fillStyle = isTcoNews ? TCO_NEWS_HIGHLIGHT : (isIFCNews ? IFC_NEWS_HIGHLIGHT : (isFIINews ? FII_NEWS_HIGHLIGHT : (preset.color || '#e31d38')));
           fillBar(runStartX, runW);
         }
       }
@@ -1517,6 +1529,8 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
           ? (t.bold ? FOUNDERS_NEWS_HIGHLIGHT : '#FFFFFF')
           : isIfc2News(preset)
             ? (t.bold ? IFC2_NEWS_HIGHLIGHT : '#FFFFFF')
+          : isFIINews
+            ? '#FFFFFF'
           : isPlainText
             ? (t.bold ? (preset.color || '#FFFFFF') : '#FFFFFF')
             : (isIBCNews || isIfcStyleNews)
@@ -1528,6 +1542,8 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
         ? (_otInterBold || _otInterReg || otFace)
         : isFoundersNews
           ? (t.bold ? (_otInterBold || _otInterMedium || otFace) : (_otInterMedium || _otInterReg || _otInterBold || otFace))
+          : (isIFCNews || isFIINews)
+            ? (_otInterExtraBold || _otInterBold || _otInterMedium || _otInterReg)
           : isIfcStyleNews
             ? (_otInterBold || _otInterMedium || _otInterReg)
             : isPlainText
@@ -1569,9 +1585,18 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
   if (supportLines.length) {
     const supportColor = getNewsSupportingColor(preset);
     let supportY = barY + totalBarsH + supportGap;
-    const supportX = getNewsTickerLineStartX(preset, maxLineW, 720);
+    const centerSupport = isIFCNews || isFIINews;
     for (const line of supportLines) {
       const baselineY = supportY + supportFs * 0.82;
+      const lineW = supportOtFace
+        ? measureOtWidthWithFallback(supportOtFace, otGlyphFallback, line, supportFs)
+        : (() => {
+          ctx.font = `500 ${supportFs}px Inter`;
+          return ctx.measureText(line).width;
+        })();
+      const supportX = centerSupport
+        ? getNewsTickerLineStartX(preset, lineW, 720)
+        : getNewsTickerLineStartX(preset, maxLineW, 720);
       if (supportOtFace) {
         drawOpentypeTextWithFallback(
           ctx, supportOtFace, otGlyphFallback, line, supportX, baselineY, supportFs, supportColor,
@@ -1631,12 +1656,20 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
     const textLogoSize = Math.round((isIFCNews ? IFC_NEWS_LOGO_SIZE : (preset.rules?.logoSize || 42)) * 0.9);
     const tlX = isIFCNews ? IFC_NEWS_PAD_X : (preset.rules?.logoPadX ?? 20);
     const tlY = isIFCNews ? IFC_NEWS_PAD_Y : (preset.rules?.logoPadY ?? 45);
-    ctx.font = `${isIFCNews ? 700 : 900} ${textLogoSize}px Inter`;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textBaseline = 'top';
-    textLogoLines.forEach((line, idx) => {
-      ctx.fillText(line, tlX, tlY + idx * Math.round(textLogoSize * 1.1));
-    });
+    if (isIFCNews && (_otInterExtraBold || _otInterBold)) {
+      const logoFace = _otInterExtraBold || _otInterBold;
+      textLogoLines.forEach((line, idx) => {
+        const baseline = tlY + idx * Math.round(textLogoSize * 1.1) + textLogoSize * 0.8;
+        drawOpentypeText(ctx, logoFace, line, tlX, baseline, textLogoSize, '#FFFFFF');
+      });
+    } else {
+      ctx.font = `${isIFCNews ? 800 : 900} ${textLogoSize}px ${isIFCNews ? 'InterExtraBold' : 'Inter'}`;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textBaseline = 'top';
+      textLogoLines.forEach((line, idx) => {
+        ctx.fillText(line, tlX, tlY + idx * Math.round(textLogoSize * 1.1));
+      });
+    }
   }
 
   // The Changing Order: chrome atom mark, same Instagram-safe pad as IFC.
@@ -1698,9 +1731,9 @@ async function generateNewsTickerOverlay(preset, headline, fontScale, wordSpacin
 
   await fs.writeFile(savePath, canvas.toBuffer('image/png'));
 
-  // For ISS-news / Inter-news the logo is already on canvas — skip FFmpeg overlay
+  // For ISS-news / PNG-header tickers the logo is already on canvas — skip FFmpeg overlay
   let logoPath = null;
-  if (!isISSNews && !isInterNews && !isBizzNews && !isTcoNews && preset.logo && preset.showLogo !== false) {
+  if (!isISSNews && !pngHeader && !isTcoNews && preset.logo && preset.showLogo !== false) {
     const logoFile = join(__dirname, 'assets', 'logos', preset.logo);
     if (existsSync(logoFile)) logoPath = logoFile;
   }
