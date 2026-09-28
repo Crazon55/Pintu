@@ -281,15 +281,47 @@ app.get('/api/download-file/:jobId/:index', async (req, res) => {
 
 // Process Job
 jobQueue.process('process-video', 1, async (job) => {
-  return await videoProcessor.processVideo({
-    ...job.data,
-    onProgress: (p) => job.progress(p),
-    isCancelled: () => !!job._cancelled,
-    registerKill: (killFn) => {
-      job._killActive = killFn;
-    },
-  });
+  try {
+    return await videoProcessor.processVideo({
+      ...job.data,
+      onProgress: (p) => job.progress(p),
+      isCancelled: () => !!job._cancelled,
+      registerKill: (killFn) => {
+        job._killActive = killFn;
+      },
+    });
+  } finally {
+    // Each export uploads its own copy of the source video; nothing reads it after encoding.
+    fs.unlink(job.data.videoPath).catch(() => {});
+  }
 });
+
+// Exports live on Drive; server copies are only kept until the Drive upload succeeds.
+// Anything left behind (failed uploads, localhost ZIP flow, crashed jobs) is swept after a day.
+const EXPORT_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+async function removeExportDir(dir) {
+  const outputsRoot = join(__dirname, 'outputs');
+  if (!dir || dirname(dir) !== outputsRoot || !basename(dir).startsWith('export-')) return;
+  await fs.rm(dir, { recursive: true, force: true });
+}
+
+async function sweepOldExports() {
+  for (const root of [join(__dirname, 'outputs'), join(__dirname, 'temp')]) {
+    const entries = await fs.readdir(root, { withFileTypes: true }).catch(() => []);
+    for (const e of entries) {
+      if (!e.isDirectory() || !e.name.startsWith('export-')) continue;
+      const dir = join(root, e.name);
+      const { mtimeMs } = await fs.stat(dir).catch(() => ({ mtimeMs: Date.now() }));
+      if (Date.now() - mtimeMs > EXPORT_RETENTION_MS) {
+        await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+        console.log(`[cleanup] Removed stale ${e.name} from ${basename(root)}/`);
+      }
+    }
+  }
+}
+sweepOldExports();
+setInterval(sweepOldExports, 60 * 60 * 1000).unref();
 
 // --- TRANSCRIPTION & WORD-LEVEL CAPTIONS ---
 
@@ -606,6 +638,8 @@ app.post('/api/upload-to-drive', express.json(), async (req, res) => {
       });
       results.push(result);
     }
+    await removeExportDir(job.returnvalue.outputDir).catch((err) =>
+      console.warn('[drive] Could not remove local export copy:', err.message));
     res.json({ success: true, files: results });
   } catch (err) {
     console.error('[drive] Upload error:', err.message);
@@ -627,6 +661,8 @@ app.post('/api/upload-base-edit-file', upload.single('video'), async (req, res) 
   } catch (err) {
     console.error('[drive] Base edit upload error:', err.message);
     res.status(500).json({ error: err.message });
+  } finally {
+    if (req.file) fs.unlink(req.file.path).catch(() => {});
   }
 });
 

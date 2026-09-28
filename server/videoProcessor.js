@@ -1916,6 +1916,9 @@ export function createVideoProcessor() {
         percent: 100,
       });
 
+      // Overlay PNGs are only needed during encoding.
+      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+
       return {
         outputDir,
         videoPaths: processedVideos.map((v) => v.path),
@@ -3264,16 +3267,10 @@ async function processFFmpeg(videoPath, outputPath, preset, layout, videoScale, 
       return settle(reject)(makeCancelledError());
     }
 
-    const isNewsTicker = preset.layout === 'news_ticker';
+    // News tickers were briefly on veryfast/crf 18: ~40% slower on the 2-vCPU box
+    // with no visible difference in text or gradients, so every layout shares ultrafast/crf 23.
     ffmpegCmd.complexFilter(filterChain)
-      .outputOptions([
-        '-map [out]',
-        '-map 0:a?',
-        '-c:v libx264',
-        '-preset', isNewsTicker ? 'veryfast' : 'ultrafast',
-        '-crf', isNewsTicker ? '18' : '23',
-        '-pix_fmt yuv420p',
-      ])
+      .outputOptions(['-map [out]', '-map 0:a?', '-c:v libx264', '-preset ultrafast', '-crf 23', '-pix_fmt yuv420p'])
       .on('progress', (progress) => {
         try {
           onEncodeProgress?.(progress);
