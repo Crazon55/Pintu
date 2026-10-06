@@ -176,7 +176,7 @@ export function stripHtmlLen(html) {
  * usual 38 — their hooks are ALL CAPS, which reads noticeably heavier at the same size.
  * Still a base, not a lock: the per-preset font slider scales from here like everywhere else.
  */
-const HOOK_BASE_FONT_OVERRIDES = { indiabusinesscom: 35, indianfoundercore: 35 };
+const HOOK_BASE_FONT_OVERRIDES = { indiabusinesscom: 35, indianfoundercore: 35, 'startupcoded-aroll': 42.5 };
 export function getHookBaseFontSize(preset) {
   return HOOK_BASE_FONT_OVERRIDES[(preset?.name || '').toLowerCase()] ?? 38;
 }
@@ -230,6 +230,14 @@ export const TCO_AROLL_REGULAR = '#ffffff';
 /** IBC + TCO A-roll: Inter Bold for both highlight and body. */
 export function isInterBoldAroll(preset) {
   return isIbcAroll(preset) || isChangingOrderAroll(preset);
+}
+
+/** startupcoded A-roll (1:1): SC. + badge + handle header, Poppins Bold hook, solid yellow highlight. */
+export const STARTUPCODED_AROLL_HIGHLIGHT = '#fde601';
+export const STARTUPCODED_AROLL_REGULAR = '#ffffff';
+
+export function isStartupCodedAroll(preset) {
+  return (preset?.name || '').toLowerCase() === 'startupcoded-aroll';
 }
 
 export const IBC_AROLL_ORANGE = '#ff7838';
@@ -507,25 +515,29 @@ export function getPngNewsHeaderAssets(preset) {
   };
 }
 
-/** Soft-wrap a plain sentence into lines that fit maxWidth. */
+/** Soft-wrap a plain sentence into lines that fit maxWidth. Honors Enter / `\n`. */
 export function wrapPlainWords(text, measureWord, maxWidth) {
-  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  const paragraphs = String(text || '').replace(/\r\n/g, '\n').split('\n');
   const lines = [];
-  let cur = [];
-  let curW = 0;
-  for (const word of words) {
-    const w = measureWord(word);
-    const add = cur.length ? measureWord(' ') + w : w;
-    if (curW + add > maxWidth && cur.length) {
-      lines.push(cur.join(' '));
-      cur = [word];
-      curW = w;
-    } else {
-      cur.push(word);
-      curW += add;
+  for (const para of paragraphs) {
+    const words = para.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) continue;
+    let cur = [];
+    let curW = 0;
+    for (const word of words) {
+      const w = measureWord(word);
+      const add = cur.length ? measureWord(' ') + w : w;
+      if (curW + add > maxWidth && cur.length) {
+        lines.push(cur.join(' '));
+        cur = [word];
+        curW = w;
+      } else {
+        cur.push(word);
+        curW += add;
+      }
     }
+    if (cur.length) lines.push(cur.join(' '));
   }
-  if (cur.length) lines.push(cur.join(' '));
   return lines;
 }
 
@@ -1324,6 +1336,7 @@ export const AROLL_CANVA_TRACKING = {
   'indianfoundercore': -51,
   'indiabusinesscom': -51,
   'thechangingorder': -51,
+  'startupcoded-aroll': -22,
 };
 
 export function hasArollCanvaTracking(preset) {

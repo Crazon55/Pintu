@@ -40,6 +40,9 @@ import {
     isIfcAroll,
     isIbcAroll,
     isChangingOrderAroll,
+    isStartupCodedAroll,
+    STARTUPCODED_AROLL_HIGHLIGHT,
+    STARTUPCODED_AROLL_REGULAR,
     isInterBoldAroll,
     getIbcArollTokenColor,
     isInterBlackHighlightAroll,
@@ -239,6 +242,7 @@ const INITIAL_PRESETS_RAW = [
     { id: 104, name: 'indianhappeningnow-news', handle: '@indianhappeningnow', ratio: '9:16', color: '#ffa928', active: true, layout: 'news_ticker', logo: 'indianhappeningnow-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'left', fontScale: 0.85, lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 104, logoPadX: 56, logoPadY: 120, kickerLogo: 'FS News Formats.png', kickerSize: 93, bottomMarginPct: 8 } },
     { id: 105, name: 'bizzindia-news', handle: '@bizzindia', ratio: '9:16', color: '#f52a46', active: true, layout: 'news_ticker', logo: 'bizzindia-news-logo.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 88, logoPadX: 56, logoPadY: 120, kickerLogo: 'bizzindia-news-kicker.png', kickerSize: 93, solidBandPct: 30, bottomMarginPct: 12 } },
     { id: 106, name: 'thechangingorder-news', handle: '@thechangingorder', ratio: '9:16', color: '#c7ff3e', active: true, layout: 'news_ticker', logo: 'to India.png', headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, videoScale: 100, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: true, alignment: 'center', lineSpacing: 1.25, rules: { logoOpacity: 1, logoPosition: 'top-left', logoCircular: false, logoSize: 150, logoPadX: 56, logoPadY: 100 } },
+    { id: 108, name: 'startupcoded-aroll', handle: '@startupcoded', ratio: '1:1', color: '#fde601', active: true, layout: 'aroll', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'left', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.16, letterSpacingOffset: 0, rules: { hookPosition: 'mid', textLogo: 'SC.', topGlow: false } },
     { id: 107, name: 'thechangingorder', handle: '@thechangingorder', ratio: '1:1', color: '#c7ff3e', active: true, layout: 'hook_video', logo: null, headline: DEFAULT_HEADLINE, footer: '', position: { x: 50, y: 50 }, creditPosition: { x: 0, y: 0.5 }, watermarkPosition: { x: 50, y: 16 }, headlinePosition: { x: 0, y: 0 }, showLogo: false, alignment: 'center', fontScale: 1, wordSpacing: 0.15, lineSpacing: 1.09, letterSpacingOffset: -11 },
 ];
 
@@ -256,7 +260,7 @@ const INITIAL_PRESETS = INITIAL_PRESETS_RAW.filter(p => !p.hidden).map(p => ({
 }));
 
 // Presets configured during the "Experiment X" pass — surfaced in their own quick-pick section
-const EXPERIMENT_X_PRESET_NAMES = ['bizzindia', 'indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'founders-in-india', '101xfounders-aroll', 'thechangingorder', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
+const EXPERIMENT_X_PRESET_NAMES = ['bizzindia', 'indiabusinesscom', 'indiabusinesscom-news', 'indianfoundercore', 'indian-founders-co', 'indiastartupstory', 'founders-in-india', '101xfounders-aroll', 'thechangingorder', 'startupcoded-aroll', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news', '101xtechnology-aroll', 'indiantechdaily-aroll'];
 // Archived out of Bizz India Playbook for now — tech pages + news-ticker formats. Kept here so they're easy to bring back.
 const ARCHIVED_PRESET_NAMES = ['101xtechnology-aroll', 'indiantechdaily-aroll', 'indiabusinesscom-news', 'indiastartupstory-news', 'ifc-news', 'indiafounderscore-news', 'foundersinindia-news'];
 const BIZZINDIA_PLAYBOOK_PRESET_NAMES = EXPERIMENT_X_PRESET_NAMES.filter(n => !ARCHIVED_PRESET_NAMES.includes(n));
@@ -1498,7 +1502,7 @@ const PreviewCard = memo(({
 
             {/* MAIN CONTENT AREA - FULL HEIGHT FLEX */}
             {/* This allows us to stack everything (Header -> Text -> Video -> Footer) properly in one flow */}
-            <div className={`flex-1 w-full flex flex-col ${justifyClass} relative ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : (preset.layout === 'aroll' ? '' : 'bg-neutral-900')}`} style={preset.layout === 'aroll' ? (preset.rules?.topGlow === false ? { background: '#000000' } : { background: 'radial-gradient(ellipse 60% 45% at 95% 0%, rgba(100, 155, 85, 0.32) 0%, rgba(60, 110, 55, 0.12) 30%, transparent 68%), #000000' }) : undefined}>
+            <div className={`flex-1 w-full flex flex-col ${justifyClass} relative ${(preset.name === 'founderdaily' || preset.name === 'founderbusinesstips' || preset.name === 'kwazyfounders' || preset.name === 'startup madness') ? 'bg-white' : (preset.layout === 'aroll' ? '' : 'bg-neutral-900')}`} style={preset.layout === 'aroll' ? (isStartupCodedAroll(preset) ? { background: 'linear-gradient(180deg, #2b2b2b 0%, #000000 26%)' } : preset.rules?.topGlow === false ? { background: '#000000' } : { background: 'radial-gradient(ellipse 60% 45% at 95% 0%, rgba(100, 155, 85, 0.32) 0%, rgba(60, 110, 55, 0.12) 30%, transparent 68%), #000000' }) : undefined}>
 
                 {/* 1a. HOOK_VIDEO HEADER: optional line above hook, then hook text centered on black */}
                 {preset.layout === 'hook_video' && (
@@ -1645,6 +1649,7 @@ const PreviewCard = memo(({
                     const badgePx = Math.max(10, Math.round(brandSize * (isLogoSocial ? 0.62 : 0.52)));
 
                     const hookBlock = (() => {
+                        const isSC = isStartupCodedAroll(preset);
                         const hookFontFamily = isLogoSocial ? "'Inter', sans-serif" : "'Poppins', sans-serif";
                         const hookBoldWeight = isLogoSocial ? 700 : 700;
                         const lines = buildPreviewLines(preset.headline || '', {
@@ -1653,12 +1658,15 @@ const PreviewCard = memo(({
                             wordSpacing: adjustedWordSpacing,
                             fontFamily: hookFontFamily,
                             boldWeight: hookBoldWeight,
+                            regularWeight: isSC ? 700 : 400,
+                            tracking: isSC ? getArollTracking(preset) : 0,
                         });
                         return (
                             <div style={{
                                 fontFamily: hookFontFamily,
                                 fontSize: `${previewFontSize}px`,
                                 lineHeight: effectiveLineSpacing,
+                                letterSpacing: isSC ? `${getArollTracking(preset) / 1000}em` : undefined,
                                 fontWeight: isLogoSocial ? 400 : 700,
                                 marginBottom: `${hookVideoGapCssPx}px`,
                                 paddingBottom: 0,
@@ -1666,6 +1674,11 @@ const PreviewCard = memo(({
                                 {lines.map((line, li) => (
                                     <div key={li}>
                                         {line.tokens.map((t, ti) => {
+                                            if (isSC) {
+                                                return (
+                                                    <span key={ti} style={{ fontWeight: 700, fontSynthesis: 'none', color: t.bold ? STARTUPCODED_AROLL_HIGHLIGHT : STARTUPCODED_AROLL_REGULAR }}>{t.text}{' '}</span>
+                                                );
+                                            }
                                             if (!isLogoSocial && t.bold) {
                                                 return (
                                                     <span key={ti} style={{
@@ -1709,6 +1722,25 @@ const PreviewCard = memo(({
                                         </div>
                                         <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400, fontSize: `${handleSize}px`, color: '#AAAAAA', lineHeight: 1, marginTop: '10px' }}>{preset.handle}</span>
                                     </div>
+                                </div>
+                                {hookBlock}
+                            </div>
+                        );
+                    }
+
+                    if (isStartupCodedAroll(preset)) {
+                        const scBrand = Math.round(previewFontSize * 0.93);
+                        const scBadge = Math.round(scBrand * 0.55);
+                        return (
+                            <div className="w-full px-[7%] z-10 shrink-0">
+                                <div className="flex items-center pt-3 pb-1.5">
+                                    <span style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: `${scBrand}px`, color: '#FFFFFF', lineHeight: 1, whiteSpace: 'nowrap' }}>{textLogo}</span>
+                                    <div className="rounded-full flex items-center justify-center flex-shrink-0" style={{ width: `${scBadge}px`, height: `${scBadge}px`, background: '#1D9BF0', marginLeft: '8px' }}>
+                                        <svg viewBox="0 0 24 24" fill="none" style={{ width: '68%', height: '68%' }}>
+                                            <path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </div>
+                                    <span style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 400, fontSize: `${handleSize}px`, color: '#B5B5B5', lineHeight: 1, whiteSpace: 'nowrap', marginLeft: '14px' }}>{preset.handle}</span>
                                 </div>
                                 {hookBlock}
                             </div>
@@ -2535,6 +2567,9 @@ const PreviewCard = memo(({
                                                         paddingLeft: canvasPxToPercent(newsPads.left),
                                                         paddingRight: canvasPxToPercent(newsPads.right),
                                                         boxSizing: 'border-box',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: isExtraBoldBox ? 'center' : 'flex-start',
                                                         fontFamily: isExtraBoldBox
                                                             ? INTER_MEDIUM_FAMILY
                                                             : (isFoundersNews || isIhn) ? INTER_MEDIUM_FAMILY : ntFontFamily,
@@ -2549,7 +2584,9 @@ const PreviewCard = memo(({
                                                         MozOsxFontSmoothing: 'grayscale',
                                                     }}
                                                 >
-                                                    {supportText}
+                                                    {(supportLines.length ? supportLines : [supportText]).map((line, i) => (
+                                                        <div key={i} style={{ maxWidth: '100%' }}>{line}</div>
+                                                    ))}
                                                 </div>
                                             )}
                                             {/* Handle lockup (Instagram + Facebook + wordmark) under the hook */}

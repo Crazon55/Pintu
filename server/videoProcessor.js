@@ -39,6 +39,9 @@ import {
   isIfcAroll,
   isIbcAroll,
   isChangingOrderAroll,
+  isStartupCodedAroll,
+  STARTUPCODED_AROLL_HIGHLIGHT,
+  STARTUPCODED_AROLL_REGULAR,
   isInterBoldAroll,
   getIbcArollTokenColor,
   isInterBlackHighlightAroll,
@@ -1034,7 +1037,9 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
   const ctx = canvas.getContext('2d', { alpha: true });
 
   const isLogoSocial = preset.rules?.arollStyle === 'logo_social';
-  const showTopGlow = !isLogoSocial && preset.rules?.topGlow !== false;
+  const isStartupCoded = isStartupCodedAroll(preset);
+  const showTopGlow = !isLogoSocial && !isStartupCoded && preset.rules?.topGlow !== false;
+  const startupCodedTracking = isStartupCoded ? getArollTracking(preset) : 0;
   const hookPosition = preset.rules?.hookPosition || 'mid';
   const textLogo = preset.rules?.textLogo || (isLogoSocial ? preset.name : '101xt.');
   const handle = preset.handle || '@101xtechnology';
@@ -1072,6 +1077,9 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
     : hookCanvasFF;
 
   const measureHookWordPlain = (text, bold) => {
+    if (isStartupCoded && hookOtFont) {
+      return measureOtWidthTracked(hookOtFont, text, fontSize, startupCodedTracking);
+    }
     if (isLogoSocial) {
       const f = bold ? hookOtBold : hookOtFont;
       return f ? measureOtWidth(f, text, fontSize) : (ctx.font = `${bold ? 'bold' : 'normal'} ${fontSize}px Inter`, ctx.measureText(text).width);
@@ -1090,7 +1098,7 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
   const LOGO_SOCIAL_SZ = 70;
   const headerToHookGap = isLogoSocial ? 16 : 14;
   const hookToVideoGap = getHookVideoGap(preset);
-  const brandFontSz = isLogoSocial ? 32 : 46;
+  const brandFontSz = isLogoSocial ? 32 : (isStartupCoded ? 44 : 46);
   const handleFontSz = isLogoSocial ? 18 : 20;
   const headerH = isLogoSocial ? LOGO_SOCIAL_SZ : brandFontSz;
   // Last line to glyph bottom (fontSize), not full line box — keeps hook tight to video
@@ -1122,6 +1130,14 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
   // Background
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, 720, CANVAS_H);
+  if (isStartupCoded) {
+    // Charcoal fade at the top of the frame into pure black (Canva reference).
+    const topFade = ctx.createLinearGradient(0, 0, 0, Math.round(CANVAS_H * 0.26));
+    topFade.addColorStop(0, '#2b2b2b');
+    topFade.addColorStop(1, '#000000');
+    ctx.fillStyle = topFade;
+    ctx.fillRect(0, 0, 720, Math.round(CANVAS_H * 0.26));
+  }
   if (showTopGlow) {
     const cornerGlow = ctx.createRadialGradient(760, -30, 0, 760, -30, 500);
     cornerGlow.addColorStop(0, 'rgba(100, 155, 85, 0.32)');
@@ -1184,6 +1200,18 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
       ctx.fillStyle = '#AAAAAA';
       ctx.fillText(handle, textColX, handleBaseline);
     }
+  } else if (isStartupCoded && _otPoppinsBold) {
+    // SC. · tick · @startupcoded — single row, Poppins Bold wordmark + Poppins Regular handle
+    const nameMidY = logoGroupY + Math.round(brandFontSz * 0.42);
+    const badgeGap = 8;
+    const handleGap = 14;
+    const badgeSz = Math.round(brandFontSz * 0.55);
+    const brandBaseline = middleToBaseline(_otPoppinsBold, brandFontSz, nameMidY);
+    drawOpentypeText(ctx, _otPoppinsBold, textLogo, textStartX, brandBaseline, brandFontSz, '#FFFFFF');
+    const brandTextW = measureOtWidth(_otPoppinsBold, textLogo, brandFontSz);
+    drawVerifiedBadge(ctx, textStartX + brandTextW + badgeGap + badgeSz / 2, nameMidY, badgeSz);
+    const handleFont = _otPoppinsReg || _otPoppinsBold;
+    drawOpentypeText(ctx, handleFont, handle, textStartX + brandTextW + badgeGap + badgeSz + handleGap, middleToBaseline(handleFont, handleFontSz, nameMidY), handleFontSz, '#B5B5B5');
   } else {
     // 101xt. · tick · @handle — single row, tick vertically centered on name
     const nameMidY = logoGroupY + Math.round(brandFontSz * 0.42);
@@ -1228,6 +1256,14 @@ async function generateArollOverlay(preset, headline, fontScale, wordSpacingMult
       drawMixedText(ctx, t.text, drawX, fontSize, {
         emojiTopY,
         drawPlain: (plain, px) => {
+          if (isStartupCoded && otFont) {
+            drawOpentypeTextTracked(
+              ctx, otFont, plain, px, hookBaselineLine, fontSize,
+              t.bold ? STARTUPCODED_AROLL_HIGHLIGHT : STARTUPCODED_AROLL_REGULAR,
+              startupCodedTracking,
+            );
+            return measureHookWordPlain(plain, t.bold);
+          }
           if (otFont) {
             if (!isLogoSocial && t.bold) {
               drawOpentypeGradientText(ctx, otFont, plain, px, hookBaselineLine, fontSize, hlColors[0], hlColors[1]);
